@@ -11,7 +11,7 @@ rule output_soft_probs:
 	input: inputDir + "/NA12878_WashU_PBreads_chunk{chunk}_clusters.RData"
 	output: outputDir + "/NA12878_WashU_PBreads_chunk{chunk}_soft_prob.data"
 	log: "log/NA12878_WashU_PBreads_chunk{chunk}_output_soft_prob.log"
-	script: "outputSoftProbs.R"
+	script: "utils/outputSoftProbs.R"
 
 rule merge_chunks:
 	input: expand(outputDir + "/NA12878_WashU_PBreads_chunk{chunk}_soft_prob.data", chunk=chunkIDs)
