@@ -13,7 +13,7 @@ clusterMapping <- function(soft.clust.probs, cluster.mapping){
 	inferred.cluster <- paste0("V", apply(dt.per.clust[, 3:49], 1, which.max))
 
 	# save the original to inferred chorm mapping in a data table
-	write.table(data.table(original.cluster, inferred.cluster), file=cluster.mapping, sep="\t", quote=F)
+	write.table(data.table(original.cluster, inferred.cluster), file=cluster.mapping, sep="\t", quote=F, row.names=F)
 }
 
 
