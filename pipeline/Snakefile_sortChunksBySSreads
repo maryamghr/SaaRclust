@@ -1,0 +1,64 @@
+inputDir = "/MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05"
+softClustDir = "/MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters"
+outputDir = "/MMCI/TM/scratch/maryam/clustering/haplo-clustering/test_aligns_k15_w1_L50_f0.05_SSsplited"
+
+
+# get the SS lib names
+SSlibs = "/MMCI/TM/rec-inversions/work/CEU_strandseq/NA12878/strandS_libs_NA12878_list.txt"
+libs = open(SSlibs).readlines()
+libs = [x.replace("/", "") for x in libs]
+libs = [x.replace("\n", "") for x in libs]
+
+sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
+sample=set(sample)
+
+print(sample)
+print(chunkID)
+print([outputDir + x + "lib.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)])
+
+rule all:
+	input:
+		expand(outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf", lib=libs)
+
+rule add_soft_clust_to_original_map_files:
+	input:
+		minimap_file = inputDir+"/{sample}_chunk{chunkID}.maf.gz",
+		soft_clust_file = softClustDir+"/{sample}_chunk{chunkID}_clusters.RData"
+	output: outputDir+"/{sample}_chunk{chunkID}.maf"
+	log: "log/add_soft_clust_{sample}_chunk{chunkID}.log"
+	script: "utils/addSoftProbs.R"
+
+rule output_header:
+	input: expand(inputDir+"/{sample}_chunk{chunkID}.maf.gz", sample=sample, chunkID=chunkID)
+	output: outputDir + "/header.txt"
+	log: "log/output_header.log"
+	shell: "(time set +o pipefail && zcat {input[0]} | head -1 > {output})  > {log} 2>&1"
+
+rule remove_slash_in_lib_names:
+	input: outputDir+"/{sample}_chunk{chunkID}.maf",
+	output: outputDir+"/{sample}_chunk{chunkID}.new.maf"
+	log: "log/remove_slash_in_lib_names_{sample}_chunk{chunkID}.log"
+	shell: "(time tail -n +2 {input} | awk '{{sub(/.{{1}}/, \"\", $3)}}1' > {output}) > {log} 2>&1"
+
+rule split_chunk_by_lib:
+	input:
+		minimap_file = outputDir+"/{sample}_chunk{chunkID}.new.maf"
+	output: [outputDir+"/splitted-per-lib/{sample}_chunk{chunkID}_" + x for x in expand("{lib}.maf", lib=libs)],
+	log: "log/split_chunk_by_lib_{sample}_chunk{chunkID}"
+	shell: "(time awk '{{print>\"{outputDir}/splitted-per-lib/{wildcards.sample}_chunk{wildcards.chunkID}_\"$3\".maf\"}}' {input.minimap_file} && touch {output}) > {log} 2>&1"
+
+rule merge_files_with_same_lib:
+	input: [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)]
+	output: outputDir+"/splitted-per-lib/aln_{lib}.maf"
+	log: "log/merge_files_with_same_lib_{lib}.log"
+	shell: "(time cat {input} > {output}) > {log} 2>&1"
+
+rule sort_lib_alignments:
+	input:
+		header = outputDir + "/header.txt",
+		splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)],
+		libAlignment = outputDir+"/splitted-per-lib/aln_{lib}.maf"
+	output: outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf"
+	log: "log/sort_lib_alignments_{lib}.log"
+	shell: "(time cat {input.header} > {output} && sort -k1,1 {input.libAlignment} >> {output}) > {log} 2>&1"
+
