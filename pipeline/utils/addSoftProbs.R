@@ -17,6 +17,6 @@ soft.probs[, max_cluster_prob := as.numeric(.SD)[ML_cluster_idx], by=PBreadNames
 soft.probs[, ML_cluster_idx := paste0("V", ML_cluster_idx)]
 soft.probs <- soft.probs[, .(PBreadNames, ML_cluster_idx, max_cluster_prob)]
 
-map <- merge(map, soft.probs, by="PBreadNames", all.x=T, allow.cartesian=T)
+map <- merge(map, soft.probs, by="PBreadNames", allow.cartesian=T)
 
 fwrite(map, file = output.map.file, quote = F, sep = "\t")
