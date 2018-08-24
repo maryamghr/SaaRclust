@@ -1,6 +1,8 @@
+# outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
+
 inputDir = "/MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05"
 softClustDir = "/MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters"
-outputDir = "/MMCI/TM/scratch/maryam/clustering/haplo-clustering/test_aligns_k15_w1_L50_f0.05_SSsplited"
+outputDir = "/MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited"
 
 # get the SS lib names
 SSlibs = "/MMCI/TM/rec-inversions/work/CEU_strandseq/NA12878/strandS_libs_NA12878_list.txt"
@@ -17,7 +19,7 @@ print([outputDir + x + "lib.maf" for x in expand("/splitted-per-lib/{sample}_chu
 
 rule all:
 	input:
-		expand(outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf", lib=libs)
+		expand(outputDir+"/splitted-per-lib/clust_{lib}.data", lib=libs)
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -60,4 +62,13 @@ rule sort_lib_alignments:
 	output: outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf"
 	log: "log/sort_lib_alignments_{lib}.log"
 	shell: "(time cat {input.header} > {output} && sort -k1,1 {input.libAlignment} >> {output}) > {log} 2>&1"
+
+rule cluster_SS_reads:
+	input:
+		aln_lib = outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf",
+		clust_to_chrom_mapping = outputDir + "/cluster_name_mapping.data",
+		cluster_pairs = outputDir + "/clust_partners.txt"
+	output: outputDir+"/splitted-per-lib/clust_{lib}.data"
+	log: "log/cluster_SS_reads_{lib}.log"
+	script: "utils/cluster_SS_reads.snakemake.R"
 
