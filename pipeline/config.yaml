@@ -1,0 +1,45 @@
+# https://github.com/maickrau/GraphAligner
+# root directory of the repo
+graphalignerfolder: /MMCI/TM/scratch/mikko/random_bins/
+# https://github.com/GATB/bcalm
+# required for building the de Bruijn graph
+bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
+# https://github.com/GATB/bcalm
+# bcalm -> gfa conversion script path
+bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
+
+# Illumina reads
+# Accepted file formats: https://github.com/GATB/bcalm#input-formats
+# The file names MUST NOT contain underscores _
+shortreads: 
+- /MMCI/TM/scratch/maryam/clustering/haplo-clustering/illumina_bams
+
+# Kmer size of the graph
+# This should be very low to prevent fragmentation
+k: 51
+# Minimum kmer abundance of the graph
+# This should be very low
+kmer_abundance: 2
+# Minimum unitig abundance of the graph
+# This should be very low
+unitig_abundance: 5
+
+# bgreat
+bgreat: /MMCI/TM/scratch/mikko/bgreat/bgreat
+
+# script for extracting fastq file for each cluster
+extract_fastq: /MMCI/TM/scratch/mikko/random_bins/pick_reads.py
+
+# input directory containing initial minimap alignment files
+input_dir: /MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05
+
+# directory including saarclust soft clustering files
+soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters
+
+# output directory for storing output files
+output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited
+
+# directory including all Strand-seq fastq files
+SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
+
+

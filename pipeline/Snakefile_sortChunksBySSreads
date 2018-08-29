@@ -1,25 +1,43 @@
+from collections import defaultdict
+
+configfile: "config.yaml"
+SHORTREADS = config["shortreads"]
+ALIGNERBINPATH = config["graphalignerfolder"] + "bin"
+SCRIPTPATH = config["graphalignerfolder"] + "scripts"
+BCALMPATH = config["bcalmpath"]
+CONVERTTOGFAPATH = config["bcalm_converttoGFApath"]
+BGREAT = config["bgreat"]
+EXTRACTFASTQ = config["extract_fastq"]
+inputDir = config["input_dir"]
+softClustDir = config["soft_clust_dir"]
+outputDir = config["output_dir"]
+SSfastqDir = config["SS_fastq_dir"]
+
+wildcard_constraints:
+	graphname = "k\d+_a\d+_u\d+",
+	k = "\d+",
+	a = "\d+",
+	u = "\d+",
+	longnodesize = "\d+",
+	overlapsize = "\d+",
+	longreads = "[^_]+",
+	shortreads = "[^_]+",
+	lib = "[^_]+_[0-9]+"
+
+
 # outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
 
-inputDir = "/MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05"
-softClustDir = "/MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters"
-outputDir = "/MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited"
-
-# get the SS lib names
-SSlibs = "/MMCI/TM/rec-inversions/work/CEU_strandseq/NA12878/strandS_libs_NA12878_list.txt"
-libs = open(SSlibs).readlines()
-libs = [x.replace("/", "") for x in libs]
-libs = [x.replace("\n", "") for x in libs]
+clusters = ["V" + str(i) for i in range(1, 30)] + ["V" + str(i) for i in range(31, 48)]
 
 sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
 sample=set(sample)
+libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 
-print(sample)
-print(chunkID)
-print([outputDir + x + "lib.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)])
 
 rule all:
 	input:
-		expand(outputDir+"/splitted-per-lib/clust_{lib}.data", lib=libs)
+		#expand(SSfastqDir + "/{fastqname}_{cluster}.fastq", fastqname = [libs[i] + "_L" + L[i] + "_R1_001" for i in range(len(libs))], cluster = clusters)
+		expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"])
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -71,4 +89,18 @@ rule cluster_SS_reads:
 	output: outputDir+"/splitted-per-lib/clust_{lib}.data"
 	log: "log/cluster_SS_reads_{lib}.log"
 	script: "utils/cluster_SS_reads.snakemake.R"
+
+rule split_SS_read_names_by_clust:
+	input: outputDir+"/splitted-per-lib/clust_{lib}.data"
+	output: expand(outputDir+"/splitted-per-lib/clust_splitted_{{lib}}_{cluster}.data", cluster=clusters)
+	log: "log/split_SS_read_names_by_clust_{lib}.log"
+	shell: "(time awk -F, '{{if ($2 != \"\")print $1> \"{outputDir}/splitted-per-lib/clust_splitted_\" $3 \"_\" $2 \".data\"}}' {input}) > {log} 2>&1"
+
+rule extract_fastq_per_lib_per_clust:
+	input:
+		SS_read_names = outputDir+"/splitted-per-lib/clust_splitted_{lib}_{cluster}.data",
+		SS_fastq = SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz"
+	output: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq"	
+	log: "log/extract_fastq_per_lib_per_clust.log_{lib}_{L}_{cluster}"
+	shell: "(time {EXTRACTFASTQ} {input} > {output}) > {log} 2>&1"
 
