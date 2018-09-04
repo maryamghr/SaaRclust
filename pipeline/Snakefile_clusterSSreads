@@ -195,12 +195,13 @@ rule convert_gfa_to_vg:
 	log: "log/convert_gfa_to_vg.log"
 	shell: "{VG} view -v -F {input} > {output}"
 
-#TODO test
 rule align_SS_reads_to_DBG:
 	input:
-		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq", #SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq",
+		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq",
 		graph = "contigs_k{k}_a{a}_u{u}.unitigs.fa"
-	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data" #"graph_alignment/{lib}_L{L}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data"
+	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
 	threads: 8
-	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log" #"log/align_SS_reads_to_DBG_{lib}_L{L}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.log"
+	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
 	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
+
+
