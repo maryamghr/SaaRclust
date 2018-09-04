@@ -25,7 +25,7 @@ kmer_abundance: 2
 unitig_abundance: 5
 
 # bgreat
-bgreat: /MMCI/TM/scratch/mikko/bgreat/bgreat
+bgreat: /MMCI/TM/scratch/mikko/bgreat2_strandseq/bgreat
 
 # script for extracting fastq file for each cluster
 extract_fastq: /MMCI/TM/scratch/mikko/random_bins/pick_reads.py
@@ -41,5 +41,8 @@ output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L5
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
+
+# VG tool
+VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
 
 

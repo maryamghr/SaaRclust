@@ -12,6 +12,7 @@ inputDir = config["input_dir"]
 softClustDir = config["soft_clust_dir"]
 outputDir = config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
+VG = config["VG"]
 
 wildcard_constraints:
 	graphname = "k\d+_a\d+_u\d+",
@@ -37,7 +38,9 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 rule all:
 	input:
 		#expand(SSfastqDir + "/{fastqname}_{cluster}.fastq", fastqname = [libs[i] + "_L" + L[i] + "_R1_001" for i in range(len(libs))], cluster = clusters)
-		expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"])
+		#expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("tmp/graph_k{k}_a{a}_u{u}.vg", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -104,3 +107,100 @@ rule extract_fastq_per_lib_per_clust:
 	log: "log/extract_fastq_per_lib_per_clust.log_{lib}_{L}_{cluster}"
 	shell: "(time {EXTRACTFASTQ} {input} > {output}) > {log} 2>&1"
 
+rule merge_fastq_files_with_same_clust:
+	input: expand(SSfastqDir + "/{fastqprefix}_R1_001_{{cluster}}.fastq", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))])
+	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
+	log: "log/merge_fastq_files_with_same_clust_{cluster}.log"
+	shell: "(time cat {input} > {output}) > {log} 2>&1"
+
+
+### De Bruijn graph building MIKKO
+rule format_input_files:
+	output:
+		temp("filelist")
+	shell:
+		"printf '%s\\n' {SHORTREADS}/*.fastq.gz > {output}"
+
+rule run_bcalm2:
+	input:
+		"filelist"
+	output:
+		temp("filelist_k{k}_a{a}.unitigs.fa")
+	shadow: "shallow"
+	threads: 8
+	shell:
+		"{BCALMPATH} -in {input} -out filelist_k{wildcards.k}_a{wildcards.a} -kmer-size {wildcards.k} -abundance-min {wildcards.a} -nb-cores {threads}"
+
+rule filter_unitig_coverage:
+	input:
+		"filelist_k{k}_a{a}.unitigs.fa"
+	output:
+		temp("tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa")
+	shell:
+		"python {SCRIPTPATH}/filter_bcalm_by_frequency.py {input} {wildcards.u} {output}"
+
+rule convert_graph:
+	input:
+		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
+	output:
+		temp("tmp/graph_k{k}_a{a}_u{u}_tipped.gfa")
+	shell:
+		"{CONVERTTOGFAPATH} {input} {output} {wildcards.k}"
+
+rule untip_graph:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
+	output:
+		temp("tmp/graph_k{k}_a{a}_u{u}_untip.gfa")
+	shell:
+		"{ALIGNERBINPATH}/UntipRelative 1000 100 0.1 < {input} > {output}"
+
+rule extract_biggest_component:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
+	output:
+		temp("tmp/graph_k{k}_a{a}_u{u}_component.gfa")
+	shell:
+		"python {SCRIPTPATH}/extract_gfa_biggest_component.py {input} > {output}"
+
+rule get_contigs:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_component.gfa"
+	output:
+		temp("contigs_k{k}_a{a}_u{u}.fa")
+	shell:
+		"grep S < {input} | awk '{{print \">\" $NR; print $3;}}' > {output}"
+
+rule remake_bcalm_from_contigs:
+	input:
+		"contigs_k{k}_a{a}_u{u}.fa"
+	output:
+		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	shadow: "shallow"
+	threads: 8
+	shell:
+		"{BCALMPATH} -in {input} -out contigs_k{wildcards.k}_a{wildcards.a}_u{wildcards.u} -abundance-min 1 -kmer-size {wildcards.k} -nb-cores {threads}"
+
+rule final_graph:
+	input:
+		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	output:
+		"tmp/graph_k{k}_a{a}_u{u}.gfa"
+	shell:
+		"{CONVERTTOGFAPATH} {input} {output} {wildcards.k}"
+
+rule convert_gfa_to_vg:
+	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
+	output: "tmp/graph_k{k}_a{a}_u{u}.vg"
+	log: "log/convert_gfa_to_vg.log"
+	shell: "{VG} view -v -F {input} > {output}"
+
+#TODO test
+rule align_SS_reads_to_DBG:
+	input:
+		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq", #SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq",
+		graph = "contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data" #"graph_alignment/{lib}_L{L}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data"
+	threads: 8
+	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log" #"log/align_SS_reads_to_DBG_{lib}_L{L}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.log"
+	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
