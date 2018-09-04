@@ -13,6 +13,7 @@ softClustDir = config["soft_clust_dir"]
 outputDir = config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
 VG = config["VG"]
+nodelens = config["node_lens"]
 
 wildcard_constraints:
 	graphname = "k\d+_a\d+_u\d+",
@@ -39,8 +40,9 @@ rule all:
 	input:
 		#expand(SSfastqDir + "/{fastqname}_{cluster}.fastq", fastqname = [libs[i] + "_L" + L[i] + "_R1_001" for i in range(len(libs))], cluster = clusters)
 		#expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand("graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand("tmp/graph_k{k}_a{a}_u{u}.vg", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		#expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		#expand("tmp/graph_k{k}_a{a}_u{u}.vg", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		"graph_alignment/graph_nodes_inter_chr_intersection.RData"
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -204,4 +206,20 @@ rule align_SS_reads_to_DBG:
 	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
 	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
 
+######################################
+rule output_unique_covered_nodes:
+	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+	run:
+		lines = open(input[0]).read()
+		l = list(set(lines.replace(";", " ").split()))
+		open(output[0], "w").write("\n".join(l))
 
+rule find_inter_chr_intersection:
+	input:
+		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		cluster_pairs = outputDir + "/clust_partners.txt",
+		node_lens = nodelens
+	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
+	log: "log/find_inter_chr_intersection.log"
+	script: "utils/find_inter_chr_intersection.snakemake.R"

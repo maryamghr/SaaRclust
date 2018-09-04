@@ -45,4 +45,7 @@ SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
 # VG tool
 VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
 
+# DB node lengths
+node_lens: /MMCI/TM/scratch/mikko/aligner/fake_ref/tmp/node_lengths_min50.txt
+
 
