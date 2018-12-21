@@ -14,6 +14,7 @@ outputDir = config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
 VG = config["VG"]
 nodelens = config["node_lens"]
+chroms = [str(x) for x in range(1, 23)] + ["X", "Y"]
 
 wildcard_constraints:
 	graphname = "k\d+_a\d+_u\d+",
@@ -42,7 +43,9 @@ rule all:
 		#expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		#expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		#expand("tmp/graph_k{k}_a{a}_u{u}.vg", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		"graph_alignment/graph_nodes_inter_chr_intersection.RData"
+		#"graph_alignment/graph_nodes_inter_chr_intersection.RData",
+		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("tmp/bubbles_k{k}_a{a}_u{u}.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"])
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -205,6 +208,62 @@ rule align_SS_reads_to_DBG:
 	threads: 8
 	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
 	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
+
+
+######################################
+#finding heterozygous unitigs
+######################################
+
+## computing the ground truth het unitifs:
+## mapping unitigs to the reference genome
+
+rule index_ref:
+	input: config["reference"]
+	output:
+		config["reference"] + ".amb",
+		config["reference"] + ".ann",
+		config["reference"] + ".bwt",
+		config["reference"] + ".pac",
+		config["reference"] + ".sa"
+	log: "log/bwa_index.log"
+	shell: "(time bwa index {input}) > {log} 2>&1"
+
+rule bwa_map_unitigs_to_ref:
+	input:
+		ref=config["reference"],
+		unitigs="contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam"
+	log: "log/bwa_map_unitigs_to_ref.log"
+	shell:
+		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule sort_bam:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam",
+	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
+	log: "log/sort_bam.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
+rule index_sorted_bam:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
+	output : "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam.bai"
+	log: "log/index_bam.log"
+	shell: "(time set +o pipefail && samtools index {input}) > {log} 2>&1"
+
+rule intersect_bam_vcf:
+	input: 
+		bam="mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam",
+		vcf=[config["vcf_prefix"] + c + ".vcf" for c in chroms]
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam"
+	log: "log/intersect_bam_vcf.log"
+	shell: "(time bedtools intersect -a {input.bam} -b {input.vcf} > {output}) > {log} 2>&1"
+
+## bubble detection
+rule bubble_detection:
+	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
+	output: "tmp/bubbles_k{k}_a{a}_u{u}.fa"
+	log: "log/bubble_detection.log"
+	shell: "(time python simple_bubbles.py {input} > {output}) > {log} 2>&1"	
+
 
 ######################################
 rule output_unique_covered_nodes:
