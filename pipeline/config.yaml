@@ -8,6 +8,11 @@ bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
 # bcalm -> gfa conversion script path
 bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
 
+export_fasta_path: utils/printRead2fasta_pacbio.pl
+simple_bubble_detection_path: utils/simple_bubbles.py
+get_snv_bubbles_path: utils/get_snv_bubbles.py
+get_rev_comp_free_path: utils/get_revcomp_free_fasta.py
+
 # Illumina reads
 # Accepted file formats: https://github.com/GATB/bcalm#input-formats
 # The file names MUST NOT contain underscores _

@@ -5,8 +5,8 @@ use IO::Compress::Gzip;
 
 ###################################################################################################################
 #                                                                                                                 #
-# This script serves to export PacBio reads from the original bam file and export reads equal or longer than 10kb #
-# into a single fasta file.                                                                                       #
+# This script serves to export the reads from the original bam file into a single fasta file.                     #
+#                                                                                                                 #
 # During this process flag, chromosome and genomic location are appened to the original read name.                #
 #                                                                                                                 # 
 ###################################################################################################################
@@ -39,7 +39,7 @@ foreach my $bam (<@files>) {
 		#filter PacBio reads
 		next if $flag & 256; #skip secondary alignments	
 		#next if $mapq < 254; 
-		next if length($seq) <= 10000; #take only reads equal or longer than 10kb
+		#next if length($seq) <= 10000; #take only reads equal or longer than 10kb
 		
 		#next if $flag == 16;
 		if ($flag == 16) {
