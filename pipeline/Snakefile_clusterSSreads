@@ -20,6 +20,32 @@ computeSimpleBubble = config["simple_bubble_detection_path"]
 getSNVbubbles = config["get_snv_bubbles_path"]
 getRevcompFree = config["get_rev_comp_free_path"]
 
+###############################################
+#######		python functions	#######
+###############################################
+
+revcomp = {'a':'t', 'c':'g', 'g':'c', 't':'a', 'A':'T', 'C':'G', 'G':'C', 'T':'A'}
+
+def reversecomp(seq):
+	rc = ''
+	for i in range(len(seq)):
+		rc = revcomp[seq[i]] + rc
+	return rc
+
+###############################################
+
+
+# getting the names of first cluster pairs:
+f = open(outputDir+"/clust_partners.txt")
+clustpair = {}
+sp = f.read().strip().split("\n")
+print(sp)
+for s in range(1, len(sp)):
+	clust = sp[s].split("\t")
+	clustpair[clust[1]]=clust[1]
+	clustpair[clust[2]]=clust[1]
+
+
 wildcard_constraints:
 	graphname = "k\d+_a\d+_u\d+",
 	k = "\d+",
@@ -43,13 +69,8 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 
 rule all:
 	input:
-		#expand(SSfastqDir + "/{fastqname}_{cluster}.fastq", fastqname = [libs[i] + "_L" + L[i] + "_R1_001" for i in range(len(libs))], cluster = clusters)
-		#expand("graph_alignment/{fastqprefix}_R1_001_{cluster}_params_k{k}_a{a}_u{u}.data", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))], cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		#expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		#expand("tmp/graph_k{k}_a{a}_u{u}.vg", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		#"graph_alignment/graph_nodes_inter_chr_intersection.RData",
-		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bed", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bed", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"])
+		expand("short_reads_{k}mer_count.fa", k=config["k"]),
+		expand(outputDir + "splitted-per-cluster/{sample}_cluster{clust}_temp.fasta", sample=sample, clust=clusters),
 
 
 rule add_soft_clust_to_original_map_files:
@@ -59,6 +80,51 @@ rule add_soft_clust_to_original_map_files:
 	output: outputDir+"/{sample}_chunk{chunkID}.maf"
 	log: "log/add_soft_clust_{sample}_chunk{chunkID}.log"
 	script: "utils/addSoftProbs.R"
+
+rule append_clusters_to_pb_read_names:
+	input:
+		minimap_file=expand(outputDir+"/{{sample}}_chunk{chunkID}.maf", chunkID=chunkID),
+		pb="export_fasta_from_bam/"+config["pb_fasta"]+".fasta"
+	output: outputDir + "/{sample}_with_cluster.fasta"
+	#shell: "python utils/export_cluster_splitted_pb_reads.py {input}"
+	run:
+		# mapping PacBio readNames to their clusters and soft probs
+		pb_name_to_clust={}
+		for infile in input["minimap_file"]:
+			#print("input[minimap_file]=", input["minimap_file"], "infile = ", infile)
+			with open(infile) as clustpb:
+				for line in clustpb:
+					sp = line.strip().split()
+					if sp[0] != "PBreadNames":
+						pb_name_to_clust[sp[0]]=(sp[14], sp[15])
+
+		# writing PacBio reads clusters in the PacBio fasta file
+		with open(input["pb"]) as f:
+			with open(output[0], 'w') as out:
+				for line in f:
+					if line[0]==">":
+						if (line.split()[0][1:] in pb_name_to_clust):
+							pbclust = pb_name_to_clust[line.split()[0][1:]]
+							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1] + "\t", file=out),
+						else:
+							print(line.split()[0] + "\tNone\t1\t", file=out),
+					else:
+						print("sequence" + line.strip(), file=out)
+
+rule split_fasta_file_by_cluster:
+	input: outputDir + "/{sample}_with_cluster.fasta"
+	output: expand(outputDir + "splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters),
+	log: "log/split_fasta_file_by_cluster_{sample}.log"
+	shell: "(time awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' {input} && touch {output}) > {log} 2>&1"
+
+
+# This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
+rule correct_fasta_files:
+	input: outputDir + "splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
+	output: outputDir + "splitted-per-cluster/{sample}_cluster{clust}.fasta"
+	log: "log/correct_fasta_files.log"
+	shell: "(time awk \'{{gsub(\"\tsequence\", \"\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
+
 
 rule output_header:
 	input: expand(outputDir+"/{sample}_chunk{chunkID}.maf", sample=sample, chunkID=chunkID)
@@ -124,7 +190,10 @@ rule merge_fastq_files_with_same_clust:
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
 
 
-### De Bruijn graph building MIKKO
+#################################################
+####     De Bruijn graph building MIKKO      ####
+#################################################
+
 rule format_input_files:
 	output:
 		temp("filelist")
@@ -202,7 +271,7 @@ rule final_graph:
 rule convert_gfa_to_vg:
 	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
 	output: "tmp/graph_k{k}_a{a}_u{u}.vg"
-	log: "log/convert_gfa_to_vg.log"
+	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
 	shell: "{VG} view -v -F {input} > {output}"
 
 rule align_SS_reads_to_DBG:
@@ -238,28 +307,28 @@ rule bwa_map_unitigs_to_ref:
 		ref=config["reference"],
 		unitigs="contigs_k{k}_a{a}_u{u}.unitigs.fa"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam"
-	log: "log/bwa_map_unitigs_to_ref.log"
+	log: "log/bwa_map_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
 		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_bam:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam",
 	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
-	log: "log/sort_bam.log"
+	log: "log/sort_bam_k{k}_a{a}_u{u}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
-rule index_sorted_bam:
-	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
-	output : "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam.bai"
-	log: "log/index_bam.log"
-	shell: "(time set +o pipefail && samtools index {input}) > {log} 2>&1"
+#rule index_sorted_bam:
+#	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
+#	output : "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam.bai"
+#	log: "log/index_bam_k{k}_a{a}_u{u}.log"
+#	shell: "(time set +o pipefail && samtools index {input}) > {log} 2>&1"
 
 rule intersect_bam_vcf:
 	input: 
 		bam="mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam",
 		vcf=[config["vcf_prefix"] + c + ".vcf" for c in chroms]
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam"
-	log: "log/intersect_bam_vcf.log"
+	log: "log/intersect_bam_vcf_k{k}_a{a}_u{u}.log"
 	shell: "(time bedtools intersect -a {input.bam} -b {input.vcf} > {output}) > {log} 2>&1"
 
 rule intersect_bedvcf_het_unitigs:
@@ -267,14 +336,14 @@ rule intersect_bedvcf_het_unitigs:
 		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam",
 		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bed"
-	log: "log/intersect_bedvcf_het_unitigs.log"
+	log: "log/intersect_bedvcf_het_unitigs_k{k}_a{a}_u{u}.log"
 	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
 
 
 rule export_het_unitigs_fasta:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.fa"
-	log: "log/export_het_unitigs_fasta.log"
+	log: "log/export_het_unitigs_fasta_k{k}_a{a}_u{u}.log"
 	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
 
 ## debug
@@ -289,13 +358,13 @@ rule export_het_unitigs_fasta:
 rule bubble_detection:
 	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
 	output: "tmp/bubbles_k{k}_a{a}_u{u}.fa"
-	log: "log/bubble_detection.log"
+	log: "log/bubble_detection_k{k}_a{a}_u{u}.log"
 	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
 
 rule output_snv_bubbles:
 	input: "tmp/bubbles_k{k}_a{a}_u{u}.fa"
 	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
-	log: "log/output_snv_bubbles.log"
+	log: "log/output_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time python {getSNVbubbles} {input} > {output}) > {log} 2>&1"
 
 rule bwa_map_snv_bubble_unitigs_to_ref:
@@ -303,14 +372,14 @@ rule bwa_map_snv_bubble_unitigs_to_ref:
 		ref=config["reference"],
 		unitigs="tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
-	log: "log/bwa_map_snv_bubble_unitigs_to_ref.log"
+	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
 		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_bam_snv_bubbles:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.sorted.bam"
-	log: "log/sort_bam_snv_bubbles.log"
+	log: "log/sort_bam_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 rule intersect_bam_vcf_snv_bubbles:
@@ -318,7 +387,7 @@ rule intersect_bam_vcf_snv_bubbles:
 		bam="mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.sorted.bam",
 		vcf=[config["vcf_prefix"] + c + ".vcf" for c in chroms]
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bam"
-	log: "log/intersect_bam_vcf_snv_bubbles.log"
+	log: "log/intersect_bam_vcf_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time bedtools intersect -a {input.bam} -b {input.vcf} > {output}) > {log} 2>&1"
 
 rule vcf_to_bed:
@@ -332,7 +401,7 @@ rule intersect_bedvcf_snv_bubbles:
 		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bam",
 		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bed"
-	log: "log/intersect_bedvcf_snv_bubbles.log"
+	log: "log/intersect_bedvcf_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
 
 
@@ -342,6 +411,39 @@ rule intersect_bedvcf_snv_bubbles:
 #	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}.revcompfree.fa"
 #	log: "log/export_revcomp_free_snvbubbles_fasta.log"
 #	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
+
+
+######################################
+####   	  k-mer counting	  ####
+######################################
+
+rule jellyfish_bloom_count_kmers:
+	input: "filelist"
+	output:	"short_reads_{k}mer_count.bc"
+	log: "log/bloom_count_kmers_k{k}.log"
+	threads: 32
+	shell: 
+		'''
+		(time set +o pipefail zcat {input} | jellyfish bc -m {wildcards.k} -s 200G -t {threads} -C -o {output}) > {log} 2>&1
+		'''
+
+rule jellyfish_count_kmers:
+	input: 
+		reads="filelist",
+		bc="short_reads_{k}mer_count.bc"
+	output:	"short_reads_{k}mer_count.jf"
+	log: "log/count_kmers_k{k}.log"
+	threads: 32
+	shell: 
+		'''
+		(time set +o pipefail zcat {input.reads} | jellyfish count -m {wildcards.k} -s 3G -t {threads} -C --bc {input.bc} -o {output}) > {log} 2>&1
+		'''
+
+rule convert_jf_to_fa:
+	input: "short_reads_{k}mer_count.jf"
+	output: "short_reads_{k}mer_count.fa"
+	log: "log/convert_jf_to_fa_k{k}.log"
+	shell: "(time jellyfish dump {input} > {output}) > {log} 2>&1"
 
 
 ######################################

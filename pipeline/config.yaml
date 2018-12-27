@@ -13,6 +13,9 @@ simple_bubble_detection_path: utils/simple_bubbles.py
 get_snv_bubbles_path: utils/get_snv_bubbles.py
 get_rev_comp_free_path: utils/get_revcomp_free_fasta.py
 
+# PacBio reads
+pb_fasta: NA12878_WashU_PBreads
+
 # Illumina reads
 # Accepted file formats: https://github.com/GATB/bcalm#input-formats
 # The file names MUST NOT contain underscores _
