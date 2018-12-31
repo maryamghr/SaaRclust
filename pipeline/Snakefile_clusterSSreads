@@ -70,8 +70,9 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 rule all:
 	input:
 		expand("short_reads_{k}mer_count.fa", k=config["k"]),
-		expand(outputDir + "splitted-per-cluster/{sample}_cluster{clust}_temp.fasta", sample=sample, clust=clusters),
-
+		expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta", sample=sample, clust=clusters),
+		expand(outputDir + "/{sample}_with_cluster.fasta", sample=sample),
+		
 
 rule add_soft_clust_to_original_map_files:
 	input:
@@ -97,33 +98,42 @@ rule append_clusters_to_pb_read_names:
 					sp = line.strip().split()
 					if sp[0] != "PBreadNames":
 						pb_name_to_clust[sp[0]]=(sp[14], sp[15])
-
+		
 		# writing PacBio reads clusters in the PacBio fasta file
 		with open(input["pb"]) as f:
 			with open(output[0], 'w') as out:
 				for line in f:
 					if line[0]==">":
-						if (line.split()[0][1:] in pb_name_to_clust):
-							pbclust = pb_name_to_clust[line.split()[0][1:]]
-							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1] + "\t", file=out),
+						sp = line.split()[0].split("_")		
+						if len(sp) > 3:
+							pb_name = "_".join(sp[:-4])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
+						if len(sp) > 3 and pb_name in pb_name_to_clust:
+							pbclust = pb_name_to_clust[pb_name]
+							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1], file=out)
 						else:
-							print(line.split()[0] + "\tNone\t1\t", file=out),
+							print(line.split()[0] + "\tNone\t1", file=out)
 					else:
 						print("sequence" + line.strip(), file=out)
 
 rule split_fasta_file_by_cluster:
 	input: outputDir + "/{sample}_with_cluster.fasta"
-	output: expand(outputDir + "splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters),
+	output: temp(expand(outputDir + "/splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters)),
 	log: "log/split_fasta_file_by_cluster_{sample}.log"
-	shell: "(time awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' {input} && touch {output}) > {log} 2>&1"
+	shell: 
+		'''
+		(time set +o pipefail && 
+		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every sequence in one single line
+		awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' && 
+		touch {output}) > {log} 2>&1
+		'''
 
 
 # This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
 rule correct_fasta_files:
-	input: outputDir + "splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
-	output: outputDir + "splitted-per-cluster/{sample}_cluster{clust}.fasta"
-	log: "log/correct_fasta_files.log"
-	shell: "(time awk \'{{gsub(\"\tsequence\", \"\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
+	input: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
+	output: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta"
+	log: "log/correct_fasta_files_{sample}_{clust}.log"
+	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
 
 
 rule output_header:
@@ -141,20 +151,20 @@ rule remove_slash_in_lib_names:
 rule split_chunk_by_lib:
 	input:
 		minimap_file = outputDir+"/{sample}_chunk{chunkID}.new.maf"
-	output: [outputDir+"/splitted-per-lib/{sample}_chunk{chunkID}_" + x for x in expand("{lib}.maf", lib=libs)],
+	output: temp([outputDir+"/splitted-per-lib/{sample}_chunk{chunkID}_" + x for x in expand("{lib}.maf", lib=libs)]),
 	log: "log/split_chunk_by_lib_{sample}_chunk{chunkID}"
 	shell: "(time awk '{{print>\"{outputDir}/splitted-per-lib/{wildcards.sample}_chunk{wildcards.chunkID}_\"$3\".maf\"}}' {input.minimap_file} && touch {output}) > {log} 2>&1"
 
 rule merge_files_with_same_lib:
 	input: [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)]
-	output: outputDir+"/splitted-per-lib/aln_{lib}.maf"
+	output: temp(outputDir+"/splitted-per-lib/aln_{lib}.maf")
 	log: "log/merge_files_with_same_lib_{lib}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
 
 rule sort_lib_alignments:
 	input:
 		header = outputDir + "/header.txt",
-		splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)],
+		#splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)],
 		libAlignment = outputDir+"/splitted-per-lib/aln_{lib}.maf"
 	output: outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf"
 	log: "log/sort_lib_alignments_{lib}.log"
