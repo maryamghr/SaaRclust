@@ -1,4 +1,5 @@
 from collections import defaultdict
+import os
 
 configfile: "config.yaml"
 SHORTREADS = config["shortreads"]
@@ -32,9 +33,19 @@ def reversecomp(seq):
 		rc = revcomp[seq[i]] + rc
 	return rc
 
+def revcompfasta(infile, outfile):
+	with open(infile) as f:
+		with open(outfile, 'a') as out:
+			for line in f:
+				if line[0]==">":
+					print(line.strip(), file=out)
+				else:
+					print(reversecomp(line.strip()), file=out)				
+		
+
 ###############################################
 
-
+# outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
 # getting the names of first cluster pairs:
 f = open(outputDir+"/clust_partners.txt")
 clustpair = {}
@@ -42,8 +53,12 @@ sp = f.read().strip().split("\n")
 print(sp)
 for s in range(1, len(sp)):
 	clust = sp[s].split("\t")
-	clustpair[clust[1]]=clust[1]
-	clustpair[clust[2]]=clust[1]
+	clustpair[clust[1]]=clust[2]
+
+print("clustpair = ", clustpair)
+print([x + "_rc" + clustpair[x] for x in clustpair])
+
+clusters = list(clustpair.keys())+list(clustpair.values())
 
 
 wildcard_constraints:
@@ -55,12 +70,10 @@ wildcard_constraints:
 	overlapsize = "\d+",
 	longreads = "[^_]+",
 	shortreads = "[^_]+",
-	lib = "[^_]+_[0-9]+"
+	lib = "[^_]+_[0-9]+",
+	clust = "[V]\d+",
 
 
-# outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
-
-clusters = ["V" + str(i) for i in range(1, 30)] + ["V" + str(i) for i in range(31, 48)]
 
 sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
 sample=set(sample)
@@ -69,9 +82,10 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 
 rule all:
 	input:
-		expand("short_reads_{k}mer_count.fa", k=config["k"]),
-		expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta", sample=sample, clust=clusters),
-		expand(outputDir + "/{sample}_with_cluster.fasta", sample=sample),
+		#expand("short_reads_{k}mer_count.fa", k=config["k"]),
+		#expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta", sample=sample, clust=clusters),
+		#expand(outputDir + "/{sample}_with_cluster.fasta", sample=sample),
+		expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample=sample, clust=clustpair.keys()),
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -87,12 +101,10 @@ rule append_clusters_to_pb_read_names:
 		minimap_file=expand(outputDir+"/{{sample}}_chunk{chunkID}.maf", chunkID=chunkID),
 		pb="export_fasta_from_bam/"+config["pb_fasta"]+".fasta"
 	output: outputDir + "/{sample}_with_cluster.fasta"
-	#shell: "python utils/export_cluster_splitted_pb_reads.py {input}"
 	run:
 		# mapping PacBio readNames to their clusters and soft probs
 		pb_name_to_clust={}
 		for infile in input["minimap_file"]:
-			#print("input[minimap_file]=", input["minimap_file"], "infile = ", infile)
 			with open(infile) as clustpb:
 				for line in clustpb:
 					sp = line.strip().split()
@@ -122,11 +134,10 @@ rule split_fasta_file_by_cluster:
 	shell: 
 		'''
 		(time set +o pipefail && 
-		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every sequence in one single line
+		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
 		awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' && 
 		touch {output}) > {log} 2>&1
 		'''
-
 
 # This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
 rule correct_fasta_files:
@@ -134,6 +145,17 @@ rule correct_fasta_files:
 	output: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta"
 	log: "log/correct_fasta_files_{sample}_{clust}.log"
 	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
+
+
+rule merge_and_correct_dir_paired_clust_fasta:
+	input:
+		lambda wc: expand(outputDir + "/splitted-per-cluster/" + wc.sample + "_cluster{pair}.fasta", pair = [wc.clust, clustpair[wc.clust]]),
+	output:
+		outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta"
+	run:
+		#print("cat " + input[0] + " > " + output[0])
+		os.system("cat " + input[0] + " > " + output[0])
+		revcompfasta(input[1], output[0])
 
 
 rule output_header:
