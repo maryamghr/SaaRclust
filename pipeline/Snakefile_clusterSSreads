@@ -286,7 +286,7 @@ rule get_contigs:
 		"contigs_k{k}_a{a}_u{u}.fa"
 	log: "log/get_contigs_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time grep S < {input} | awk '{{print \">\" $NR; print $3;}}' > {output}) > {log} 2>&1"
+		"(time grep S {input} | awk '{{print \">\"$2\"\\n\"$3}}' > {output}) > {log} 2>&1"
 
 rule remake_bcalm_from_contigs:
 	input:
@@ -468,7 +468,8 @@ rule get_contig_kmer_coverage_histogram:
 	input: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
 	output: "tmp/graph_k{k}_a{a}_u{u}_component_km_hist.pdf"
 	params:
-		trim=0.05
+		trim=0.05,
+		breaks=200
 	log: "get_contig_kmer_coverage_histogram_k{k}_a{a}_u{u}.log"
 	script: "utils/contig_kmer_coverage_histogram.snakemake.R"
 
