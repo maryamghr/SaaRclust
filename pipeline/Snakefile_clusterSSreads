@@ -3,7 +3,7 @@ import os
 
 configfile: "config.yaml"
 SHORTREADS = config["shortreads"]
-ALIGNERBINPATH = config["graphalignerfolder"] + "bin"
+ALIGNERBINPATH = config["graphalignerfolder"]
 SCRIPTPATH = config["graphalignerfolder"] + "scripts"
 BCALMPATH = config["bcalmpath"]
 CONVERTTOGFAPATH = config["bcalm_converttoGFApath"]
@@ -458,6 +458,20 @@ rule intersect_bedvcf_snv_bubbles:
 ####   	  k-mer counting	  ####
 ######################################
 
+rule get_contig_kmer_coverage:
+	input: "tmp/graph_k{k}_a{a}_u{u}_component.gfa"
+	output: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
+	log: "log/get_contig_kmer_coverage_k{k}_a{a}_u{u}.log"
+	shell: "(time awk \'$1!="S" {{gsub(\"km:f:\", \"\"); print $6}}\' {input} > {output}) > {log} 2>&1"
+
+rule get_contig_kmer_coverage_histogram:
+	input: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
+	output: "tmp/graph_k{k}_a{a}_u{u}_component_km_hist.pdf"
+	params:
+		trim=0.05
+	log: "get_contig_kmer_coverage_histogram_k{k}_a{a}_u{u}.log"
+	script: "utils/contig_kmer_coverage_histogram.snakemake.R"
+
 rule jellyfish_bloom_count_kmers:
 	input: "filelist"
 	output:	"short_reads_{k}mer_count.bc"
@@ -468,6 +482,7 @@ rule jellyfish_bloom_count_kmers:
 		(time set +o pipefail zcat {input} | jellyfish bc -m {wildcards.k} -s 200G -t {threads} -C -o {output}) > {log} 2>&1
 		'''
 
+# This rule does not work properly
 rule jellyfish_count_kmers:
 	input: 
 		reads="filelist",
