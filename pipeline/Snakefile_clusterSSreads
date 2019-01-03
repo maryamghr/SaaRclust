@@ -1,5 +1,6 @@
 from collections import defaultdict
 import os
+import subprocess
 
 configfile: "config.yaml"
 SHORTREADS = config["shortreads"]
@@ -20,6 +21,7 @@ exportFasta = config["export_fasta_path"]
 computeSimpleBubble = config["simple_bubble_detection_path"]
 getSNVbubbles = config["get_snv_bubbles_path"]
 getRevcompFree = config["get_rev_comp_free_path"]
+clustersizes = config["cluster_sizes"]
 
 ###############################################
 #######		python functions	#######
@@ -40,7 +42,13 @@ def revcompfasta(infile, outfile):
 				if line[0]==">":
 					print(line.strip(), file=out)
 				else:
-					print(reversecomp(line.strip()), file=out)				
+					print(reversecomp(line.strip()), file=out)
+
+def getclustersize(cl, filename):
+	#print("awk \'$3==\"" + cl + "\" {print $2}\' " + "config[\"cluster_sizes\"]")
+	return subprocess.getoutput("awk \'$3==\"" + cl + "\" {print $2}\' " + filename)
+
+print("getclustersize(V23) = ", getclustersize('V23', clustersizes))
 		
 
 ###############################################
@@ -86,6 +94,9 @@ rule all:
 		#expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta", sample=sample, clust=clusters),
 		#expand(outputDir + "/{sample}_with_cluster.fasta", sample=sample),
 		expand(outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample=sample, clust=clustpair.keys()),
+		"clusters_fasta_file_sizes.txt",
+		expand(outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_corrected.fasta", sample=sample, clust=clustpair.keys()),
+		expand(outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.contigs.fasta", sample=sample, clust=clustpair.keys())
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -153,7 +164,6 @@ rule merge_and_correct_dir_paired_clust_fasta:
 	output:
 		outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta"
 	run:
-		#print("cat " + input[0] + " > " + output[0])
 		os.system("cat " + input[0] + " > " + output[0])
 		revcompfasta(input[1], output[0])
 
@@ -462,7 +472,7 @@ rule get_contig_kmer_coverage:
 	input: "tmp/graph_k{k}_a{a}_u{u}_component.gfa"
 	output: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
 	log: "log/get_contig_kmer_coverage_k{k}_a{a}_u{u}.log"
-	shell: "(time awk \'$1!="S" {{gsub(\"km:f:\", \"\"); print $6}}\' {input} > {output}) > {log} 2>&1"
+	shell: "(time awk \'$1!=\"S\" {{gsub(\"km:f:\", \"\"); print $6}}\' {input} > {output}) > {log} 2>&1"
 
 rule get_contig_kmer_coverage_histogram:
 	input: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
@@ -520,3 +530,96 @@ rule find_inter_chr_intersection:
 	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
 	log: "log/find_inter_chr_intersection.log"
 	script: "utils/find_inter_chr_intersection.snakemake.R"
+
+
+#######################################
+#####	     Canu assembly	  #####
+#######################################
+
+rule estimate_cluster_sizes:
+	input:
+		chromsize=config["chrom_sizes"],		
+		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample=sample, clust=clustpair.keys())
+	output: config["cluster_sizes"]
+	shell:
+		'''
+		paste {input.chromsize} <(ls -lh {outputDir}/splitted-per-cluster/*_with_RCpair.fasta | awk '{{gsub(\"G\", \"\", $5); gsub(\"{outputDir}/splitted-per-cluster/{sample}_cluster", \"\"); gsub(\"_with_RCpair.fasta\", \"\"); print}}' | sort -n -k5,5 | cut -d\' \' -f9) > {output}
+		'''
+
+rule correct_reads:
+	input:
+		fasta=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta",
+		clustersizes=config["cluster_sizes"]
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_corrected.fasta.gz"
+	log:
+		"log/correct_reads_{sample}_cluster{clust}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
+	threads: 32
+
+	shell:
+		"""
+		time(canu -correct \
+		-p {sample}_cluster{clust}_with_RCpair \
+		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		genomeSize={params.genomeSize} \
+		-minThreads={threads} \
+		-maxThreads={threads} \
+		-pacbio-raw {input}) 2> {log}
+		"""
+
+rule trim_reads:
+	input:
+		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_corrected.fasta.gz",
+		clustersizes=config["cluster_sizes"]
+		
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_trimmed.fasta.gz"
+	log:
+		"log/trim_reads_{sample}_cluster{clust}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
+	threads: 32
+
+	shell:
+		"""
+		time(canu -trim \
+		-p {sample}_cluster{clust}_with_RCpair \
+		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		genomeSize={params.genomeSize} \
+		-minThreads={threads} \
+		-maxThreads={threads} \
+		-pacbio-corrected {input}) 2> {log}
+		"""
+
+rule assembly:
+	input:
+		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_trimmed.fasta.gz",
+		clustersizes=config["cluster_sizes"]
+
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.contigs.fasta"
+
+	log:
+		"log/assembly_{sample}_cluster{clust}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes),
+		errorRate = 0.1,
+		overlapLen = 200
+	threads: 32
+
+	shell:
+		"""
+		time(canu -assemble \
+		-p {sample}_cluster{clust}_with_RCpair \
+		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		genomeSize={params.genomeSize} \
+		-minThreads={threads} \
+		-maxThreads={threads} \
+		correctedErrorRate={params.errorRate} \
+		minOverlapLength={params.overlapLen} \
+		-pacbio-corrected {input}) 2> {log}
+		"""
+
+
