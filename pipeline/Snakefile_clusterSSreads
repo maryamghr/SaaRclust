@@ -561,17 +561,17 @@ rule correct_reads:
 	shell:
 		"""
 		time(canu -correct \
-		-p {sample}_cluster{clust}_with_RCpair \
-		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly \
 		genomeSize={params.genomeSize} \
 		-minThreads={threads} \
 		-maxThreads={threads} \
-		-pacbio-raw {input}) 2> {log}
+		-pacbio-raw {input.fasta}) 2> {log}
 		"""
 
 rule trim_reads:
 	input:
-		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_corrected.fasta.gz",
+		corrected=outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_corrected.fasta.gz",
 		clustersizes=config["cluster_sizes"]
 		
 	output:
@@ -585,17 +585,17 @@ rule trim_reads:
 	shell:
 		"""
 		time(canu -trim \
-		-p {sample}_cluster{clust}_with_RCpair \
-		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly \
 		genomeSize={params.genomeSize} \
 		-minThreads={threads} \
 		-maxThreads={threads} \
-		-pacbio-corrected {input}) 2> {log}
+		-pacbio-corrected {input.corrected}) 2> {log}
 		"""
 
 rule assembly:
 	input:
-		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_trimmed.fasta.gz",
+		trimmed=outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair_trimmed.fasta.gz",
 		clustersizes=config["cluster_sizes"]
 
 	output:
@@ -612,14 +612,14 @@ rule assembly:
 	shell:
 		"""
 		time(canu -assemble \
-		-p {sample}_cluster{clust}_with_RCpair \
-		-d outputDir+"/splitted-per-cluster/Canu-assembly \
+		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly \
 		genomeSize={params.genomeSize} \
 		-minThreads={threads} \
 		-maxThreads={threads} \
 		correctedErrorRate={params.errorRate} \
 		minOverlapLength={params.overlapLen} \
-		-pacbio-corrected {input}) 2> {log}
+		-pacbio-corrected {input.trimmed}) 2> {log}
 		"""
 
 
