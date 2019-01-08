@@ -90,7 +90,8 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 
 rule all:
 	input:
-		expand(outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.contigs.fasta", sample=sample, clust=clustpair.keys())
+		expand(outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta", 
+			sample=sample, clust=clustpair.keys(), error=config["errorRate"], overlap=config["overlapLen"])
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -545,7 +546,7 @@ rule correct_reads:
 		fasta=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta",
 		clustersizes=config["cluster_sizes"]
 	output:
-		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.correctedReads.fasta.gz"
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.correctedReads.fasta.gz"
 	log:
 		"log/correct_reads_{sample}_cluster{clust}_with_RCpair.log"
 	params:
@@ -555,8 +556,8 @@ rule correct_reads:
 	shell:
 		"""
 		time(canu -correct \
-		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
-		-d {outputDir}/splitted-per-cluster/Canu-assembly \
+		-p PacBio \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
 		genomeSize={params.genomeSize} \
 		-minThreads=1 \
 		-maxThreads={threads} \
@@ -565,11 +566,11 @@ rule correct_reads:
 
 rule trim_reads:
 	input:
-		corrected=outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.correctedReads.fasta.gz",
+		corrected=outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.correctedReads.fasta.gz",
 		clustersizes=config["cluster_sizes"]
 		
 	output:
-		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.trimmedReads.fasta.gz"
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.trimmedReads.fasta.gz"
 	log:
 		"log/trim_reads_{sample}_cluster{clust}_with_RCpair.log"
 	params:
@@ -579,8 +580,8 @@ rule trim_reads:
 	shell:
 		"""
 		time(canu -trim \
-		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
-		-d {outputDir}/splitted-per-cluster/Canu-assembly \
+		-p PacBio \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
 		genomeSize={params.genomeSize} \
 		-minThreads=1 \
 		-maxThreads={threads} \
@@ -589,30 +590,30 @@ rule trim_reads:
 
 rule assembly:
 	input:
-		trimmed=outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.trimmedReads.fasta.gz",
+		trimmed=outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.trimmedReads.fasta.gz",
 		clustersizes=config["cluster_sizes"]
 
 	output:
-		outputDir+"/splitted-per-cluster/Canu-assembly/{sample}_cluster{clust}_with_RCpair.contigs.fasta"
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta"
 
 	log:
 		"log/assembly_{sample}_cluster{clust}_with_RCpair.log"
 	params:
 		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes),
-		errorRate = 0.1,
-		overlapLen = 200
+		#errorRate = 0.1,
+		#overlapLen = 200
 	threads: 32
 
 	shell:
 		"""
 		time(canu -assemble \
-		-p {wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
-		-d {outputDir}/splitted-per-cluster/Canu-assembly \
+		-p PacBio_errorRate{wildcards.error}_overlap{wildcards.overlap} \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
 		genomeSize={params.genomeSize} \
 		-minThreads=1 \
 		-maxThreads={threads} \
-		correctedErrorRate={params.errorRate} \
-		minOverlapLength={params.overlapLen} \
+		correctedErrorRate={wildcards.error} \
+		minOverlapLength={wildcards.overlap} \
 		-pacbio-corrected {input.trimmed}) 2> {log}
 		"""
 
