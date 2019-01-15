@@ -1,4 +1,3 @@
-from collections import defaultdict
 import os
 import subprocess
 
@@ -496,6 +495,14 @@ rule add_seq_len_to_name_snv_bubbles:
 	output: "tmp_prev/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
 	log: "log/add_seq_len_to_name_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
+
+rule map_SS_reads_to_snv_bubbles:
+	input:
+		SSreads=SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa",
+		bubble="tmp_prev/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
+	output: SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
+	log: "log/map_SS_reads_to_snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}.log"
+	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
 
 
 rule bwa_map_snv_bubble_unitigs_to_ref:
