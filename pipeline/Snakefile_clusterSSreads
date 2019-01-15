@@ -91,7 +91,11 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 rule all:
 	input:
 		expand(outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta", 
-			sample=sample, clust=clustpair.keys(), error=config["errorRate"], overlap=config["overlapLen"])
+			sample=sample, clust=clustpair.keys(), error=config["errorRate"], overlap=config["overlapLen"]),
+		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bed", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("contigs_k{k}_a{a}_u{u}.kmer.count.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand(SSfastqDir + "/all_SS_libs_cluster{cluster}.fa", cluster=clusters)
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -226,6 +230,15 @@ rule merge_fastq_files_with_same_clust:
 	log: "log/merge_fastq_files_with_same_clust_{cluster}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
 
+rule convert_fastq_to_fasta:
+	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
+	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
+	log: "convert_fastq_to_fasta_cluster{cluster}.log"
+	shell:
+		'''
+		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} > {output}) > {log} 2>&1
+		'''
+
 
 #################################################
 ####     De Bruijn graph building MIKKO      ####
@@ -241,7 +254,7 @@ rule run_bcalm2:
 	input:
 		"filelist"
 	output:
-		temp("filelist_k{k}_a{a}.unitigs.fa")
+		"filelist_k{k}_a{a}.unitigs.fa"
 	log: "log/run_bcalm2_k{k}_a{a}.log"
 	shadow: "shallow"
 	threads: 8
@@ -252,7 +265,7 @@ rule filter_unitig_coverage:
 	input:
 		"filelist_k{k}_a{a}.unitigs.fa"
 	output:
-		temp("tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa")
+		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
 	log: "log/filter_unitig_coverage_k{k}_a{a}_u{u}.log"
 	shell:
 		"(time python {SCRIPTPATH}/filter_bcalm_by_frequency.py {input} {wildcards.u} {output}) > {log} 2>&1"
@@ -261,7 +274,7 @@ rule convert_graph:
 	input:
 		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
 	output:
-		temp("tmp/graph_k{k}_a{a}_u{u}_tipped.gfa")
+		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
 	log: "log/convert_graph_k{k}_a{a}_u{u}.log"
 	shell:
 		"(time {CONVERTTOGFAPATH} {input} {output} {wildcards.k}) > {log} 2>&1"
@@ -270,7 +283,7 @@ rule untip_graph:
 	input:
 		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
 	output:
-		temp("tmp/graph_k{k}_a{a}_u{u}_untip.gfa")
+		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
 	log: "log/untip_graph_k{k}_a{a}_u{u}.log"
 	shell:
 		"(time {ALIGNERBINPATH}/UntipRelative 1000 100 0.1 < {input} > {output}) > {log} 2>&1"
@@ -330,6 +343,7 @@ rule align_SS_reads_to_DBG:
 	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
 
 
+
 ######################################
 #finding heterozygous unitigs
 ######################################
@@ -357,17 +371,28 @@ rule bwa_map_unitigs_to_ref:
 	shell:
 		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
+rule bwa_map_contigs_to_ref:
+	input:
+		ref=config["reference"],
+		contigs="contigs_k{k}_a{a}_u{u}.fa"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.bam"
+	log: "log/bwa_map_contigs_to_ref_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+
 rule sort_bam:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam",
 	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
 	log: "log/sort_bam_k{k}_a{a}_u{u}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
-#rule index_sorted_bam:
-#	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
-#	output : "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam.bai"
-#	log: "log/index_bam_k{k}_a{a}_u{u}.log"
-#	shell: "(time set +o pipefail && samtools index {input}) > {log} 2>&1"
+
+rule sort_contig_bam:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.bam",
+	output: "mapped_contigs_k{k}_a{a}_u{u}.sorted.bam"
+	log: "log/sort_contig_bam_k{k}_a{a}_u{u}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 rule intersect_bam_vcf:
 	input: 
@@ -391,6 +416,53 @@ rule export_het_unitigs_fasta:
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.fa"
 	log: "log/export_het_unitigs_fasta_k{k}_a{a}_u{u}.log"
 	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
+
+rule intersect_contig_bam_vcf:
+	input: 
+		bam="mapped_contigs_k{k}_a{a}_u{u}.sorted.bam",
+		vcf=[config["vcf_prefix"] + c + ".vcf" for c in chroms]
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam"
+	log: "log/intersect_contig_bam_vcf_k{k}_a{a}_u{u}.log"
+	shell: "(time bedtools intersect -a {input.bam} -b {input.vcf} > {output}) > {log} 2>&1"
+
+rule intersect_bedvcf_het_contigs:
+	input:
+		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam",
+		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bed"
+	log: "log/intersect_contig_bedvcf_het_unitigs_k{k}_a{a}_u{u}.log"
+	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
+
+
+rule export_het_contigs_fasta:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa"
+	log: "log/export_het_contigs_fasta_k{k}_a{a}_u{u}.log"
+	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
+
+rule export_contigs_kmer_count:
+	input:
+		graph="tmp/graph_k{k}_a{a}_u{u}_component.gfa",
+		het="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa"
+	output:
+		"contigs_k{k}_a{a}_u{u}.kmer.count.data"
+	run:
+		hetcontigs={}
+		name=""
+		with open(input["het"]) as f:
+			for line in f:
+				if line[0]==">":
+					name=line.split("_")[0][1:]
+					hetcontigs[name] = True
+		with open(input["graph"]) as g:
+			with open(output[0], 'w') as out:
+				for line in g:
+					hetstatus = ""
+					sp = line.split()
+					if sp[0]=="S":
+						hetstatus = "het" if sp[1] in hetcontigs else "hom"
+						km = sp[-1].split(":")[-1]
+						print(sp[1] + "\t" + sp[2] + "\t" + hetstatus + "\t" + km, file=out)
 
 ## debug
 #rule export_revcomp_free_hetunitigs_fasta:
