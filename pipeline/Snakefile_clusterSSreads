@@ -95,6 +95,7 @@ rule all:
 		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bed", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		expand("contigs_k{k}_a{a}_u{u}.kmer.count.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand(SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		expand(SSfastqDir + "/all_SS_libs_cluster{cluster}.fa", cluster=clusters)
 		
 
@@ -233,12 +234,17 @@ rule merge_fastq_files_with_same_clust:
 rule convert_fastq_to_fasta:
 	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
 	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-	log: "convert_fastq_to_fasta_cluster{cluster}.log"
+	log: "log/convert_fastq_to_fasta_cluster{cluster}.log"
 	shell:
 		'''
 		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} > {output}) > {log} 2>&1
 		'''
 
+rule add_seq_len_to_name_SS_fasta:
+	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
+	output: SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa"
+	log: "log/add_seq_len_to_name_SS_fasta_cluster{cluster}.log"
+	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
 
 #################################################
 ####     De Bruijn graph building MIKKO      ####
@@ -485,6 +491,13 @@ rule output_snv_bubbles:
 	log: "log/output_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time python {getSNVbubbles} {input} > {output}) > {log} 2>&1"
 
+rule add_seq_len_to_name_snv_bubbles:
+	input: "tmp_prev/snv_bubbles_k{k}_a{a}_u{u}.fa"
+	output: "tmp_prev/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
+	log: "log/add_seq_len_to_name_snv_bubbles_k{k}_a{a}_u{u}.log"
+	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
+
+
 rule bwa_map_snv_bubble_unitigs_to_ref:
 	input:
 		ref=config["reference"],
@@ -669,11 +682,9 @@ rule assembly:
 		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta"
 
 	log:
-		"log/assembly_{sample}_cluster{clust}_with_RCpair.log"
+		"log/assembly_{sample}_cluster{clust}_errorRate{error}_overlap{overlap}_with_RCpair.log"
 	params:
-		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes),
-		#errorRate = 0.1,
-		#overlapLen = 200
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
 	threads: 32
 
 	shell:
