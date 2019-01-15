@@ -11,7 +11,7 @@ def printalleles(allelelentoline):
 	for allelelen in allelelentoline:
 		if len(allelelentoline[allelelen]) > 1:
 			for allele in allelelentoline[allelelen]:
-				print(allele),
+				print(allele)
 
 for l in fileinput.input():
 	if l[0] == '>':
@@ -27,8 +27,8 @@ for l in fileinput.input():
 	else:
 		# still in the same bubble, update allelelentoline
 		if len(l) in allelelentoline:
-			allelelentoline[len(l)].add(prevline + l)
+			allelelentoline[len(l)].add(prevline + l.strip())
 		else:
-			allelelentoline[len(l)] = set([prevline + l])
+			allelelentoline[len(l)] = set([prevline + l.strip()])
 
 printalleles(allelelentoline)

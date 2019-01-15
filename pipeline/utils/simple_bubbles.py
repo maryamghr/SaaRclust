@@ -7,6 +7,14 @@ nodes = {}
 
 rev_end = {"+": "-", "-": "+"}
 
+def canon_edgepair(left, right):
+	if right[0] < left[0]: return (right, left)
+	elif left[0] < right[0]: return (left, right)
+
+def canon_edge(left, right):
+	if right[0] < left[0]: return ((right[0], rev_end[right[1]]), (left[0], rev_end[left[1]]))
+	elif left[0] < right[0]: return (left, right)
+
 for l in fileinput.input():
 	parts = l.split('\t')
 	if parts[0] == 'L':
@@ -21,10 +29,6 @@ for l in fileinput.input():
 	if parts[0] == 'S':
 		nodes[parts[1]] = parts[2].strip()
 
-def canon_edge(left, right):
-	if right[0] < left[0]: return ((right[0], rev_end[right[1]]), (left[0], rev_end[left[1]]))
-	elif left[0] < right[0]: return (left, right)
-
 alleles = {}
 
 for node in nodes:
@@ -37,7 +41,7 @@ for node in nodes:
 	left = edges[bw].pop()
 	right = edges[fw].pop()
 	if left[0] == right[0]: continue
-	canon = canon_edge(left, right)
+	canon = canon_edgepair(left, right)
 	if canon not in alleles: alleles[canon] = []
 	alleles[canon].append(node)
 
