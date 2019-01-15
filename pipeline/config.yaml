@@ -48,6 +48,7 @@ soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCell
 
 # output directory for storing output files
 output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited
+output_dir2: test_merged_fasta
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
@@ -57,5 +58,11 @@ VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
 
 # DB node lengths
 node_lens: /MMCI/TM/scratch/mikko/aligner/fake_ref/tmp/node_lengths_min50.txt
+
+# canu params
+chrom_sizes: chrom_sizes.txt
+errorRate: 0.1
+overlapLen: 200
+cluster_sizes: clusters_fasta_file_sizes.txt
 
 
