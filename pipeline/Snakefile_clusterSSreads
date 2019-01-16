@@ -89,13 +89,8 @@ libs, L, = glob_wildcards(SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz")
 
 rule all:
 	input:
-		expand(outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta", 
-			sample=sample, clust=clustpair.keys(), error=config["errorRate"], overlap=config["overlapLen"]),
-		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand("mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bed", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand("contigs_k{k}_a{a}_u{u}.kmer.count.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand(SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		expand(SSfastqDir + "/all_SS_libs_cluster{cluster}.fa", cluster=clusters)
+		expand(SSfastqDir + "/all_SS_libs_cluster{cluster}.fa", cluster = clusters),
+		#expand(SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -224,26 +219,38 @@ rule extract_fastq_per_lib_per_clust:
 	log: "log/extract_fastq_per_lib_per_clust.log_{lib}_{L}_{cluster}"
 	shell: "(time {EXTRACTFASTQ} {input} > {output}) > {log} 2>&1"
 
-rule merge_fastq_files_with_same_clust:
-	input: expand(SSfastqDir + "/{fastqprefix}_R1_001_{{cluster}}.fastq", fastqprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))])
-	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
-	log: "log/merge_fastq_files_with_same_clust_{cluster}.log"
-	shell: "(time cat {input} > {output}) > {log} 2>&1"
-
 rule convert_fastq_to_fasta:
-	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
-	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-	log: "log/convert_fastq_to_fasta_cluster{cluster}.log"
+	input: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq"
+	output: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fa"
+	log: "log/convert_fastq_to_fasta_lib{lib}_L{L}_cluster{cluster}.log"
+	#echo \'lib=\' {wildcards.lib}
 	shell:
 		'''
-		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} > {output}) > {log} 2>&1
+		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} | \
+		bioawk -c fastx \'{{print \">\" $name \"_lib:\" \"{wildcards.lib}\" \"_len:\" length($seq); print $seq}}\' > {output}) > {log} 2>&1
 		'''
 
-rule add_seq_len_to_name_SS_fasta:
-	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-	output: SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa"
-	log: "log/add_seq_len_to_name_SS_fasta_cluster{cluster}.log"
-	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
+rule merge_fasta_files_with_same_clust:
+	input: expand(SSfastqDir + "/{fastaprefix}_R1_001_{{cluster}}.fa", fastaprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))])
+	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
+	log: "log/merge_fasta_files_with_same_clust_{cluster}.log"
+	shell: "(time cat {input} > {output}) > {log} 2>&1"
+
+#rule convert_fastq_to_fasta:
+#	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
+#	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
+#	log: "log/convert_fastq_to_fasta_cluster{cluster}.log"
+#	shell:
+#		'''
+#		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} | \
+#		bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' > {output}) > {log} 2>&1
+#		'''
+
+#rule add_seq_len_to_name_SS_fasta:
+#	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
+#	output: SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa"
+#	log: "log/add_seq_len_to_name_SS_fasta_cluster{cluster}.log"
+#	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
 
 #################################################
 ####     De Bruijn graph building MIKKO      ####
@@ -338,14 +345,14 @@ rule convert_gfa_to_vg:
 	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
 	shell: "(time {VG} view -v -F {input} > {output}) > {log} 2>&1"
 
-rule align_SS_reads_to_DBG:
-	input:
-		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq",
-		graph = "contigs_k{k}_a{a}_u{u}.unitigs.fa"
-	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-	threads: 8
-	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
-	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
+#rule align_SS_reads_to_DBG:
+#	input:
+#		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq",
+#		graph = "contigs_k{k}_a{a}_u{u}.unitigs.fa"
+#	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	threads: 8
+#	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
+#	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
 
 
 
@@ -491,18 +498,28 @@ rule output_snv_bubbles:
 	shell: "(time python {getSNVbubbles} {input} > {output}) > {log} 2>&1"
 
 rule add_seq_len_to_name_snv_bubbles:
-	input: "tmp_prev/snv_bubbles_k{k}_a{a}_u{u}.fa"
-	output: "tmp_prev/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
+	input: "tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
+	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
 	log: "log/add_seq_len_to_name_snv_bubbles_k{k}_a{a}_u{u}.log"
 	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
 
+
 rule map_SS_reads_to_snv_bubbles:
 	input:
-		SSreads=SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa",
-		bubble="tmp_prev/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
+		SSreads=SSfastqDir + "/all_SS_libs_cluster{cluster}.fa",
+		bubble="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
 	output: SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
 	log: "log/map_SS_reads_to_snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}.log"
 	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
+
+
+rule output_valid_maps_and_SS_bubble_cov:
+	input: SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
+	output:
+		map = SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
+		matrix = SSfastqDir + "/SS_lib_coverage_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
+	log: "log/output_valid_maps_and_SS_bubble_cov_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.log"
+	script: "utils/output_SS_het_unitig_coverage.snakemake.py"
 
 
 rule bwa_map_snv_bubble_unitigs_to_ref:
