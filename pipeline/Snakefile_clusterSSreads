@@ -102,10 +102,12 @@ rule all:
 		#expand(SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		#expand(outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}.maf", sample=sample, chunkID=chunkID, cluster=clusters),
 		#expand("haplotagged_SS_bams/{lib}_srt_dedup_haplotagged_{dir}.bam", lib=libs, dir=directions),
-		expand("haplotagged_SS_bams/{lib}_srt_dedup_{dir}_chrom_count.data", lib=libs, dir=directions),
-		expand("haplotagged_SS_bams/{lib}_srt_dedup_{dir}_haplo{haplo}_chrom_count.data", lib=libs, dir=directions, haplo=haplotypes),
-		expand("strand_states/{lib}_haplo_strand_states.data", lib=libs)
+		#expand("haplotagged_SS_bams/{lib}_srt_dedup_{dir}_chrom_count.data", lib=libs, dir=directions),
+		#expand("haplotagged_SS_bams/{lib}_srt_dedup_{dir}_haplo{haplo}_chrom_count.data", lib=libs, dir=directions, haplo=haplotypes),
+		#expand("ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs)
 		#phasedSSvcfDir + "/whole_genome_phased.vcf"
+		expand("test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data", 
+			sample=sample, chunkID=["00"], cluster=["V39"], k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -607,6 +609,12 @@ rule split_snv_bubble_fasta_file_by_cluster:
 		touch {output}) > {log} 2>&1
 		'''
 
+######## TODO: add StrandPhaseR rule here ############
+#rule strandphaser:
+#	input: SSfastqDir + "/SS_lib_coverage_cluster{cluster}_withRCpair_snv_bubbles_k{k}_a{a}_u{u}.data"
+#	output: "strand_states/{lib}_haplo_strand_states.data"
+#	log: "log/strandphaser_{lib}_cluster{cluster}_k{k}_a{a}_u{u}.log"
+#	shell: ...
 
 # This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
 rule correct_splitted_snv_bubble_fasta_files:
@@ -615,14 +623,29 @@ rule correct_splitted_snv_bubble_fasta_files:
 	log: "log/correct_splitted_snv_bubble_fasta_files_cluster{cluster}_k{k}_a{a}_u{u}.log"
 	shell: "(time sort -k1,1 {input} | awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' > {output}) > {log} 2>&1"
 
+
 rule export_het_kmers:
 	input:
 		bubbles= "tmp_18Jan/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
 		SS_bubble_map= SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
 		SS_PB_minimap=outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}.maf",
-		SS_haplo_strand_states="???"
-	output: outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}_PacBio_het_kmers.data"
-	script: "utils/export_het_kmers.py"
+		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs) # TODO: to be replaced by strandphaser output
+	output: outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data"
+	params:
+		het_kmer_len=config["het_kmer_len"]
+	script: "utils/export_SS_het_kmers.py"
+
+
+rule export_het_kmers_test:
+	input:
+		bubbles= "test_export_het_kmers/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
+		SS_bubble_map= "test_export_het_kmers/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
+		SS_PB_minimap="test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}.maf",
+		SS_haplo_strand_states=expand("test_export_het_kmers/ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs) # TODO: to be replaced by strandphaser output
+	output: "test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data"
+	params:
+		het_kmer_len=config["het_kmer_len"]
+	script: "utils/export_SS_het_kmers.py"
 
 ##########################################################################################################
 
@@ -765,7 +788,7 @@ rule output_ground_truth_strand_states:
 		ss_haplotagged_count_crick_h1= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo1_chrom_count.data",
 		ss_haplotagged_count_crick_h2= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo2_chrom_count.data",
 		clust_to_chrom_mapping=outputDir + "/cluster_name_mapping.data"
-	output: "strand_states/{lib}_haplo_strand_states.data"
+	output: "ground_truth_strand_states/{lib}_haplo_strand_states.data"
 	params:
 		background_rate=0.05
 	log: "log/output_ground_truth_strand_states_{lib}.log"

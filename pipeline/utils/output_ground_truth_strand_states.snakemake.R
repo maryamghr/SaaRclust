@@ -53,4 +53,7 @@ setkey(strand_states, original.cluster)
 cluster_names <- fread(snakemake@input[["clust_to_chrom_mapping"]])
 strand_states <- merge(strand_states, cluster_names, by="original.cluster")
 
+# reorder columns
+strand_states <- strand_states[, .(inferred.cluster, haplotype, original.cluster)]
+
 fwrite(strand_states, file=snakemake@output[[1]], sep="\t")
