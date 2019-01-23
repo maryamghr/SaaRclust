@@ -35,13 +35,12 @@ with open(snakemake.input["bubbles"]) as bubbles:
 					add_bubble_kmers(bubble_allele_to_kmers, prev_bubble_id, seq)		
 				
 				prev_bubble_id = bubble_id
-				seq=["", ""]
 		else:
 			seq[allele] = line.strip()
 
-	add_bubble_kmers(bubble_allele_to_kmers, prev_bubble_id, seq)
+	add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq)
 
-### test # passed
+### test
 print("bubble_allele_to_kmers:")
 print(bubble_allele_to_kmers)
 
