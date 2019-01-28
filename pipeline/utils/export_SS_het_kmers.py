@@ -90,8 +90,8 @@ for f in snakemake.input["SS_haplo_strand_states"]:
 				lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])-1
 
 ### test
-#print("lib_clust_to_haplo:")
-#print(lib_clust_to_haplo)
+print("lib_clust_to_haplo[('NW150212-IV_50', 'V39')]:")
+print(lib_clust_to_haplo[('NW150212-IV_50', 'V39')])
 
 
 cluster = snakemake.wildcards["cluster"]

@@ -106,8 +106,11 @@ rule all:
 		#expand("haplotagged_SS_bams/{lib}_srt_dedup_{dir}_haplo{haplo}_chrom_count.data", lib=libs, dir=directions, haplo=haplotypes),
 		#expand("ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs)
 		#phasedSSvcfDir + "/whole_genome_phased.vcf"
-		expand("test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data", 
-			sample=sample, chunkID=["00"], cluster=["V39"], k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("test_export_het_kmers/{sample}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_haplo_edit_dist.data", 
+			sample=sample, chunkID=["00"], cluster=["V39"], k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),		
+		#expand(outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data",
+		#	sample=sample, chunkID=chunkID, cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		#expand(SSfastqDir + "/bubble_SS_lib_count_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
 		
 
 rule add_soft_clust_to_original_map_files:
@@ -560,18 +563,18 @@ rule cluster_snv_bubbles:
 	input:
 		bubble_ss_count=expand(SSfastqDir + "/bubble_SS_lib_count_cluster{cluster}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}.data", cluster=clusters),
 		clust_to_chrom=outputDir+"/cluster_name_mapping.data",
-		#bubbles="tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
+		#bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
 	output:
-		bubbles_clust="tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
-		#bubbles_splitted_fasta=expand("tmp_18Jan/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclust.fa", cluster=clusters)
+		bubbles_clust="tmp/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
+		#bubbles_splitted_fasta=expand("tmp/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclust.fa", cluster=clusters)
 	log: "log/cluster_snv_bubbles_k{k}_a{a}_u{u}.log"
 	script: "utils/cluster_snv_bubbles.snakemake.R"
 
 rule append_clusters_to_bubble_names:
 	input:
-		bubbles_clust="tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
-		bubbles="tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
-	output: "tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa"
+		bubbles_clust="tmp/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
+		bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
+	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa"
 	run:
 		# mapping bubble names to their clusters
 		bubble_id_to_clust={}
@@ -598,14 +601,14 @@ rule append_clusters_to_bubble_names:
 
 
 rule split_snv_bubble_fasta_file_by_cluster:
-	input: "tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa",
-	output: temp(expand("tmp_18Jan/splitted-per-clust/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclsut_temp.fa", cluster=clusters)),
+	input: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa",
+	output: temp(expand("tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclsut_temp.fa", cluster=clusters)),
 	log: "log/split_snv_bubble_fasta_file_by_cluster_k{k}_a{a}_u{u}.log"
 	shell: 
 		'''
 		(time set +o pipefail && 
 		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
-		awk '$2!=\"None\" {{print>\"tmp_18Jan/splitted-per-clust/snv_bubbles_cluster\"$2\"_k{wildcards.k}_a{wildcards.a}_u{wildcards.u}_withclsut_temp.fa\"}}' && 
+		awk '$2!=\"None\" {{print>\"tmp/splitted-per-clust/snv_bubbles_cluster\"$2\"_k{wildcards.k}_a{wildcards.a}_u{wildcards.u}_withclsut_temp.fa\"}}' && 
 		touch {output}) > {log} 2>&1
 		'''
 
@@ -618,15 +621,15 @@ rule split_snv_bubble_fasta_file_by_cluster:
 
 # This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
 rule correct_splitted_snv_bubble_fasta_files:
-	input: "tmp_18Jan/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut_temp.fa"
-	output: "tmp_18Jan/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa"
+	input: "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut_temp.fa"
+	output: "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa"
 	log: "log/correct_splitted_snv_bubble_fasta_files_cluster{cluster}_k{k}_a{a}_u{u}.log"
 	shell: "(time sort -k1,1 {input} | awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' > {output}) > {log} 2>&1"
 
 
 rule export_het_kmers:
 	input:
-		bubbles= "tmp_18Jan/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
+		bubbles= "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
 		SS_bubble_map= SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
 		SS_PB_minimap=outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}.maf",
 		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs) # TODO: to be replaced by strandphaser output
@@ -634,6 +637,14 @@ rule export_het_kmers:
 	params:
 		het_kmer_len=config["het_kmer_len"]
 	script: "utils/export_SS_het_kmers.py"
+
+rule compute_haplo_edit_distance:
+	input:
+		het_kmers=expand(outputDir+"/splitted-per-cluster/{{sample}}_chunk{chunkID}_cluster{{cluster}}_k{{k}}_a{{a}}_u{{u}}_PacBio_het_kmers.data", chunkID=chunkID),
+		pb_fasta=outputDir + "/splitted-per-cluster/{sample}_cluster{cluster}.fasta"
+	output: outputDir+"/splitted-per-cluster/{sample}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_haplo_edit_dist.data"
+	log: "log/compute_haplo_edit_distance_{sample}_cluster{cluster}_k{k}_a{a}_u{u}.log"
+	script: "compute_haplo_edit_distance.py"
 
 
 rule export_het_kmers_test:
@@ -647,6 +658,14 @@ rule export_het_kmers_test:
 		het_kmer_len=config["het_kmer_len"]
 	script: "utils/export_SS_het_kmers.py"
 
+rule compute_haplo_edit_distance_test:
+	input: 
+		het_kmers=expand("test_export_het_kmers/{{sample}}_chunk{chunkID}_cluster{{cluster}}_k{{k}}_a{{a}}_u{{u}}_PacBio_het_kmers.data", chunkID=['00']),
+		pb_fasta="test_export_het_kmers/{sample}_cluster{cluster}.fasta"
+	output: "test_export_het_kmers/{sample}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_haplo_edit_dist.data"
+	log: "log/compute_haplo_edit_distance_{sample}_cluster{cluster}_k{k}_a{a}_u{u}.log"
+	script: "compute_haplo_edit_distance.py"
+
 ##########################################################################################################
 
 
@@ -657,7 +676,7 @@ rule bwa_map_snv_bubble_unitigs_to_ref:
 	output: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
 	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 46 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_bam_snv_bubbles:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
@@ -689,7 +708,7 @@ rule intersect_bedvcf_snv_bubbles:
 
 rule export_snv_bubble_unitigs_fasta_from_bam:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
-	output: "tmp_18Jan/snv_bubbles_k{k}_a{a}_u{u}_with_refmap_info.fa"
+	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_with_refmap_info.fa"
 	log: "log/export_snv_bubble_unitigs_fasta_from_bam_k{k}_a{a}_u{u}.log"
 	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
 
