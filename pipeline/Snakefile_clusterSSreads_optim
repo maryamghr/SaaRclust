@@ -27,11 +27,14 @@ PBbamDir = config["pb_bam_dir"]
 platinumVCFdir = config["platinum_vcf_dir"]
 N = config["Nchunks"]
 l = len(str(N))
-chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
+#chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
+chunkID = '000'
 sample = "NA12878_WashU_PBreads"
 w = config["w"]
 kMinimap = config["k_minimap"]
-f = config["f"]
+fMinimap = config["f"]
+z = config["z"]
+minimapHeader = "SSreadNames\tSSreadLen\tQueryCoordStart\tQueryCoordend\tstrand\tPBreadNames\tPBreadLen\tTargetCoordStart\tTargetCoordend\tNumResidueMatches\tMatchedBasesWithGaps\tcigar"
 
 libs, L, = glob_wildcards(SSfastqDir+"/{lib}_{l}_R1_001.fastq.gz")
 PROJECTS, DIR = [], []
@@ -99,14 +102,19 @@ wildcard_constraints:
 	shortreads = "[^_]+",
 	lib = "[^_]+_[0-9]+",
 	clust = "[V]\d+",
+	chunks = "[0-9]+",
 
 #sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
+print("k=", kMinimap, "w=", w, "f=", fMinimap, "conf[f]=", config["f"], "z=", z, "sample=", sample, "chunkID=", chunkID)
 
 rule all:
 	input:
-		expand(SSfastqDir+"/merged/{x}.combined.fastq", x=COMBINS)
+		#expand(SSfastqDir+"/merged/{x}.combined.fastq", x=COMBINS)
 		#expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample=sample, chunkID=chunkID),
 		#expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID),
+		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
+		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
 		
 
 ###############################################################################
@@ -133,9 +141,32 @@ rule concat_merged_with_first_unmerged:
 	input:
 		SSfastqDir+"/merged/{lib}_{id}.assembled.fastq",
 		SSfastqDir+"/merged/{lib}_{id}.unassembled.forward.fastq",
-	output: SSfastqDir+"/merged/{lib}_{id}.combined.fastq"
+	output: temp(SSfastqDir+"/merged/{lib}_{id}.combined.fastq")
 	log: "log/concat_merged_with_first_unmerged_{lib}_{id}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
+
+###############################################################################
+##############	     Adding ground true info to SS read names	###############
+###############################################################################
+
+rule bwa_map_SS_to_ref:
+	input:
+		ref=config["reference"],
+		ss=temp(SSfastqDir+"/merged/{lib}_{id}.combined.fastq")
+	output: temp(SSfastqDir+"/merged/{lib}_{id}.combined.bam")
+	threads: 8
+	log: "log/bwa_map_SS_to_ref_{lib}_{id}.log"
+	shell: "(time bwa mem -t {threads} {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule export_SS_fasta_from_bam:
+	input: temp(SSfastqDir+"/merged/{lib}_{id}.combined.bam")
+	output: SSfastqDir+"/merged/{lib}_{id}.combined.withmapinfo.fasta"
+	log: "log/export_SS_fasta_from_bam_{lib}_{id}.log"
+	shell:
+		'''
+		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} print \">\" $qname \"_{wildcards.lib}_\" $flag \"_\" $rname \"_\" $pos \"\\n\" s}}' \
+		<(samtools view -F 4 {input}) > {output}) > {log} 2>&1
+		'''
 
 
 ###############################################################################
@@ -155,15 +186,24 @@ rule split_fasta_file:
 	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
 	
 
-#TODO: edit perl script to also add cigar to the output file
-rule minimap_align_chunks:
+rule minimap2_align_SS_to_PB:
 	input:
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta",
-		ss_reads=expand(SSfastqDir+"/merged/{x}.combined.fastq", x=COMBINS)
-	output: "aligns/{sample}_chunk{chunks}.maf.gz"
+		ss_reads=expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS)
+	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
+	threads: 48
 	log: "log/minimap_align_chunks_{sample}_chunk{chunks}.log"
-	threads: 8
-	shell: "(time minimap2 -c -t {threads} -k{kMinimap} -w{w} -f{f} {input.pb_reads} {input.ss_reads} | perl processMinimaptab.pl | gzip -c > {output}) > {log} 2>&1"
+	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
+
+# remove SS read names with unknown chromosomes and output columns 1 through 11 and the last column (cigar) of the minimap output
+rule process_minimap_output:
+	input: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz"
+	log:"log/process_minimap_output_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
+	shell:
+		'''
+		(time cat <(echo {minimapHeader}) <(zcat {input} | awk '$1~/chr([0-9]+|X)_[0-9]+$/{{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$NF}}') | gzip -c > {output}) > {log} 2>&1
+		'''
 
 
 ###############################################################################
