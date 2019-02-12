@@ -29,7 +29,7 @@ N = config["Nchunks"]
 l = len(str(N))
 #chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
 chunkID = '000'
-sample = "NA12878_WashU_PBreads"
+#sample = "NA12878_WashU_PBreads"
 w = config["w"]
 kMinimap = config["k_minimap"]
 fMinimap = config["f"]
@@ -120,16 +120,15 @@ wildcard_constraints:
 	chunks = "[0-9]+",
 
 #sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
-print("k=", kMinimap, "w=", w, "f=", fMinimap, "conf[f]=", config["f"], "z=", z, "sample=", sample, "chunkID=", chunkID)
 
 rule all:
 	input:
 		#expand(SSfastqDir+"/merged/{x}.combined.fastq", x=COMBINS)
-		#expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample=sample, chunkID=chunkID),
+		#expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample = "NA12878_WashU_PBreads", chunkID=chunkID),
 		#expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID),
 		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
 		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample=sample, chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
 		
 
 ###############################################################################
@@ -201,6 +200,12 @@ rule split_fasta_file:
 	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
 	
 
+
+###############################################################################
+##############	     minimap aliging SS reads to PB reads	###############
+###############################################################################
+
+
 rule minimap2_align_SS_to_PB:
 	input:
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta",
@@ -249,7 +254,7 @@ rule install_SaaRclust:
 
 rule HARD_clustering:
 	input:
-		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample=sample, chunks=chunkID), 
+		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample = "NA12878_WashU_PBreads", chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
 	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
@@ -367,7 +372,7 @@ rule merge_and_correct_dir_paired_clust_fasta:
 
 
 rule output_header:
-	input: expand(outputDir+"/{sample}_chunk{chunkID}.maf", sample=sample, chunkID=chunkID)
+	input: expand(outputDir+"/{sample}_chunk{chunkID}.maf", sample = "NA12878_WashU_PBreads", chunkID=chunkID)
 	output: outputDir + "/header.txt"
 	log: "log/output_header.log"
 	shell: "(time set +o pipefail && head -1 {input[0]} > {output})  > {log} 2>&1"
@@ -395,7 +400,7 @@ rule split_chunk_by_lib:
 	shell: "(time awk '{{print>\"{outputDir}/splitted-per-lib/{wildcards.sample}_chunk{wildcards.chunkID}_\"$3\".maf\"}}' {input.minimap_file} && touch {output}) > {log} 2>&1"
 
 rule merge_files_with_same_lib:
-	input: [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)]
+	input: [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample = "NA12878_WashU_PBreads", chunkID=chunkID)]
 	output: temp(outputDir+"/splitted-per-lib/aln_{lib}.maf")
 	log: "log/merge_files_with_same_lib_{lib}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
@@ -403,7 +408,7 @@ rule merge_files_with_same_lib:
 rule sort_lib_alignments:
 	input:
 		header = outputDir + "/header.txt",
-		#splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample=sample, chunkID=chunkID)],
+		#splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample = "NA12878_WashU_PBreads", chunkID=chunkID)],
 		libAlignment = outputDir+"/splitted-per-lib/aln_{lib}.maf"
 	output: outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf"
 	log: "log/sort_lib_alignments_{lib}.log"
@@ -440,7 +445,7 @@ rule count_SS_clust_cov:
 
 rule cluster_SS_reads2:
 	input:
-		ss_clust_count=expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample=sample, chunkID=chunkID),
+		ss_clust_count=expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample = "NA12878_WashU_PBreads", chunkID=chunkID),
 		clust_to_chrom=outputDir+"/cluster_name_mapping.data",
 		clust_partners=outputDir+"/clust_partners.txt"
 	output: outputDir+"/SS_cluster_{sample}_chunk{chunkID}.data"
@@ -1188,7 +1193,7 @@ rule find_inter_chr_intersection:
 rule estimate_cluster_sizes:
 	input:
 		chromsize=config["chrom_sizes"],		
-		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample=sample, clust=clustpair.keys())
+		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample = "NA12878_WashU_PBreads", clust=clustpair.keys())
 	output: config["cluster_sizes"]
 	shell:
 		'''
@@ -1268,5 +1273,6 @@ rule assembly:
 		minOverlapLength={wildcards.overlap} \
 		-pacbio-corrected {input.trimmed}) 2> {log}
 		"""
+
 
 
