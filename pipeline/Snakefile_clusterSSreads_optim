@@ -128,7 +128,9 @@ rule all:
 		#expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID),
 		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
 		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+#		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		expand(PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID)
 		
 
 ###############################################################################
@@ -184,17 +186,17 @@ rule export_SS_fasta_from_bam:
 
 
 ###############################################################################
-##############	     minimap aliging SS reads to PB reads	###############
+##############	     export and split PacBio fasta files	###############
 ###############################################################################
 
 rule export_pacbio_reads:
 	input: PBbamDir+"/hg38.NA12878-WashU.bam"    
-	output: PBbamDir+"/{sample}.fasta"    
+	output: expand(PBbamDir+"/{sample}.fasta", sample="NA12878_WashU_PBreads")
 	shell: "perl {exportPBfasta} {input} | {PBbamDir}/seq-shuf -t 1000 > {output}"
 
 
 rule split_fasta_file:
-	input: PBbamDir+"/NA12878_WashU_PBreads.fasta"
+	input: expand(PBbamDir+"/{sample}.fasta", sample="NA12878_WashU_PBreads")#PBbamDir+"/NA12878_WashU_PBreads.fasta"
 	output: expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID)
 	log: "log/split_fasta_file.log"
 	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
@@ -239,9 +241,9 @@ rule extend_minimap_columns_by_ground_truth_info:
 		'''
 
 
-###############################################################################
-##############	     SaaRclust: clustering PacBio reads		###############
-###############################################################################
+#######################################################################################################
+##############	     SaaRclust: clustering PacBio reads	by chromosome and direction	###############
+#######################################################################################################
 
 rule install_SaaRclust:
 	output:
@@ -256,7 +258,7 @@ rule HARD_clustering:
 	input:
 		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample = "NA12878_WashU_PBreads", chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
 	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		"""
@@ -273,10 +275,10 @@ rule HARD_clustering:
 rule SOFT_clustering:
 	input:
 		minimapFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
-		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
+		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
     
 	output:
-		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
 	log:
 		"log/SOFT_clustering_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
@@ -303,26 +305,26 @@ rule SOFT_clustering:
 
 rule add_soft_clust_to_original_map_files:
 	input:
-		minimap_file = inputDir+"/{sample}_chunk{chunkID}.maf.gz",
-		soft_clust_file = softClustDir+"/{sample}_chunk{chunkID}_clusters.RData"
-	output: outputDir+"/{sample}_chunk{chunkID}.maf"
-	log: "log/add_soft_clust_{sample}_chunk{chunkID}.log"
+		minimap_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
+		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf"
+	log: "log/add_soft_clust_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	script: "utils/addSoftProbs.R"
+
 
 rule append_clusters_to_pb_read_names:
 	input:
-		minimap_file=expand(outputDir+"/{{sample}}_chunk{chunkID}.maf", chunkID=chunkID),
-		pb="export_fasta_from_bam/"+config["pb_fasta"]+".fasta"
-	output: outputDir + "/{sample}_with_cluster.fasta"
+		minimap_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf",
+		pb=PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta"
+	output: PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta"
 	run:
 		# mapping PacBio readNames to their clusters and soft probs
 		pb_name_to_clust={}
-		for infile in input["minimap_file"]:
-			with open(infile) as clustpb:
-				for line in clustpb:
-					sp = line.strip().split()
-					if sp[0] != "PBreadNames":
-						pb_name_to_clust[sp[0]]=(sp[14], sp[15])
+		with open(input["minimap_file"]) as clustpb:
+			for line in clustpb:
+				sp = line.strip().split()
+				if sp[0] != "PBreadNames":
+					pb_name_to_clust[sp[0]]=(sp[19], sp[20])
 		
 		# writing PacBio reads clusters in the PacBio fasta file
 		with open(input["pb"]) as f:
@@ -331,7 +333,7 @@ rule append_clusters_to_pb_read_names:
 					if line[0]==">":
 						sp = line.split()[0].split("_")		
 						if len(sp) > 3:
-							pb_name = "_".join(sp[:-4])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
+							pb_name = "_".join(sp[:-3])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
 						if len(sp) > 3 and pb_name in pb_name_to_clust:
 							pbclust = pb_name_to_clust[pb_name]
 							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1], file=out)
@@ -340,6 +342,12 @@ rule append_clusters_to_pb_read_names:
 					else:
 						print("sequence" + line.strip(), file=out)
 
+
+#######################################################################################
+##############	   	  split pb fasta file by clusters 		###############
+#######################################################################################
+###########	 (to be corrected: should be done per chunk now)	    ###########
+#######################################################################################
 
 rule split_fasta_file_by_cluster:
 	input: outputDir + "/{sample}_with_cluster.fasta"
@@ -369,6 +377,11 @@ rule merge_and_correct_dir_paired_clust_fasta:
 	run:
 		os.system("cat " + input[0] + " > " + output[0])
 		revcompfasta(input[1], output[0])
+
+
+#######################################################################################
+##############	   	  inefficient part of the pipeline		###############
+#######################################################################################
 
 
 rule output_header:
@@ -435,9 +448,9 @@ rule split_SS_read_names_by_clust:
 ###################################################################
 
 rule count_SS_clust_cov:
-	input: outputDir+"/{sample}_chunk{chunkID}.maf"
-	output: outputDir+"/{sample}_chunk{chunkID}_SS_cov.data"
-	log: "log/count_SS_clust_cov_{sample}_chunk{chunkID}.log"
+	input: outputDir+"/{sample}_chunk{chunks}.maf"
+	output: outputDir+"/{sample}_chunk{chunks}_SS_cov.data"
+	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}.log"
 	shell:
 		'''
 		(time awk '{{print $2\"_\"$5\"_\"$4, $7, $15}}' {input} | tail -n +2 | sort | uniq -c > {output}) > {log} 2>&1
