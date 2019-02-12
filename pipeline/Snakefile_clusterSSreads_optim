@@ -34,7 +34,22 @@ w = config["w"]
 kMinimap = config["k_minimap"]
 fMinimap = config["f"]
 z = config["z"]
-minimapHeader = "SSreadNames\tSSreadLen\tQueryCoordStart\tQueryCoordend\tstrand\tPBreadNames\tPBreadLen\tTargetCoordStart\tTargetCoordend\tNumResidueMatches\tMatchedBasesWithGaps\tcigar"
+outputfolder    = "SaaRclust_results"
+numClustersHard = config["numClustersHard"]
+numClustersSoft = config["numClustersSoft"]
+EMiter          = config["EMiter"]
+alpha           = config["alpha"]
+minLib          = config["minLib"]
+upperQ          = config["upperQ"]
+logLth          = config["logLth"]
+theta_constrain = config["theta_constrain"]
+log_scale  	= config["log_scale"]
+numAlignments   = config["numAlignments"]
+
+minimapHeader = "SSreadNames\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
+minimapExtendedHeader = "SSreadNames\\tSSlibNames\\tSSflag\\tSSchrom\\tSSpos\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBflag\\tPBchrom\\tPBpos\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
+
+print(minimapExtendedHeader)
 
 libs, L, = glob_wildcards(SSfastqDir+"/{lib}_{l}_R1_001.fastq.gz")
 PROJECTS, DIR = [], []
@@ -114,7 +129,7 @@ rule all:
 		#expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID),
 		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
 		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample=sample, chunks=chunkID),
 		
 
 ###############################################################################
@@ -202,7 +217,20 @@ rule process_minimap_output:
 	log:"log/process_minimap_output_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
 		'''
-		(time cat <(echo {minimapHeader}) <(zcat {input} | awk '$1~/chr([0-9]+|X)_[0-9]+$/{{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$NF}}') | gzip -c > {output}) > {log} 2>&1
+		(time cat <(echo -e \"{minimapHeader}\") <(zcat {input} | awk '$1~/chr([0-9]+|X)_[0-9]+$/{{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$NF}}') | gzip -c > {output}) > {log} 2>&1
+		'''
+
+rule extend_minimap_columns_by_ground_truth_info:
+	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz"
+	log: "log/extend_minimap_columns_by_ground_truth_info_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
+	shell:
+		'''
+		(time cat <(echo -e \"{minimapExtendedHeader}\") <(zcat {input} | tail -n +2 | gawk 'match($1, /(.*)_(.*)_(.*)_(.*)_(.*)_(.*)/, ss) match($6, /(.*)_(.*)_(.*)_(.*)/, pb) \
+		{{print ss[1] \"\t\" ss[2] \"_\" ss[3] \"\t\" ss[4] \"\t\" ss[5] \"\t\" ss[6] \
+		\"\t\" $2 \"\t\" $3 \"\t\" $4 \"\t\" $5 \"\t\" \
+		pb[1] \"\t\" pb[2] \"\t\" pb[3] \"\t\" pb[4] \"\t\" \
+		$7 \"\t\" $8 \"\t\" $9 \"\t\" $10 \"\t\" $11 \"\t\" $12}}') | gzip -c > {output}) > {log} 2>&1
 		'''
 
 
@@ -221,15 +249,15 @@ rule install_SaaRclust:
 
 rule HARD_clustering:
 	input:
-		minimapFiles = expand("aligns/{sample}_chunk{chunks}.maf.gz", sample=sample, chunks=chunkID), 
+		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample=sample, chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
-	log: "log/saarclust_hardclust.log"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
+	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		"""
 		(time Rscript utils/SaaRclust_hardclust_pipeline.R \
-		aligns \
-		{outputfolder}_{sample} \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z} \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
 		{numClustersHard} \
 		{alpha} \
 		{numAlignments} \
@@ -239,18 +267,18 @@ rule HARD_clustering:
 
 rule SOFT_clustering:
 	input:
-		minimapFile = "aligns/{sample}_chunk{chunks}.maf.gz",
-		HCclustFile = "{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
+		minimapFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
+		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/hardClusteringResults.RData"
     
 	output:
-		"{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
 	log:
-		"log/saarclust_softclust_{sample}_chunk{chunks}.log"
+		"log/SOFT_clustering_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
 		"""
 		(time Rscript utils/SaaRclust_softclust_pipeline.R \
 		{input.minimapFile} \
-		{outputfolder}_{sample} \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
 		{numClustersSoft} \
 		{EMiter} \
 		{alpha} \

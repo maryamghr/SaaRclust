@@ -85,3 +85,15 @@ w: 1
 k_minimap: 15
 f: 0.05
 z: 8
+
+# saarclust parameters
+numClustersHard: 54
+numClustersSoft: 47
+EMiter: 20
+alpha: 0.01
+minLib: 1
+upperQ: 0.95
+logLth: 1
+theta_constrain: "FALSE"
+log_scale: "TRUE"
+numAlignments: 30000
