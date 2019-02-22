@@ -422,67 +422,6 @@ rule correct_fasta_files:
 #		revcompfasta(input[1], output[0])
 
 
-#######################################################################################
-##############	   	  inefficient part of the pipeline		###############
-#######################################################################################
-
-rule output_header:
-	input: expand(outputDir+"/{sample}_chunk{chunkID}.maf", sample = "NA12878_WashU_PBreads", chunkID=chunkID)
-	output: outputDir + "/header.txt"
-	log: "log/output_header.log"
-	shell: "(time set +o pipefail && head -1 {input[0]} > {output})  > {log} 2>&1"
-
-rule remove_slash_in_lib_names:
-	input: outputDir+"/{sample}_chunk{chunkID}.maf",
-	output: outputDir+"/{sample}_chunk{chunkID}.new.maf"
-	log: "log/remove_slash_in_lib_names_{sample}_chunk{chunkID}.log"
-	shell: "(time tail -n +2 {input} | awk '{{sub(/.{{1}}/, \"\", $3)}}1' > {output}) > {log} 2>&1"
-
-rule split_minimap_file_by_cluster:
-	input: outputDir+"/{sample}_chunk{chunkID}.new.maf"
-	output: expand(outputDir+"/splitted-per-cluster/{{sample}}_chunk{{chunkID}}_cluster{cluster}.maf", cluster=clusters)
-	log: "log/split_minimap_file_by_cluster_{sample}_chunk{chunkID}.log"
-	shell:
-		'''
-		(time awk '{{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_chunk{wildcards.chunkID}_cluster\"$15\".maf\"}}' {input} && touch {output}) > {log} 2>&1
-		'''
-
-rule split_chunk_by_lib:
-	input:
-		minimap_file = outputDir+"/{sample}_chunk{chunkID}.new.maf"
-	output: temp([outputDir+"/splitted-per-lib/{sample}_chunk{chunkID}_" + x for x in expand("{lib}.maf", lib=libs)]),
-	log: "log/split_chunk_by_lib_{sample}_chunk{chunkID}"
-	shell: "(time awk '{{print>\"{outputDir}/splitted-per-lib/{wildcards.sample}_chunk{wildcards.chunkID}_\"$3\".maf\"}}' {input.minimap_file} && touch {output}) > {log} 2>&1"
-
-rule merge_files_with_same_lib:
-	input: [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample = "NA12878_WashU_PBreads", chunkID=chunkID)]
-	output: temp(outputDir+"/splitted-per-lib/aln_{lib}.maf")
-	log: "log/merge_files_with_same_lib_{lib}.log"
-	shell: "(time cat {input} > {output}) > {log} 2>&1"
-
-rule sort_lib_alignments:
-	input:
-		header = outputDir + "/header.txt",
-		#splittedChunks = [outputDir + x + "{lib}.maf" for x in expand("/splitted-per-lib/{sample}_chunk{chunkID}_", sample = "NA12878_WashU_PBreads", chunkID=chunkID)],
-		libAlignment = outputDir+"/splitted-per-lib/aln_{lib}.maf"
-	output: outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf"
-	log: "log/sort_lib_alignments_{lib}.log"
-	shell: "(time cat {input.header} > {output} && sort -k1,1 {input.libAlignment} >> {output}) > {log} 2>&1"
-
-rule cluster_SS_reads:
-	input:
-		aln_lib = outputDir+"/splitted-per-lib/aln_{lib}_sorted.maf",
-		clust_to_chrom_mapping = outputDir + "/cluster_name_mapping.data",
-		cluster_pairs = outputDir + "/clust_partners.txt"
-	output: outputDir+"/splitted-per-lib/clust_{lib}.data"
-	log: "log/cluster_SS_reads_{lib}.log"
-	script: "utils/cluster_SS_reads.snakemake.R"
-
-rule split_SS_read_names_by_clust:
-	input: outputDir+"/splitted-per-lib/clust_{lib}.data"
-	output: expand(outputDir+"/splitted-per-lib/clust_splitted_{{lib}}_{cluster}.data", cluster=clusters)
-	log: "log/split_SS_read_names_by_clust_{lib}.log"
-	shell: "(time awk -F, '{{if ($2 != \"\")print $1> \"{outputDir}/splitted-per-lib/clust_splitted_\" $3 \"_\" $2 \".data\"}}' {input}) > {log} 2>&1"
 
 
 ###################################################################
@@ -598,51 +537,6 @@ rule output_bubble_ss_lib_coverage:
 	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
 
-
-###################################################################
-##########		clustering SS reads		###########
-###################################################################
-
-rule extract_fastq_per_lib_per_clust:
-	input:
-		SS_read_names = outputDir+"/splitted-per-lib/clust_splitted_{lib}_{cluster}.data",
-		SS_fastq = SSfastqDir + "/{lib}_L{L}_R1_001.fastq.gz"
-	output: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq"	
-	log: "log/extract_fastq_per_lib_per_clust.log_{lib}_{L}_{cluster}"
-	shell: "(time {EXTRACTFASTQ} {input} > {output}) > {log} 2>&1"
-
-rule convert_fastq_to_fasta:
-	input: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fastq"
-	output: SSfastqDir + "/{lib}_L{L}_R1_001_{cluster}.fa"
-	log: "log/convert_fastq_to_fasta_lib{lib}_L{L}_cluster{cluster}.log"
-	#echo \'lib=\' {wildcards.lib}
-	shell:
-		'''
-		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} | \
-		bioawk -c fastx \'{{print \">\" $name \"_lib:\" \"{wildcards.lib}\" \"_len:\" length($seq); print $seq}}\' > {output}) > {log} 2>&1
-		'''
-
-rule merge_fasta_files_with_same_clust:
-	input: expand(SSfastqDir + "/{fastaprefix}_R1_001_{{cluster}}.fa", fastaprefix=[libs[i] + "_L" + L[i] for i in range(len(libs))])
-	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-	log: "log/merge_fasta_files_with_same_clust_{cluster}.log"
-	shell: "(time cat {input} > {output}) > {log} 2>&1"
-
-#rule convert_fastq_to_fasta:
-#	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq"
-#	output: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-#	log: "log/convert_fastq_to_fasta_cluster{cluster}.log"
-#	shell:
-#		'''
-#		(time awk \'NR%4==1 {{print \">\" substr($0, 2)}} NR%4==2 {{print}}\' {input} | \
-#		bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' > {output}) > {log} 2>&1
-#		'''
-
-#rule add_seq_len_to_name_SS_fasta:
-#	input: SSfastqDir + "/all_SS_libs_cluster{cluster}.fa"
-#	output: SSfastqDir + "/all_SS_libs_cluster{cluster}_withlen.fa"
-#	log: "log/add_seq_len_to_name_SS_fasta_cluster{cluster}.log"
-#	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
 
 #################################################
 ####     De Bruijn graph building MIKKO      ####
@@ -908,13 +802,6 @@ rule export_contigs_kmer_count:
 						hetstatus = "het" if sp[1] in hetcontigs else "hom"
 						km = sp[-1].split(":")[-1]
 						print(sp[1] + "\t" + sp[2] + "\t" + hetstatus + "\t" + km, file=out)
-
-## debug
-#rule export_revcomp_free_hetunitigs_fasta:
-#	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.fa"
-#	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.revcompfree.fa"
-#	log: "log/export_revcomp_free_hetunitigs_fasta.log"
-#	shell: "(time set +o pipefail && python {getRevcompFree} {input} > {output}) > {log} 2>&1"
 
 
 ## bubble detection
