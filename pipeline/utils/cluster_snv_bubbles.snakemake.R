@@ -38,11 +38,14 @@ d[, num.bubble.rep:=nrow(.SD), by=bubble.id]
 d <- d[num.bubble.rep<2]
 d[, num.bubble.rep:=NULL]
 
+# TODO: replace the above code block by the following line (the above mentioned comment doesn't seem to be a problem at all)
+d <- d[, sapply(sum, .SD), by=bubble.id]
+
 
 # TODO: computing the accuracy of clustering bubbles...
 clust.to.chrom <- fread(snakemake@input[["clust_to_chrom"]], header=T)
 colnames(clust.to.chrom)[2] <- "clust"
-clust.to.chrom[, original.cluster:=strsplit(original.cluster[[1]][1], "_"), by=clust]
+clust.to.chrom[, original.cluster:=strsplit(original.cluster, "_")[[1]][1], by=clust]
 
 d <- merge(d, clust.to.chrom, by="clust")
 d[, orig.chrom:=strsplit(bubble, "_")[[1]][2], by=1:nrow(d)]

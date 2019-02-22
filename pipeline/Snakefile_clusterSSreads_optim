@@ -28,8 +28,8 @@ platinumVCFdir = config["platinum_vcf_dir"]
 N = config["Nchunks"]
 l = len(str(N))
 #chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
-chunkID = '000'
-#sample = "NA12878_WashU_PBreads"
+chunkID = ['000']
+sample = "NA12878_WashU_PBreads"
 w = config["w"]
 kMinimap = config["k_minimap"]
 fMinimap = config["f"]
@@ -89,18 +89,19 @@ print("getclustersize(V23) = ", getclustersize('V23', clustersizes))
 
 # outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
 # getting the names of first cluster pairs:
-f = open(outputDir+"/clust_partners.txt")
-clustpair = {}
-sp = f.read().strip().split("\n")
-print(sp)
-for s in range(1, len(sp)):
-	clust = sp[s].split("\t")
-	clustpair[clust[1]]=clust[2]
+#f = open(outputDir+"/clust_partners.txt")
+#clustpair = {}
+#sp = f.read().strip().split("\n")
+#print(sp)
+#for s in range(1, len(sp)):
+#	clust = sp[s].split("\t")
+#	clustpair[clust[1]]=clust[2]
 
-print("clustpair = ", clustpair)
-print([x + "_rc" + clustpair[x] for x in clustpair])
+#print("clustpair = ", clustpair)
+#print([x + "_rc" + clustpair[x] for x in clustpair])
 
-clusters = list(clustpair.keys())+list(clustpair.values())
+#clusters = list(clustpair.keys())+list(clustpair.values())
+clusters = ["V"+str(i) for i in range(1, 48)]
 directions = ["watson", "crick"]
 haplotypes = [1,2]
 haplotype_tags = ["HP:i:1", "HP:i:2"]
@@ -118,6 +119,7 @@ wildcard_constraints:
 	lib = "[^_]+_[0-9]+",
 	clust = "[V]\d+",
 	chunks = "[0-9]+",
+	sample = "NA12878_WashU_PBreads",
 
 #sample, chunkID, = glob_wildcards(inputDir+"/{sample}_chunk{chunkID}.maf.gz")
 
@@ -129,8 +131,18 @@ rule all:
 		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
 		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
 #		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		expand(PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID)
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand(PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_clust_chrom_dir_count.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads"),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", x=COMBINS),
+		#expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		expand("tmp/snv_bubbles_k{k}_a{a}_u{u}_with_refmap_info.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+		expand("tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
 		
 
 ###############################################################################
@@ -169,13 +181,13 @@ rule bwa_map_SS_to_ref:
 	input:
 		ref=config["reference"],
 		ss=temp(SSfastqDir+"/merged/{lib}_{id}.combined.fastq")
-	output: temp(SSfastqDir+"/merged/{lib}_{id}.combined.bam")
+	output: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
 	threads: 8
 	log: "log/bwa_map_SS_to_ref_{lib}_{id}.log"
 	shell: "(time bwa mem -t {threads} {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule export_SS_fasta_from_bam:
-	input: temp(SSfastqDir+"/merged/{lib}_{id}.combined.bam")
+	input: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
 	output: SSfastqDir+"/merged/{lib}_{id}.combined.withmapinfo.fasta"
 	log: "log/export_SS_fasta_from_bam_{lib}_{id}.log"
 	shell:
@@ -217,6 +229,7 @@ rule minimap2_align_SS_to_PB:
 	log: "log/minimap_align_chunks_{sample}_chunk{chunks}.log"
 	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
 
+
 # remove SS read names with unknown chromosomes and output columns 1 through 11 and the last column (cigar) of the minimap output
 rule process_minimap_output:
 	input: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
@@ -226,6 +239,7 @@ rule process_minimap_output:
 		'''
 		(time cat <(echo -e \"{minimapHeader}\") <(zcat {input} | awk '$1~/chr([0-9]+|X)_[0-9]+$/{{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$NF}}') | gzip -c > {output}) > {log} 2>&1
 		'''
+
 
 rule extend_minimap_columns_by_ground_truth_info:
 	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz"
@@ -299,17 +313,45 @@ rule SOFT_clustering:
 		"""
 
 ###############################################################################
-##############	   	  clustering Strand-seq reads		###############
+##############	   	  adding clust info to files		###############
 ###############################################################################
 
-
+# TODO: keep the order of the columns
 rule add_soft_clust_to_original_map_files:
 	input:
 		minimap_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
 		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf"
-	log: "log/add_soft_clust_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+	log: "log/add_soft_clust_to_original_map_files_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	script: "utils/addSoftProbs.R"
+
+
+### TODO (for the next two rules): you should later take into account the flags which are not equal to 0 nor 16!
+
+rule count_clust_chrom_dir:
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf",
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_clust_chrom_dir_count.data"
+	log: "log/count_clust_chrom_dir_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+	shell:
+		'''
+		(time tail -n +2 {input} | awk '{{print $1, $12\"_\"$11, $20}}' | sort | uniq -c | awk '{{print $3, $4}}' | sort | uniq -c > {output}) > {log} 2>&1
+		'''
+
+
+rule map_clust_to_chrom_dir:
+	input:
+		clust_chrom_count=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_clust_chrom_dir_count.data", chunks=chunkID[0]),
+		soft_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/{{sample}}_chunk{chunks}_clusters.RData", chunks=chunkID[0])
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
+	log: "log/map_clust_to_chrom_dir_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+	shell: 
+		'''
+		(time Rscript utils/map_clust_to_chrom_dir.snakemake.R \
+		{input.clust_chrom_count}  \
+		{input.soft_clust}  \
+		{output} \
+		$(pwd)/utils/R-packages/ ) > {log} 2>&1
+		'''
 
 
 rule append_clusters_to_pb_read_names:
@@ -331,7 +373,7 @@ rule append_clusters_to_pb_read_names:
 			with open(output[0], 'w') as out:
 				for line in f:
 					if line[0]==">":
-						sp = line.split()[0].split("_")		
+						sp = line.split()[0].split("_")
 						if len(sp) > 3:
 							pb_name = "_".join(sp[:-3])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
 						if len(sp) > 3 and pb_name in pb_name_to_clust:
@@ -369,20 +411,20 @@ rule correct_fasta_files:
 	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
 
 
-rule merge_and_correct_dir_paired_clust_fasta:
-	input:
-		lambda wc: expand(outputDir + "/splitted-per-cluster/" + wc.sample + "_cluster{pair}.fasta", pair = [wc.clust, clustpair[wc.clust]]),
-	output:
-		outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta"
-	run:
-		os.system("cat " + input[0] + " > " + output[0])
-		revcompfasta(input[1], output[0])
+# FIXME: clustpair shouldn't be used here
+#rule merge_and_correct_dir_paired_clust_fasta:
+#	input:
+#		lambda wc: expand(outputDir + "/splitted-per-cluster/" + wc.sample + "_cluster{pair}.fasta", pair = [wc.clust, clustpair[wc.clust]]),
+#	output:
+#		outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta"
+#	run:
+#		os.system("cat " + input[0] + " > " + output[0])
+#		revcompfasta(input[1], output[0])
 
 
 #######################################################################################
 ##############	   	  inefficient part of the pipeline		###############
 #######################################################################################
-
 
 rule output_header:
 	input: expand(outputDir+"/{sample}_chunk{chunkID}.maf", sample = "NA12878_WashU_PBreads", chunkID=chunkID)
@@ -447,23 +489,114 @@ rule split_SS_read_names_by_clust:
 ##########		clustering SS reads		###########
 ###################################################################
 
+#TODO: add lib names to the ss names: ssname_lib_flag_chrom_pos
+#rule count_SS_clust_cov:
+#	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf"
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_SS_cov.data"
+#	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+#	shell:
+#		'''
+#		(time awk '{{print $2\"_\"$3\"_\"$4\"_\"$5\"_\"$6\"_len:\"$7, $10, $20}}' {input} | tail -n +2 | sort | uniq -c > {output}) > {log} 2>&1
+#		'''
+
 rule count_SS_clust_cov:
-	input: outputDir+"/{sample}_chunk{chunks}.maf"
-	output: outputDir+"/{sample}_chunk{chunks}_SS_cov.data"
-	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}.log"
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_SS_cov.data"
+	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		'''
-		(time awk '{{print $2\"_\"$5\"_\"$4, $7, $15}}' {input} | tail -n +2 | sort | uniq -c > {output}) > {log} 2>&1
+		(time awk '{{print $2, $3, $4, $5, $6, $7, $10, $20}}' {input} | tail -n +2 | sort | uniq -c > {output}) > {log} 2>&1
 		'''
+
 
 rule cluster_SS_reads2:
 	input:
-		ss_clust_count=expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample = "NA12878_WashU_PBreads", chunkID=chunkID),
-		clust_to_chrom=outputDir+"/cluster_name_mapping.data",
-		clust_partners=outputDir+"/clust_partners.txt"
-	output: outputDir+"/SS_cluster_{sample}_chunk{chunkID}.data"
-	log: "log/cluster_snv_bubbles_{sample}_chunk{chunkID}.log"
+		ss_clust_count=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_SS_cov.data", chunks=chunkID),
+		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data"
+	log: "log/cluster_SS_reads2_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/cluster_SS_reads2.snakemake.R"
+
+
+# TODO: correct later: ss names in the input fasta file shouldn't have lib name
+rule append_clusters_to_SS_read_names:
+	input:
+		clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
+		ss_reads=SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta"
+	output: SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta"
+	log: "log/append_clusters_to_SS_read_names_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{x}.log"
+	run:
+		# mapping PacBio readNames to their clusters and soft probs
+		name_to_clust_len={}
+		with open(input["clustering"]) as clust:
+			for line in clust:
+				sp = line.strip().split()
+				if sp[0] != "clust.forward":
+					ss_parts=sp[1].split("_len:")
+					name_to_clust_len[ss_parts[0]]=(sp[0], ss_parts[1])
+		
+		# writing PacBio reads clusters in the PacBio fasta file
+		with open(input["ss_reads"]) as f:
+			with open(output[0], 'w') as out:
+				for line in f:
+					if line[0]==">":
+						name=line.strip()[1:]
+						if name in name_to_clust_len:
+							print(">" + name + "_clust:" + name_to_clust_len[name][0] + "_len:" + name_to_clust_len[name][1], file=out)
+						else:
+							print(">" + name + "_clust:None", file=out)
+					else:
+						print(line.strip(), file=out)
+
+
+###########################################################################
+##########		mapping SS reads to bubbles		###########
+###########################################################################
+
+rule map_SS_reads_to_snv_bubbles2:
+	input:
+		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta", #SSfastqDir + "/all_SS_libs_cluster{cluster}.fa",
+		bubble="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
+	output: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/map_SS_reads_to_snv_bubbles_{x}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
+
+
+rule output_valid_maps:
+	input: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	output: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/output_valid_maps_and_SS_bubble_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/output_valid_maps.py"
+
+
+###################################################################
+##########		clustering bubbles		###########
+###################################################################
+
+rule count_bubble_clust_coverage:
+	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	output: SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	shell: "(time tail -n +2 {input} | awk '{{print $3, $4, $5, $6, $7, $8}}' | sort | uniq -c > {output}) > {log} 2>&1"
+
+
+rule cluster_snv_bubbles2:
+	input:
+		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output:
+		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+	log: "log/cluster_snv_bubbles_k{k}_a{a}_u{u}.log"
+	script: "utils/cluster_snv_bubbles2.snakemake.R"
+
+rule output_bubble_ss_lib_coverage:
+	input:
+		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
+	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
 
 
 ###################################################################
@@ -948,7 +1081,7 @@ rule bwa_map_snv_bubble_unitigs_to_ref:
 	output: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
 	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 46 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 46 -c 1 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_bam_snv_bubbles:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
@@ -1203,15 +1336,16 @@ rule find_inter_chr_intersection:
 #####	     Canu assembly	  #####
 #######################################
 
-rule estimate_cluster_sizes:
-	input:
-		chromsize=config["chrom_sizes"],		
-		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample = "NA12878_WashU_PBreads", clust=clustpair.keys())
-	output: config["cluster_sizes"]
-	shell:
-		'''
-		paste {input.chromsize} <(ls -lh {outputDir}/splitted-per-cluster/*_with_RCpair.fasta | awk '{{gsub(\"G\", \"\", $5); gsub(\"{outputDir}/splitted-per-cluster/{sample}_cluster", \"\"); gsub(\"_with_RCpair.fasta\", \"\"); print}}' | sort -n -k5,5 | cut -d\' \' -f9) > {output}
-		'''
+# FIXME: clustpair shouldn't be used here
+#rule estimate_cluster_sizes:
+#	input:
+#		chromsize=config["chrom_sizes"],		
+#		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample = "NA12878_WashU_PBreads", clust=clustpair.keys())
+#	output: config["cluster_sizes"]
+#	shell:
+#		'''
+#		paste {input.chromsize} <(ls -lh {outputDir}/splitted-per-cluster/*_with_RCpair.fasta | awk '{{gsub(\"G\", \"\", $5); gsub(\"{outputDir}/splitted-per-cluster/{sample}_cluster", \"\"); gsub(\"_with_RCpair.fasta\", \"\"); print}}' | sort -n -k5,5 | cut -d\' \' -f9) > {output}
+#		'''
 
 rule correct_reads:
 	input:
