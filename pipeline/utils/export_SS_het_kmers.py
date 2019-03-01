@@ -1,6 +1,9 @@
 import sys
+#import re
 
 q = snakemake.params["het_kmer_len"]
+
+print("q = ", q)
 
 revcomp = {'a':'t', 'c':'g', 'g':'c', 't':'a', 'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
@@ -19,23 +22,36 @@ def add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q):
 			for al in range(2):
 				bubble_allele_to_kmers[(bubble_id, al)][i]=seq[al][i-q:(i+q+1)]
 
+
 def map_index(idx, cigar):
 	# counting the number of insertions and deletions that happen before each index in the aligned text	
 	num_insertion=[]
 	num_deletion= []
 	insertion = 0
 	deletion = 0
+	#print("cigar = ", cigar)
+	cigar = cigar.split('cg:Z:')[1]
+	l = ''
+
 	for i in range(len(cigar)):
-		if i % 2 == 0:
-			num=int(cigar[i])
+		if cigar[i].isdigit():
+			l = l + cigar[i]
 		else:
-			if cigar[i]!='D':
+			num = int(l)
+			if cigar[i]=='M' or cigar[i]=='X' or cigar[i]=='I':
 				num_insertion = num_insertion + [insertion]*num
 				num_deletion = num_deletion + [deletion]*num
 				if cigar[i]=='I':
 					insertion = insertion + num
-			else:
+			elif cigar[i]=='D':
 				deletion = deletion + num
+			
+			else:
+				print("cigar=", cigar, " has chars except for {M, X, I, D}")
+				return ""
+
+			l = ''
+
 	# map text1 index to text2 index (idx2 = idx1 + |D| - |I|)
 	return idx + num_deletion[idx] - num_insertion[idx]
 
@@ -47,6 +63,7 @@ bubbles_with_invalid_alleles = set()
 
 with open(snakemake.input["bubbles"]) as bubbles:
 	prev_bubble_id=-1
+	prev_clust = "None"
 	num_bubble_rep=0
 	seq=["", ""]
 	for line in bubbles:
@@ -54,18 +71,17 @@ with open(snakemake.input["bubbles"]) as bubbles:
 			break
 
 		if line[0]==">":
-			clust=line.split()[1]
-			bubble_name=line.split()[0][1:]
+			sp_line=line.split()
+			clust=sp_line[1]
+			bubble_name=sp_line[0][1:]
 			sp=bubble_name.split("_")
 			bubble_id=int(sp[1])
 			allele=int(sp[3])-1
 			if allele > 2:
 				bubbles_with_invalid_alleles.add(bubble_id)
 
-			if bubble_id != prev_bubble_id:				
-				#if num_bubble_rep > 2:
-				#	print("bubble", prev_bubble_id, " is repeated more than twice", num_bubble_rep)
-				if clust!="None" and num_bubble_rep < 3 and prev_bubble_id not in bubbles_with_invalid_alleles:				
+			if bubble_id != prev_bubble_id:			
+				if prev_clust!="None" and num_bubble_rep < 3 and prev_bubble_id not in bubbles_with_invalid_alleles:				
 					# process the previous bubble
 					if len(seq[0])!=len(seq[1]):
 						print("bubble", prev_bubble_id, seq[0], seq[1], ", num_bubble_rep = ", num_bubble_rep)
@@ -75,6 +91,7 @@ with open(snakemake.input["bubbles"]) as bubbles:
 						add_bubble_kmers(bubble_allele_to_kmers, prev_bubble_id, seq, q)		
 				
 				prev_bubble_id = bubble_id
+				prev_clust = clust
 				num_bubble_rep = 0
 		else:
 			if allele < 2:
@@ -84,7 +101,8 @@ with open(snakemake.input["bubbles"]) as bubbles:
 	add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q)
 
 ### test
-#print("bubble_allele_to_kmers:")
+print("bubble_allele_to_kmers[(64414,0)]=", bubble_allele_to_kmers[(64414,0)])
+print("bubble_allele_to_kmers[(64414,1)]=", bubble_allele_to_kmers[(64414,1)])
 #print(bubble_allele_to_kmers)
 
 
@@ -131,7 +149,7 @@ for input_file in snakemake.input["SS_bubble_map"]:
 				ss_lib=sp[1]
 				ss_clust=sp[2]
 				bubble_id=int(sp[3])
-				allele=int(sp[4])-1
+				allele=int(sp[4])
 				is_reverse=sp[7]
 				map_dir = -1 if is_reverse=="True" else 1
 				#print("ss_name = ", ss_name, "bubble_id = ", bubble_id, ", allele = ", allele)
@@ -149,25 +167,25 @@ for input_file in snakemake.input["SS_bubble_map"]:
 						kmer = bubble_allele_to_kmers[(bubble_id, allele)][het_pos]
 						alt_kmer = bubble_allele_to_kmers[(bubble_id, 1-allele)][het_pos]
 						ss_het_pos = het_pos - bubble_start + ss_start
-						ss_kmer_interval = (ss_het_pos-q, ss_het_pos+q)
+						ss_kmer_interval = [ss_het_pos-q, ss_het_pos+q]
 						# update ss_kmer_interval and kmer and alt_kmer if the ss read does not cover the kmer properly
 						if ss_kmer_interval[0] < 0:
 							# het pos is at the beginning of the ss read
 							# cut the beginning of kmer and alt kmer
 							kmer = kmer[-ss_kmer_interval[0]:]
 							alt_kmer = alt_kmer[-ss_kmer_interval[0]:]
-							#ss_kmer_interval[0] = 0
-							ss_kmer_interval = (0, ss_kmer_interval[1])
+							ss_kmer_interval[0] = 0
+							#ss_kmer_interval = (0, ss_kmer_interval[1])
 						if ss_kmer_interval[1] > aln_len + ss_start-1:
 							# het pos is at the end of the ss read
 							# cut the beginning of kmer and alt kmer
 							cut = ss_kmer_interval[1] - aln_len + ss_start + 1
 							kmer = kmer[:-cut]
 							alt_kmer = alt_kmer[:-cut]
-							#ss_kmer_interval[1] = aln_len + ss_start-1
-							ss_kmer_interval = (ss_kmer_interval[0], aln_len + ss_start-1)
+							ss_kmer_interval[1] = aln_len + ss_start-1
+							#ss_kmer_interval = [ss_kmer_interval[0], aln_len + ss_start-1]
 						ss_to_kmer_altkmer[ss_name]=(kmer, alt_kmer)
-						ss_to_kmer_pos_and_interval[ss_name]=(ss_het_pos, ss_kmer_interval)
+						ss_to_kmer_pos_and_interval[ss_name]=[ss_het_pos, ss_kmer_interval]
 						ss_to_clust[ss_name]=ss_clust
 						ss_bubble_map_dir[ss_name]=map_dir
 						break
@@ -175,13 +193,14 @@ for input_file in snakemake.input["SS_bubble_map"]:
 ### test
 #print("ss_to_kmer_altkmer:")
 #print(ss_to_kmer_altkmer)
+print("ss_to_kmer_altkmer['HISEQ:217:HAWJ1ADXX:2:2101:8498:46241']=", ss_to_kmer_altkmer['HISEQ:217:HAWJ1ADXX:2:2101:8498:46241'])
 
 # mapping (lib, clust) pairs to haplotype
 lib_clust_to_haplo = {}
 
 for f in snakemake.input["SS_haplo_strand_states"]:
 	file_name = f.split("/")[-1]
-	lib_name=file_name.split("_haplo_strand_states.data")[0]
+	lib_name=file_name.split("_haplo_strand_states")[0]
 	with open(f) as states:
 		for line in states:
 			# process the line if it is not empty nor the header line
@@ -189,9 +208,14 @@ for f in snakemake.input["SS_haplo_strand_states"]:
 				sp = line.split()
 				lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])-1
 
+#TODO: just for testing, remove later!
+lib_clust_to_haplo[('NW150212-IV_92', 'V47')]=0
+lib_clust_to_haplo[('NW150212-IV_92', 'V1')] =1
+
+
 ### test
-#print("lib_clust_to_haplo[('NW150212-IV_50', 'V39')]:")
-#print(lib_clust_to_haplo[('NW150212-IV_50', 'V39')])
+#print("lib_clust_to_haplo:")
+#print(lib_clust_to_haplo)
 
 
 #cluster = snakemake.wildcards["cluster"]
@@ -296,8 +320,14 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 				pb_to_kmers[pb_name]=[[],[]] # two lists corresponding to h0 and h1 kmers
 
 			# computing the kmer interval in the pb read
-			pb_kmer_interval_start = map_index(ss_kmer_interval[0]-ss_start)+pb_start
-			pb_kmer_interval_end = map_index(ss_kmer_interval[1]-ss_start)+pb_start
+			pb_kmer_interval_start = map_index(ss_kmer_interval[0]-ss_start, cigar)+pb_start
+			pb_kmer_interval_end = map_index(ss_kmer_interval[1]-ss_start, cigar)+pb_start
+			
+			if pb_kmer_interval_start=="" or pb_kmer_interval_start=="":
+				# there are characters other than {M, X, I, D} in the cigar string
+				#print("cigar = ", cigar, "there are characters other than {M, X, I, D} in the cigar string")
+				continue
+
 			pb_kmer_interval = (pb_kmer_interval_start, pb_kmer_interval_end)
 
 			if aln_dir==1:
@@ -306,6 +336,8 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 			else:
 				pb_to_kmers[pb_name][h].append((reversecomp(ss_kmers[0]), pb_kmer_interval))
 				pb_to_kmers[pb_name][1-h].append((reversecomp(ss_kmers[1]), pb_kmer_interval))
+
+print("pb_to_kmers['m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961']=", pb_to_kmers['m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961'])
 				
 			
 # reading pb fasta file and getting het kmer subsequences
