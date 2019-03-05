@@ -53,6 +53,8 @@ def map_index(idx, cigar):
 			l = ''
 
 	# map text1 index to text2 index (idx2 = idx1 + |D| - |I|)
+	print('num_deletion=', num_deletion)
+	print('num_insertion=', num_insertion)
 	return idx + num_deletion[idx] - num_insertion[idx]
 
 
@@ -151,7 +153,7 @@ for input_file in snakemake.input["SS_bubble_map"]:
 				bubble_id=int(sp[3])
 				allele=int(sp[4])
 				is_reverse=sp[7]
-				map_dir = -1 if is_reverse=="True" else 1
+				map_dir = -1 if is_reverse=="TRUE" else 1
 				#print("ss_name = ", ss_name, "bubble_id = ", bubble_id, ", allele = ", allele)
 			
 				if (bubble_id, allele) not in bubble_allele_to_kmers:
@@ -270,6 +272,8 @@ pb_to_kmers={}
 #			# TODO: compute pb interval....
 
 # alternative
+print("computing pb kmer intervals...")
+
 with open(snakemake.input["SS_PB_minimap"]) as minimap:
 	for line in minimap:
 		if line.strip() == "":
@@ -316,12 +320,30 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 			ss_kmer_interval[0] = max(ss_kmer_interval[0], ss_start)
 			ss_kmer_interval[1] = min(ss_kmer_interval[1], ss_end)
 
+			if pb_name=='m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961':
+				print('ss_kmer_interval=', ss_kmer_interval)
+			
+			if aln_dir != 1: # either ss to bubble or ss to pb alignment direction is reverse
+				ss_kmer_interval[0]=ss_len-ss_kmer_interval[0]-1
+				ss_kmer_interval[1]=ss_len-ss_kmer_interval[1]-1
+				ss_kmer_interval=(ss_kmer_interval[1], ss_kmer_interval[0])
+
+			if pb_name=='m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961':
+				print('rc_ss_kmer_interval=', ss_kmer_interval)
+
 			if pb_name not in pb_to_kmers:
 				pb_to_kmers[pb_name]=[[],[]] # two lists corresponding to h0 and h1 kmers
 
 			# computing the kmer interval in the pb read
+			print('mapping index for pb read', pb_name, 'and ss read', ss_name)
 			pb_kmer_interval_start = map_index(ss_kmer_interval[0]-ss_start, cigar)+pb_start
 			pb_kmer_interval_end = map_index(ss_kmer_interval[1]-ss_start, cigar)+pb_start
+			
+			if pb_name=='m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961':
+				print('ss_kmer_interval=', ss_kmer_interval)
+				print('ss_start=', ss_start)
+				print('ss_kmer_interval-ss_start=', ss_kmer_interval[0]-ss_start, ss_kmer_interval[1]-ss_start)
+				print('pb_start=', pb_start)
 			
 			if pb_kmer_interval_start=="" or pb_kmer_interval_start=="":
 				# there are characters other than {M, X, I, D} in the cigar string
@@ -339,8 +361,10 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 
 print("pb_to_kmers['m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961']=", pb_to_kmers['m160220_032405_00116_c100962052550000001823220307011691_s1_p0/101239/0_18961'])
 				
-			
+
 # reading pb fasta file and getting het kmer subsequences
+print("outputting pb kmers...")
+
 with open(snakemake.input["PB_fasta"]) as f:
 	with open(snakemake.output[0], 'w') as out:
 		print("PB_name\tPB_subseq\th1_kmer\th2_kmer", file=out)
@@ -355,9 +379,13 @@ with open(snakemake.input["PB_fasta"]) as f:
 				seq = line.strip()
 				if name in pb_to_kmers:
 					for j in range(len(pb_to_kmers[name][0])):
-						pb_kmer_interval = pb_to_kmers[name][0][1]
-						seubseq=seq[pb_kmer_interval[0]:(pb_kmer_interval[1]+1)]
-						print(name + "\t" + subseq + "\t" + pb_to_kmers[name][0][j] + "\t" + pb_to_kmers[name][1][j], file=out)
+						pb_kmer_interval = pb_to_kmers[name][0][j][1]
+						subseq=seq[pb_kmer_interval[0]:(pb_kmer_interval[1]+1)]
+						#print("name = ", name)
+						#print("subseq = ", subseq)
+						#print("h1_kmer = ", pb_to_kmers[name][0][j][0])
+						#print("h2_kmer = ", pb_to_kmers[name][1][j][0])
+						print(name + "\t" + subseq + "\t" + pb_to_kmers[name][0][j][0] + "\t" + pb_to_kmers[name][1][j][0], file=out)
 
 
 

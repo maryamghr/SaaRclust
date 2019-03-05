@@ -50,7 +50,8 @@ ss_count_c[, original.cluster:=paste0(original.cluster, "_0")]
 strand_states <- rbind(ss_count_w, ss_count_c)
 setkey(strand_states, original.cluster)
 
-cluster_names <- fread(snakemake@input[["clust_to_chrom_mapping"]])
+cluster_names <- fread(snakemake@input[["clust_to_chrom"]])
+colnames(cluster_names) <- c("original.cluster", "inferred.cluster", "inferred.cluster.pair")
 strand_states <- merge(strand_states, cluster_names, by="original.cluster")
 
 # reorder columns

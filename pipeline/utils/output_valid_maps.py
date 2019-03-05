@@ -16,7 +16,7 @@ libs = set()
 
 with open(snakemake.output[0], 'w') as valid_map:
 	with open(snakemake.input[0]) as f:
-		print("SSname\tSSlib\tSSclust\tbubbleName\tbubbleAllele\tbubbleChrom\tbubbleFlag\tisReverseMapped", file=valid_map)
+		print("SSname\tSSlib\tSSclust\tbubbleName\tbubbleAllele\tbubbleChrom\tbubbleFlag\tisReverseMapped\tbubbleStart\tSSstart\talnLen", file=valid_map)
 		rev = False
 		for line in f:
 			sp = line.split()
@@ -50,4 +50,4 @@ with open(snakemake.output[0], 'w') as valid_map:
 					allele_num = str(int(bubble_sp[3])-1)
 					bubble_flag = bubble_sp[6]
 					bubble_chrom = bubble_sp[7]
-					print(ss_read_name + "\t" + ss_lib_name + "\t" + ss_clust + "\t" + bubble_num + "\t" + allele_num + "\t" + bubble_chrom + "\t" + bubble_flag + "\t" + str(rev), file=valid_map)
+					print(ss_read_name + "\t" + ss_lib_name + "\t" + ss_clust + "\t" + bubble_num + "\t" + allele_num + "\t" + bubble_chrom + "\t" + bubble_flag + "\t" + str(rev) + "\t" + str(unitig_start) + "\t" + str(ss_start) + "\t" + str(aln_len), file=valid_map)
