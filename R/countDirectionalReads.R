@@ -38,7 +38,8 @@ countDirectionalReads <- function(tab.l=NULL) {
     #counts <- counts[order(match(rownames(counts),levels(lib.aligns$PBreadNames))),]
     
     counts.l[[j]] <- counts
+    names(counts.l)[j] <- lib.name
   }
   stopTimedMessage(ptm)
   return(counts.l)
-}  
+}

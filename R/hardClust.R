@@ -77,12 +77,13 @@ estimateTheta <- function(counts.l=NULL, hard.clust=NULL, alpha=0.1) {
     }
     probs <- do.call(rbind, probs)
     theta.estim[[j]] <- probs
+    names(theta.estim)[j] <- names(counts.l)[j]
   }
   stopTimedMessage(ptm)
   
   return(theta.estim)
 }
- 
+
                              
 #' Hierarchical clustering for merging the kmeans clusters.
 #'
