@@ -16,6 +16,8 @@
 #saarclust <- function(tab.l, theta.l=NULL, pi.param=NULL, num.iter=100, raw.counts=NULL) {
 EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alpha=0.1, logL.th=1, log.scale=FALSE) {
 
+  cell.names <- names(theta.param)
+
   if (num.iter>1) {
     message("Running EM") 
   } else {
@@ -252,6 +254,8 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     #cluts.tab.norm <- cluts.tab/rowSums(cluts.tab)
   #}
   
+  names(theta.param) <- cell.names
+
   message("DONE!!!")  
   return(list(soft.pVal=soft.probs.tab.norm, log.l=unlist(log.like.l), theta.param=theta.param, pi.param=pi.param))
 }  
