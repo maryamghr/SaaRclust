@@ -22,6 +22,7 @@ get_rev_comp_free_path: utils/get_revcomp_free_fasta.py
 # PacBio reads
 pb_fasta: NA12878_WashU_PBreads
 pb_bam_dir: export_fasta_from_bam
+exportPBfasta: utils/printRead2fasta_pacbio.pl
 
 # Illumina reads
 # Accepted file formats: https://github.com/GATB/bcalm#input-formats

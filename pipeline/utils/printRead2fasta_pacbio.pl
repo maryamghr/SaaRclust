@@ -51,3 +51,4 @@ foreach my $bam (<@files>) {
 		print "$seq\n";
 	}
 }
+
