@@ -152,7 +152,8 @@ rule all:
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_evaluation.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads")
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID)
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_wc_cells_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads")
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_wc_cells_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		"utils/R-packages/SaaRclust/R/SaaRclust"
 		
 
 ###############################################################################
