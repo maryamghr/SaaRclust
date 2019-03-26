@@ -42,7 +42,7 @@ phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/Da
 
 # Kmer size of the graph
 # This should be very low to prevent fragmentation
-k: 51
+k: [41, 51, 61, 71, 81]
 l: 21
 # Minimum kmer abundance of the graph
 # This should be very low
