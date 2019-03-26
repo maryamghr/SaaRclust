@@ -176,7 +176,7 @@ rule bwa_map_SS_to_ref:
 	output: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
 	threads: 8
 	log: "log/bwa_map_SS_to_ref_{lib}_{id}.log"
-	shell: "(time bwa mem -t {threads} {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+	shell: "(time bwa mem -t {threads} {input.ref} {input.ss} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule export_SS_fasta_from_bam:
 	input: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
@@ -632,7 +632,7 @@ rule compute_haplo_edit_distance2:
 ## computing the ground truth het unitifs:
 ## mapping unitigs to the reference genome
 
-rule index_ref:
+rule bwa_index_ref:
 	input: config["reference"]
 	output:
 		config["reference"] + ".amb",
@@ -640,8 +640,14 @@ rule index_ref:
 		config["reference"] + ".bwt",
 		config["reference"] + ".pac",
 		config["reference"] + ".sa"
-	log: "log/bwa_index.log"
+	log: "log/bwa_index_ref.log"
 	shell: "(time bwa index {input}) > {log} 2>&1"
+
+rule samtools_index_ref:
+	input: config["reference"]
+	output: config["reference"] + ".fai"
+	log: "log/samtools_index_ref.log"
+	shell: "(time samtools faidx {input}) > {log} 2>&1"
 
 ### TODO: output unitigs from the gfa file
 
@@ -657,7 +663,7 @@ rule bwa_map_unitigs_to_ref:
 	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam"
 	log: "log/bwa_map_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 32 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule bwa_map_contigs_to_ref:
 	input:
@@ -671,7 +677,7 @@ rule bwa_map_contigs_to_ref:
 	output: "mapped_contigs_k{k}_a{a}_u{u}.bam"
 	log: "log/bwa_map_contigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 32 {input.ref} {input.contigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 
 rule sort_bam:
@@ -820,7 +826,7 @@ rule bwa_map_snv_bubble_unitigs_to_ref:
 	output: "mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
 	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_l{l}.log"
 	shell:
-		"(time bwa mem -t 46 -c 1 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 46 -c 1 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule output_bubbles_withlen_and_refmap_info:
 	input: "mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
@@ -909,6 +915,7 @@ rule haplotag_SS_reads:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
 		bam=config["SS_bam_dir"]+"/{lib}_srt_dedup.bam",
@@ -994,6 +1001,7 @@ rule haplotag_PB_reads:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
 		bam=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam",
