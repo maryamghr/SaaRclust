@@ -130,7 +130,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		"utils/R-packages/SaaRclust/R/SaaRclust",
+		"utils/R-packages/SaaRclust/",
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
 
 ###############################################################################
@@ -275,7 +275,7 @@ rule evaluate_minimap:
 
 rule install_SaaRclust:
 	output:
-		"utils/R-packages/SaaRclust/R/SaaRclust"
+		"utils/R-packages/SaaRclust/"
 	log: "log/saarclust-install.log"
 	shell:
 		"""
@@ -516,7 +516,7 @@ rule append_clusters_to_SS_read_names:
 
 rule map_SS_reads_to_snv_bubbles:
 	input:
-		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta", #SSfastqDir + "/all_SS_libs_cluster{cluster}.fa",
+		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta",
 		bubble="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
 	output: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	log: "log/map_SS_reads_to_snv_bubbles_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
@@ -830,7 +830,7 @@ rule output_bubbles_withlen_and_refmap_info:
 	log: "log/output_bubbles_withlen_and_refmap_info.log"
 	shell:
 		'''
-		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} print \">\" $qname \"_\" length($seq) \"_\" $flag \"_\" $rname \"_\" $pos \"\\n\" s}}' \
+		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} print \">\" $qname \"_\" $flag \"_\" $rname \"_\" $pos \"_len:\" length($seq) \"\\n\" s}}' \
 		<(samtools view -F 4 {input}) > {output}) > {log} 2>&1
 		'''
 
