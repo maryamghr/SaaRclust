@@ -69,8 +69,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
     if (!file.exists(destination)) {
       # setting the min number of SS libs as a cutoff to use PB reads in hard clustering
       cov.cutoff = 35
-      if (!is.null(cellNum))
-      {
+      if (!is.null(cellNum)) {
         cov.cutoff <- round(cellNum/4)
       }
       best.alignments <- getRepresentativeAlignments(inputfolder=inputfolder, numAlignments=numAlignments, quantileSSreads=c(0,0.9), minSSlibs=c(cov.cutoff,Inf))
@@ -165,7 +164,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
     pi.param <- hard.clust$pi.param 
     
     #List files to process
-    file.list <- list.files(path = inputfolder, pattern = "chunk.+maf", full.names = TRUE)
+    file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
   
     ### Main loop to process all files using EM algorithm ###
     for (file in file.list) {
