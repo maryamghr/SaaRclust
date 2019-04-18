@@ -2,17 +2,26 @@ import sys
 import copy
 #import re
 
+# Note: q should be lower than the kmer length...
 q = snakemake.params["het_kmer_len"]
 
 print("q = ", q)
 
 revcomp = {'a':'t', 'c':'g', 'g':'c', 't':'a', 'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
+# returns the reverse complement of string seq
 def reversecomp(seq):
 	rc = ''
 	for i in range(len(seq)):
 		rc = revcomp[seq[i]] + rc
 	return rc
+
+
+
+# This function adds the set of heterozygous kmers for the two chains of a bubble
+# bubble_allele_to_kmers is a dictionary that maps a bubble chain to the set of its heterozygous kmers
+# seq is a list of two strings corresponding to the two chains of the bubble with the id bubble_id
+# q is the length of the heterozygous kmer to be added to the dictionary
 
 def add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q):
 	for al in range(2):
@@ -20,10 +29,13 @@ def add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q):
 	d = []
 	for i in range(len(seq[0])):
 		if seq[0][i] != seq[1][i]:
+			if i < q:
+				sys.exit('Error in bubble: the heterozygous position is less than q!!!')
 			for al in range(2):
 				bubble_allele_to_kmers[(bubble_id, al)][i]=seq[al][i-q:(i+q+1)]
 
 
+# This function returns the index of a string which is aligned to the idx position of another string
 def map_index(idx, cigar):
 	# counting the number of insertions and deletions that happen before each index in the aligned text	
 	num_insertion=[]
@@ -80,22 +92,21 @@ with open(snakemake.input["bubbles"]) as bubbles:
 				bubbles_with_invalid_alleles.add(bubble_id)
 
 			if bubble_id != prev_bubble_id:			
-				if prev_clust!="None" and num_bubble_rep < 3 and prev_bubble_id not in bubbles_with_invalid_alleles:				
+				if prev_clust!="None" and num_bubble_rep == 2 and prev_bubble_id not in bubbles_with_invalid_alleles:				
 					# process the previous bubble
 					if len(seq[0])!=len(seq[1]):
 						print("bubble", prev_bubble_id, seq[0], seq[1], ", num_bubble_rep = ", num_bubble_rep)
 						sys.exit("Error: the sequence lengths are different!!!")
 				
-					if prev_bubble_id != -1:
-						add_bubble_kmers(bubble_allele_to_kmers, prev_bubble_id, seq, q)		
-				
+					if prev_bubble_id != -1:						
+						add_bubble_kmers(bubble_allele_to_kmers, prev_bubble_id, seq, q)
 				prev_bubble_id = bubble_id
 				prev_clust = clust
 				num_bubble_rep = 0
 		else:
-			if allele < 2:
+			num_bubble_rep = num_bubble_rep + 1
+			if allele < 2:				
 				seq[allele] = line.strip()
-				num_bubble_rep = num_bubble_rep + 1
 
 	add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q)
 
@@ -130,6 +141,7 @@ for input_file in snakemake.input["SS_bubble_map"]:
 				ss_start = int(sp[9])-1
 				aln_len = int(sp[10])
 				ss_end = ss_start + aln_len -1 # 0-based
+
 				for het_pos in bubble_allele_to_kmers[(bubble_id, allele)]:
 					if het_pos >= bubble_start and het_pos-bubble_start < aln_len:
 						# heterozygous position het_pos is covered by the strand-seq read
@@ -138,7 +150,6 @@ for input_file in snakemake.input["SS_bubble_map"]:
 						ss_het_pos = het_pos - bubble_start + ss_start
 						ss_kmer_interval = [ss_het_pos-q, ss_het_pos+q]
 
-						
 						# update ss_kmer_interval and kmer and alt_kmer if the ss read does not cover the kmer properly
 						if ss_kmer_interval[0] < 0:
 							# het pos is at the beginning of the ss read
@@ -177,6 +188,8 @@ for f in snakemake.input["SS_haplo_strand_states"]:
 				lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])-1
 
 
+
+# pb_to_kmers is a dictionary that maps each pb read name to a list of two lists: the first list contains h0 kmers with their intervals and the second one contains h1 kmers with their intervals in the pb read
 pb_to_kmers={}
 
 
@@ -281,7 +294,4 @@ with open(snakemake.input["PB_fasta"]) as f:
 						pb_kmer_interval = pb_to_kmers[name][0][j][1]
 						subseq=seq[pb_kmer_interval[0]:(pb_kmer_interval[1]+1)]
 						print(name + "\t" + subseq + "\t" + pb_to_kmers[name][0][j][0] + "\t" + pb_to_kmers[name][1][j][0], file=out)
-
-
-
 

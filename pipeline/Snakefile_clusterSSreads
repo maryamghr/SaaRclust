@@ -130,7 +130,6 @@ wildcard_constraints:
 
 rule all:
 	input:
-		"utils/R-packages/SaaRclust/",
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
 
 ###############################################################################
@@ -552,14 +551,14 @@ rule cluster_snv_bubbles:
 	script: "utils/cluster_snv_bubbles2.snakemake.R"
 
 
-rule add_bubble_clust_to_maps:
-	input:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		map=SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: SSfastqDir + "/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/add_bubble_clust_to_maps_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/add_bubble_clust_to_maps.snakemake.R"
+#rule add_bubble_clust_to_maps:
+#	input:
+#		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#		map=SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+#	output: SSfastqDir + "/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	log: "log/add_bubble_clust_to_maps_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#		script: "utils/add_bubble_clust_to_maps.snakemake.R"
 
 
 rule output_bubble_ss_lib_coverage:
@@ -609,7 +608,8 @@ rule append_clusters_to_bubble_names:
 rule export_het_kmers:
 	input:
 		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
-		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		#SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
 		SS_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf",
 		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs), # TODO: to be replaced by strandphaser output
 		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta"
@@ -799,6 +799,7 @@ rule bubble_detection:
 	log: "log/bubble_detection_k{k}_a{a}_l{l}.log"
 	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
 
+# Note: for each bubble, exactly two alleles should be written in the output file
 rule output_snv_bubbles:
 	input: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
 	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa"

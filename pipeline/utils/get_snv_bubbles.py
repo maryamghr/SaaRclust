@@ -44,6 +44,7 @@ def printalleles(allelelentoline, k, out):
 				for allele in allelelentoline[allelelen]:
 					print(allele, file=out)
 
+
 with open(snakemake.input[0]) as f:
 	with open(snakemake.output[0], 'w') as out:
 		for l in f:
@@ -54,8 +55,9 @@ with open(snakemake.input[0]) as f:
 				if int(name[1]) != bubblenum:
 					# new bubble, update the bubble number and process the previous bubble
 					bubblenum = int(name[1])
-					printalleles(allelelentoline, k, out)
-					allelelentoline = {}
+					if len(allelelentoline) > 0:
+						printalleles(allelelentoline, k, out)
+						allelelentoline = {}
 
 			else:
 				# update allelelentoline
