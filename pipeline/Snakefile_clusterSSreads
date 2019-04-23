@@ -91,20 +91,6 @@ print("getclustersize(V23) = ", getclustersize('V23', clustersizes))
 
 ###############################################
 
-# outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
-# getting the names of first cluster pairs:
-#f = open(outputDir+"/clust_partners.txt")
-#clustpair = {}
-#sp = f.read().strip().split("\n")
-#print(sp)
-#for s in range(1, len(sp)):
-#	clust = sp[s].split("\t")
-#	clustpair[clust[1]]=clust[2]
-
-#print("clustpair = ", clustpair)
-#print([x + "_rc" + clustpair[x] for x in clustpair])
-
-#clusters = list(clustpair.keys())+list(clustpair.values())
 clusters = ["V"+str(i) for i in range(1, 48)]
 directions = ["watson", "crick"]
 haplotypes = [1,2]
@@ -131,6 +117,9 @@ wildcard_constraints:
 rule all:
 	input:
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		#expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads")
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -957,7 +946,7 @@ rule output_ground_truth_strand_states:
 		ss_haplotagged_count_watson_h2="haplotagged_SS_bams/{lib}_srt_dedup_watson_haplo2_chrom_count.data",
 		ss_haplotagged_count_crick_h1= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo1_chrom_count.data",
 		ss_haplotagged_count_crick_h2= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo2_chrom_count.data",
-		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"#outputDir + "/cluster_name_mapping.data"
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	params:
 		background_rate=0.05
@@ -972,22 +961,22 @@ rule bwa_map_PB_fasta:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
-		pb=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.fasta"
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.bam"
-	log: "log/bwa_map_PB_fasta_{sample}_cluster{clust}.log"
+		pb=PBbamDir+"/{sample}.{chunks}.fasta"
+	output: PBbamDir+"/{sample}.{chunks}.bam"
+	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
 	shell: "(time bwa mem -t 46 {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_pb_bam:
-	input: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.bam",
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam"
-	log: "log/{sample}_cluster{clust}.log"
+	input: PBbamDir+"/{sample}.{chunks}.bam",
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	log: "log/{sample}_{chunks}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 
 rule index_PB_bam:
-	input:  outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam"
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam.bai"
-	log: "log/index_PB_bam_{sample}_cluster{clust}.log"
+	input:  PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam.bai"
+	log: "log/index_PB_bam_{sample}_{chunks}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
 rule haplotag_PB_reads:
@@ -1001,9 +990,9 @@ rule haplotag_PB_reads:
 		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
-		bam=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam",
-		bai=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam.bai",
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_haplotagged.bam"
+		bam=PBbamDir+"/{sample}.{chunks}.sorted.bam",
+		bai=PBbamDir+"/{sample}.{chunks}.sorted.bam.bai",
+	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
 	log: "log/haplotag_PB_reads.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups) > {log} 2>&1"
 
@@ -1058,22 +1047,22 @@ rule convert_jf_to_fa:
 
 
 ######################################
-rule output_unique_covered_nodes:
-	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-	run:
-		lines = open(input[0]).read()
-		l = list(set(lines.replace(";", " ").split()))
-		open(output[0], "w").write("\n".join(l))
+#rule output_unique_covered_nodes:
+#	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	run:
+#		lines = open(input[0]).read()
+#		l = list(set(lines.replace(";", " ").split()))
+#		open(output[0], "w").write("\n".join(l))
 
-rule find_inter_chr_intersection:
-	input:
-		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		cluster_pairs = outputDir + "/clust_partners.txt",
-		node_lens = nodelens
-	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
-	log: "log/find_inter_chr_intersection.log"
-	script: "utils/find_inter_chr_intersection.snakemake.R"
+#rule find_inter_chr_intersection:
+#	input:
+#		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+#		cluster_pairs = outputDir + "/clust_partners.txt",
+#		node_lens = nodelens
+#	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
+#	log: "log/find_inter_chr_intersection.log"
+#	script: "utils/find_inter_chr_intersection.snakemake.R"
 
 
 #######################################

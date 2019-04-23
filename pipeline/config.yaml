@@ -88,13 +88,13 @@ het_kmer_len: 10
 #minimap parameters
 w: 1
 k_minimap: 15
-f: 0.05
-z: 8
+f: 0.0002
+z: 500
 
 # saarclust parameters
 numClustersHard: 54
 numClustersSoft: 47
-EMiter: 20
+EMiter: 10
 alpha: 0.01
 minLib: 1
 upperQ: 0.95
