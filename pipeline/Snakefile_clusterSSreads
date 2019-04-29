@@ -964,7 +964,7 @@ rule bwa_map_PB_fasta:
 		pb=PBbamDir+"/{sample}.{chunks}.fasta"
 	output: PBbamDir+"/{sample}.{chunks}.bam"
 	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
-	shell: "(time bwa mem -t 46 {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
+	shell: "(time bwa mem -t 46 -x pacbio {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_pb_bam:
 	input: PBbamDir+"/{sample}.{chunks}.bam",
