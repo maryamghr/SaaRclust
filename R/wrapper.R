@@ -146,7 +146,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
     pi.param <- readsPerCluts/sum(readsPerCluts)
     
     #save hard clustering results into a file
-    hard.clust <- list(ord=hardClust.ord.merged, theta.param=theta.param, pi.param=pi.param, pb.chr = chr.rows, pb.flag = pb.flag)
+    hard.clust <- list(ord=hardClust.ord.merged, unmerged.ord=hardClust.ord, theta.param=theta.param, pi.param=pi.param, pb.chr = chr.rows, pb.flag = pb.flag)
     destination <- file.path(Clusters.store, "hardClusteringResults.RData")
     if (!file.exists(destination)) {
       save(file = destination, hard.clust)
