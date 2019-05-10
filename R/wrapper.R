@@ -12,7 +12,7 @@
 #' @export
 #' @author David Porubsky, Maryam Ghareghani
 
-runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE) {
+runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hardClusteringResults.RData") {
   
   #=========================#
   ### Create directiories ###
@@ -58,7 +58,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
   }
   
   #Load Hard clustering results if they were already created
-  destination <- file.path(Clusters.store, "hardClusteringResults.RData")
+  destination <- file.path(Clusters.store, outputfilename)
   if (!file.exists(destination)) {
     message("Hard clustering results not available!!!")
     message("Running Hard clustering")
@@ -147,7 +147,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
     
     #save hard clustering results into a file
     hard.clust <- list(ord=hardClust.ord.merged, unmerged.ord=hardClust.ord, theta.param=theta.param, pi.param=pi.param, pb.chr = chr.rows, pb.flag = pb.flag)
-    destination <- file.path(Clusters.store, "hardClusteringResults.RData")
+    destination <- file.path(Clusters.store, outputfilename)
     if (!file.exists(destination)) {
       save(file = destination, hard.clust)
     }  
