@@ -123,7 +123,7 @@ hardClustAccuracy <- function(hard.clust, pb.chr, pb.flag, tab.filt, female=TRUE
 #' @export
 
 
-num.found.clusters <- function(hard.clust) {
+numFoundClusters <- function(hard.clust) {
 	hard.clust.dt <- data.table(name=names(hard.clust$ord), clust=hard.clust$ord, chrom=hard.clust$pb.chr, flag=hard.clust$pb.flag)
 
 	# counting the number of each chrom_flag in each cluster
