@@ -116,6 +116,34 @@ hardClustAccuracy <- function(hard.clust, pb.chr, pb.flag, tab.filt, female=TRUE
 }
 
 
+#' This function returns the number of found clusters (chrom/dirs) in hard clustering
+#' 
+#' @param hard.clust An \code{integer} vecotr of cluster assignements of each PacBio read.
+#' @author Maryam Ghareghani
+#' @export
+
+
+num.found.clusters <- function(hard.clust) {
+	hard.clust.dt <- data.table(name=names(hard.clust$ord), clust=hard.clust$ord, chrom=hard.clust$pb.chr, flag=hard.clust$pb.flag)
+
+	# counting the number of each chrom_flag in each cluster
+	hard.clust.dt[, chrom_flag_count:=.N, by=.(clust, chrom, flag)]
+	hard.clust.to.chrom <- hard.clust.dt[, head(.SD,1), by=.(clust, chrom, flag)][, name:=NULL]
+
+	# rank chrom and flags for each cluster
+	hard.clust.to.chrom[, chrom_flag_rank:=rank(-chrom_flag_count), by=clust]
+
+	# map each cluster to the chrom_flag with max count (first rank)
+	hard.clust.to.chrom <- hard.clust.to.chrom[chrom_flag_rank==1]
+
+	# count the number of unique chrom_flags mapped to clusters (the number of hitted clusters)
+	hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, .(chrom, flag)])
+	#setkey(hard.clust.to.chrom.unq)
+
+	return(nrow(hard.clust.to.chrom.unq))
+}
+
+
 #' Simulate random theta estimates for cell type
 #'
 #' Function to simulate random theta values in order to initialize EM algorithm.
