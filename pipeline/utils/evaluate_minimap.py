@@ -4,16 +4,16 @@ import subprocess
 
 min_overlap = snakemake.params[0]
 
-num_overlaps = 0
+#num_overlaps = 0
 
 # list of valid chromosomes:
 chrom_names = ['chr' + str(x) for x in range(1, 23)] + ['chrX', 'chrY']
 
-for f in snakemake.input["pb_ss_intersect"]:
-	num_lines = subprocess.getstatusoutput('awk \'{print $4, $16}\' ' + f + ' | sort | uniq | wc -l')
-	num_lines = int(num_lines[1].split()[0])
+#for f in snakemake.input["pb_ss_intersect"]:
+#	num_lines = subprocess.getstatusoutput('awk \'{print $4, $16}\' ' + f + ' | sort | uniq | wc -l')
+#	num_lines = int(num_lines[1].split()[0])
 	#print('number of lines = ', num_lines)
-	num_overlaps = num_overlaps + num_lines
+#	num_overlaps = num_overlaps + num_lines
 
 #print(len(snakemake.input["pb_ss_intersect"]), "pb_ss_intersect files:")
 #print()
@@ -146,7 +146,7 @@ user_t = float(user_time[0])*60 + float(user_time[1][:-1])
 sys_t  = float(sys_time[0])*60  + float(sys_time[1][:-1])
 
 with open(snakemake.output[0], 'w') as out:
-	print("total number of PB and SS overlaps\t" + str(num_overlaps), file=out)
+	#print("total number of PB and SS overlaps\t" + str(num_overlaps), file=out)
 	print("num true alignments\t"  + str(true),  file=out)
 	print("num false alignments\t" + str(false), file=out)
 	#print("fraction of true alignments\t" + str(true/(true+false)), file=out)

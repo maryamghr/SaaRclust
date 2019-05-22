@@ -2,10 +2,6 @@ log <- file(snakemake@log[[1]], open='wt')
 sink(file=log, type='message')
 sink(file=log, type='output')
 
-print(snakemake@output[["acc_plot"]])
-print(snakemake@output[["acc_table"]])
-print(snakemake@params[['minLib']])
-
 #add user defined path to load needed libraries
 .libPaths( c( .libPaths(), 'utils/R-packages/'))
 

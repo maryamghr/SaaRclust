@@ -12,6 +12,8 @@ print(args)
 suppressPackageStartupMessages(library(SaaRclust))
 library(dplyr)
 
-output <- runSaaRclust(inputfolder = args[1], outputfolder = args[2], num.clusters=as.numeric(args[3]), alpha = as.numeric(args[4]),  HC.only = TRUE, store.counts = FALSE, store.bestAlign = TRUE, numAlignments = as.numeric(args[5]), log.scale=args[6])
+output.filename <- paste0("hardClusteringResults_", args[3], "clusters.RData")
+
+output <- runSaaRclust(inputfolder = args[1], outputfolder = args[2], num.clusters=as.numeric(args[3]), alpha = as.numeric(args[4]),  HC.only = TRUE, store.counts = FALSE, store.bestAlign = TRUE, numAlignments = as.numeric(args[5]), log.scale=args[6], outputfilename=output.filename)
 
 
