@@ -306,7 +306,7 @@ rule HARD_clustering:
 	input:
 		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample = "NA12878_WashU_PBreads", chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData"
 	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		"""
@@ -324,7 +324,7 @@ rule HARD_clustering:
 rule SOFT_clustering:
 	input:
 		minimapFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
-		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+		HCclustFile = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData", numClustersHard=numClustersHard)
     
 	output:
 		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"

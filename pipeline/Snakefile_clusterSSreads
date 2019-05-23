@@ -117,11 +117,11 @@ wildcard_constraints:
 
 rule all:
 	input:
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
 		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = "NA12878_WashU_PBreads", chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
 		#expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -276,7 +276,7 @@ rule HARD_clustering:
 	input:
 		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample = "NA12878_WashU_PBreads", chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData"
 	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		"""
@@ -294,7 +294,7 @@ rule HARD_clustering:
 rule SOFT_clustering:
 	input:
 		minimapFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
-		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+		HCclustFile = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData", numClustersHard=numClustersHard)
     
 	output:
 		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
