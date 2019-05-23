@@ -17,22 +17,21 @@ SSfastqDir = config["SS_fastq_dir"]
 VG = config["VG"]
 nodelens = config["node_lens"]
 chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
-exportFasta = config["export_fasta_path"]
-computeSimpleBubble = config["simple_bubble_detection_path"]
-getSNVbubbles = config["get_snv_bubbles_path"]
-getRevcompFree = config["get_rev_comp_free_path"]
+#exportFasta = config["export_fasta_path"]
+#computeSimpleBubble = config["simple_bubble_detection_path"]
+#getSNVbubbles = config["get_snv_bubbles_path"]
+#getRevcompFree = config["get_rev_comp_free_path"]
 clustersizes = config["cluster_sizes"]
 phasedSSvcfDir = config["phased_SSbased_vcf_dir"]
 whatshap = config["whatshap"]
 PBbamDir = config["pb_bam_dir"]
-exportPBfasta = config["exportPBfasta"]
 minPBlen = config["min_pb_len"]
 platinumVCFdir = config["platinum_vcf_dir"]
 #N = config["Nchunks"]
 N=100
 l = len(str(N))
-chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N+1)]
-#chunkID = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009']
+#chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N+1)]
+chunkID = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009']
 sample = config["sample"]
 #w = config["w"]
 w="-default"
@@ -740,7 +739,7 @@ rule export_het_contigs_fasta:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa"
 	log: "log/export_het_contigs_fasta_k{k}_a{a}_u{u}.log"
-	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
+	shell: "(time perl utils/printRead2fasta_pacbio.pl {input} > {output}) > {log} 2>&1"
 
 rule export_contigs_kmer_count:
 	input:
@@ -772,15 +771,14 @@ rule bubble_detection:
 	input: GRAPHPATH + "dbg_k{k}/NA12878-l{l}-k{k}-a{a}.gfa"
 	output: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
 	log: "log/bubble_detection_k{k}_a{a}_l{l}.log"
-	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
+	shell: "(time python utils/simple_bubbles.py {input} > {output}) > {log} 2>&1"
 
 # Note: for each bubble, exactly two alleles should be written in the output file
 rule output_snv_bubbles:
 	input: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
 	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa"
 	log: "log/output_snv_bubbles_k{k}_a{a}_l{l}.log"
-	#shell: "(time python {getSNVbubbles} {input} > {output}) > {log} 2>&1"
-	script: getSNVbubbles
+	script: "utils/get_snv_bubbles.py"
 
 
 ##########################################################################################################
@@ -836,7 +834,7 @@ rule export_snv_bubble_unitigs_fasta_from_bam:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
 	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_with_refmap_info.fa"
 	log: "log/export_snv_bubble_unitigs_fasta_from_bam_k{k}_a{a}_u{u}.log"
-	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
+	shell: "(time perl utils/printRead2fasta_pacbio.pl {input} > {output}) > {log} 2>&1"
 
 
 
