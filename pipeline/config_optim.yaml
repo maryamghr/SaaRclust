@@ -1,0 +1,105 @@
+sample: NA12878_WashU_PBreads
+Nchunks: 217
+
+# https://github.com/maickrau/GraphAligner
+# root directory of the repo
+graphalignerfolder: /MMCI/TM/scratch/mikko/random_bins/
+graphfolder: /MMCI/TM/scratch/mikko/NA12878_illumina_lighter/
+# https://github.com/GATB/bcalm
+# required for building the de Bruijn graph
+bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
+# https://github.com/GATB/bcalm
+# bcalm -> gfa conversion script path
+bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
+
+# whatshap
+whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
+
+export_fasta_path: utils/printRead2fasta_pacbio.pl
+export_pb_fasta_path: export_fasta_from_bam/printRead2fasta_pacbio.pl
+simple_bubble_detection_path: utils/simple_bubbles.py
+get_snv_bubbles_path: utils/get_snv_bubbles.py
+get_rev_comp_free_path: utils/get_revcomp_free_fasta.py
+
+# PacBio reads
+pb_fasta: NA12878_WashU_PBreads
+pb_bam_dir: export_fasta_from_bam
+exportPBfasta: utils/printRead2fasta_pacbio.pl
+min_pb_len: 10000
+
+# Illumina reads
+# Accepted file formats: https://github.com/GATB/bcalm#input-formats
+# The file names MUST NOT contain underscores _
+shortreads: /MMCI/TM/nanopore/work/mikko/NA12878_illumina
+
+#reference: GRCh38_full_analysis_set_plus_decoy_hla.fa
+reference: hg38.fa
+vcf_prefix: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/GIAB/NA12878.hg38.GIAB.chr
+giab_vcf_dir: giab_phased_vcf
+platinum_vcf_dir: platinum-genome-phased-vcf
+
+# SS bams and phased vcf files
+SS_bam_dir: SS_bams
+phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/David-StrandPhaseR/VCFfiles
+
+# Kmer size of the graph
+# This should be very low to prevent fragmentation
+k: 51
+l: 21
+# Minimum kmer abundance of the graph
+# This should be very low
+kmer_abundance: 2
+# Minimum unitig abundance of the graph
+# This should be very low
+unitig_abundance: 5
+
+# bgreat
+bgreat: /MMCI/TM/scratch/mikko/bgreat2_strandseq/bgreat
+
+# script for extracting fastq file for each cluster
+extract_fastq: /MMCI/TM/scratch/mikko/random_bins/pick_reads.py
+
+# input directory containing initial minimap alignment files
+input_dir: /MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05
+
+# directory including saarclust soft clustering files
+soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters
+
+# output directory for storing output files
+output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited
+output_dir2: test_merged_fasta
+
+# directory including all Strand-seq fastq files
+SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
+
+# VG tool
+VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
+
+# DB node lengths
+node_lens: /MMCI/TM/scratch/mikko/aligner/fake_ref/tmp/node_lengths_min50.txt
+
+# canu params
+chrom_sizes: chrom_sizes.txt
+errorRate: 0.1
+overlapLen: 200
+cluster_sizes: clusters_fasta_file_sizes.txt
+
+het_kmer_len: 10
+
+#minimap parameters
+w: 1
+k_minimap: 15
+f: 0.0002
+z: 500
+
+# saarclust parameters
+numClustersHard: 100
+numClustersSoft: 47
+EMiter: 10
+alpha: 0.01
+minLib: 1
+upperQ: 0.95
+logLth: 1
+theta_constrain: "FALSE"
+log_scale: "TRUE"
+numAlignments: 30000
