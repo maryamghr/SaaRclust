@@ -180,35 +180,6 @@ rule export_SS_fasta_from_bam:
 
 
 ###############################################################################
-##############	     export and split PacBio fasta files	###############
-###############################################################################
-
-#rule export_pacbio_reads:
-#	input: PBbamDir+"/hg38.NA12878-WashU.bam"    
-#	output: expand(PBbamDir+"/{sample}.fasta", sample=sample)
-#	shell: "perl {exportPBfasta} {input} | utils/seq-shuf -t 1000 > {output}"
-#| awk '$3!=\"*\" {{print}}'
-
-rule export_pacbio_reads:
-	input: PBbamDir+"/hg38.NA12878-WashU.bam"    
-	output: expand(PBbamDir+"/{sample}.fasta", sample=sample)
-	log: "log/export_pacbio_reads.log"
-	shell:
-		'''
-		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} if(length(s)>{minPBlen})print \">\" $qname \"_\" $flag \"_\" $rname \"_\" $pos \"\\n\" s}}' \
-		<(samtools view -F 260 {input} | awk '!seen[$1]++') > {output}) > {log} 2>&1
-		'''
- 
-
-rule split_fasta_file:
-	input: expand(PBbamDir+"/{sample}.fasta", sample=sample)
-	output: expand(PBbamDir+"/{sample}.{chunks}.fasta", chunks=chunkID, sample=sample)
-	log: "log/split_fasta_file.log"
-	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
-	
-
-
-###############################################################################
 ##############	     minimap aliging SS reads to PB reads	###############
 ###############################################################################
 
