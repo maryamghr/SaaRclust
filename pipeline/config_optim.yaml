@@ -24,6 +24,7 @@ whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
 # PacBio reads
 #pb_fasta: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/NA12878_WashU_PBreads
 pb_bam_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/export_fasta_from_bam
+pb_bam_names: hg38.NA12878-WashU
 #exportPBfasta: utils/printRead2fasta_pacbio.pl
 min_pb_len: 10000
 

@@ -1,11 +1,19 @@
 configfile: "config_optim.yaml"
 
+PBbamDir = config["pb_bam_dir"]
+PBbamfiles=config["pb_bam_names"]
+sample = config["sample"]
+N=100
+l = len(str(N))
+#chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N+1)]
+chunkID = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009']
+
 ###############################################################################
 ##############	     export and split PacBio fasta files	###############
 ###############################################################################
 
 rule export_pacbio_reads:
-	input: PBbamDir+"/hg38.NA12878-WashU.bam"    
+	input: expand(PBbamDir+"/{bamfile}.bam", bamfile=PBbamfiles)
 	output: expand(PBbamDir+"/{sample}.fasta", sample=sample)
 	log: "log/export_pacbio_reads.log"
 	shell:
