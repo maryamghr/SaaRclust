@@ -1,0 +1,93 @@
+#################################################
+####     De Bruijn graph building MIKKO      ####
+#################################################
+
+rule format_input_files:
+	output:
+		temp("filelist")
+	shell:
+		"printf '%s\\n' {SHORTREADS}/*.fastq.gz > {output}"
+
+rule run_bcalm2:
+	input:
+		"filelist"
+	output:
+		"filelist_k{k}_a{a}.unitigs.fa"
+	log: "log/run_bcalm2_k{k}_a{a}.log"
+	shadow: "shallow"
+	threads: 46
+	shell:
+		"(time {BCALMPATH} -in {input} -out filelist_k{wildcards.k}_a{wildcards.a} -kmer-size {wildcards.k} -abundance-min {wildcards.a} -nb-cores {threads}) > {log} 2>&1"
+
+rule filter_unitig_coverage:
+	input:
+		"filelist_k{k}_a{a}.unitigs.fa"
+	output:
+		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
+	log: "log/filter_unitig_coverage_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time python {SCRIPTPATH}/filter_bcalm_by_frequency.py {input} {wildcards.u} {output}) > {log} 2>&1"
+
+rule convert_graph:
+	input:
+		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
+	output:
+		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
+	log: "log/convert_graph_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time {CONVERTTOGFAPATH} {input} {output} {wildcards.k}) > {log} 2>&1"
+
+rule untip_graph:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
+	output:
+		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
+	log: "log/untip_graph_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time {ALIGNERBINPATH}/UntipRelative 1000 100 0.1 < {input} > {output}) > {log} 2>&1"
+
+rule extract_biggest_component:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
+	output:
+		"tmp/graph_k{k}_a{a}_u{u}_component.gfa"
+	log: "log/extract_biggest_component_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time python {SCRIPTPATH}/extract_gfa_biggest_component.py {input} > {output}) > {log} 2>&1"
+
+rule get_contigs:
+	input:
+		"tmp/graph_k{k}_a{a}_u{u}_component.gfa"
+	output:
+		"contigs_k{k}_a{a}_u{u}.fa"
+	log: "log/get_contigs_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time grep S {input} | awk '{{print \">\"$2\"\\n\"$3}}' > {output}) > {log} 2>&1"
+
+rule remake_bcalm_from_contigs:
+	input:
+		"contigs_k{k}_a{a}_u{u}.fa"
+	output:
+		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	log: "log/remake_bcalm_from_contigs_k{k}_a{a}_u{u}.log"
+	shadow: "shallow"
+	threads: 46
+	shell:
+		"(time {BCALMPATH} -in {input} -out contigs_k{wildcards.k}_a{wildcards.a}_u{wildcards.u} -abundance-min 1 -kmer-size {wildcards.k} -nb-cores {threads}) > {log} 2>&1"
+
+rule final_graph:
+	input:
+		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	output:
+		"tmp/graph_k{k}_a{a}_u{u}.gfa"
+	log: "log/final_graph_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time {CONVERTTOGFAPATH} {input} {output} {wildcards.k}) > {log} 2>&1"
+
+rule convert_gfa_to_vg:
+	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
+	output: "tmp/graph_k{k}_a{a}_u{u}.vg"
+	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
+	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
+	shell: "(time {VG} view -v -F {input} > {output}) > {log} 2>&1"
+

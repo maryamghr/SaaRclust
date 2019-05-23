@@ -4,6 +4,7 @@ import subprocess
 configfile: "config.yaml"
 SHORTREADS = config["shortreads"]
 ALIGNERBINPATH = config["graphalignerfolder"]
+GRAPHPATH = config["graphfolder"]
 SCRIPTPATH = config["graphalignerfolder"] + "scripts"
 BCALMPATH = config["bcalmpath"]
 CONVERTTOGFAPATH = config["bcalm_converttoGFApath"]
@@ -15,7 +16,7 @@ outputDir = config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
 VG = config["VG"]
 nodelens = config["node_lens"]
-chroms = ["chr" + str(x) for x in range(1, 23)] + ["chrX"]
+chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
 exportFasta = config["export_fasta_path"]
 computeSimpleBubble = config["simple_bubble_detection_path"]
 getSNVbubbles = config["get_snv_bubbles_path"]
@@ -25,13 +26,16 @@ phasedSSvcfDir = config["phased_SSbased_vcf_dir"]
 whatshap = config["whatshap"]
 PBbamDir = config["pb_bam_dir"]
 exportPBfasta = config["exportPBfasta"]
+minPBlen = config["min_pb_len"]
 platinumVCFdir = config["platinum_vcf_dir"]
-N = config["Nchunks"]
+#N = config["Nchunks"]
+N=100
 l = len(str(N))
-#chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
-chunkID = ['000']
+chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N+1)]
+#chunkID = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009']
 sample = "NA12878_WashU_PBreads"
-w = config["w"]
+#w = config["w"]
+w="-default"
 kMinimap = config["k_minimap"]
 fMinimap = config["f"]
 z = config["z"]
@@ -88,20 +92,6 @@ print("getclustersize(V23) = ", getclustersize('V23', clustersizes))
 
 ###############################################
 
-# outout dir should have these two files: cluster_name_mapping.data and clust_partners.txt
-# getting the names of first cluster pairs:
-#f = open(outputDir+"/clust_partners.txt")
-#clustpair = {}
-#sp = f.read().strip().split("\n")
-#print(sp)
-#for s in range(1, len(sp)):
-#	clust = sp[s].split("\t")
-#	clustpair[clust[1]]=clust[2]
-
-#print("clustpair = ", clustpair)
-#print([x + "_rc" + clustpair[x] for x in clustpair])
-
-#clusters = list(clustpair.keys())+list(clustpair.values())
 clusters = ["V"+str(i) for i in range(1, 48)]
 directions = ["watson", "crick"]
 haplotypes = [1,2]
@@ -113,6 +103,7 @@ wildcard_constraints:
 	k = "\d+",
 	a = "\d+",
 	u = "\d+",
+	l = "\d+",
 	longnodesize = "\d+",
 	overlapsize = "\d+",
 	longreads = "[^_]+",
@@ -126,35 +117,11 @@ wildcard_constraints:
 
 rule all:
 	input:
-		#expand(SSfastqDir+"/merged/{x}.combined.fastq", x=COMBINS)
-		#expand(outputDir+"/{sample}_chunk{chunkID}_SS_cov.data", sample = "NA12878_WashU_PBreads", chunkID=chunkID),
-		#expand(PBbamDir+"/NA12878_WashU_PBreads.{chunks}.fasta", chunks=chunkID),
-		#expand(SSfastqDir+"/merged/{x}.combined.bam", x=COMBINS)
-		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS),
-#		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{outputfolder}_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand(PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_clust_chrom_dir_count.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, outputfolder=outputfolder, sample = "NA12878_WashU_PBreads"),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand(SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", x=COMBINS),
-		#expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand("tmp/snv_bubbles_k{k}_a{a}_u{u}_with_refmap_info.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		#expand("tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand("tmp/snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_u{u}_{sample}.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_u{u}_{sample}.data", k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand(SSfastqDir + "/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=COMBINS, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads")
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_evaluation.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads")
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID)
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_wc_cells_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
-		"utils/R-packages/SaaRclust/R/SaaRclust"
-		
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = "NA12878_WashU_PBreads", chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		#expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample = "NA12878_WashU_PBreads"),
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -191,11 +158,16 @@ rule concat_merged_with_first_unmerged:
 rule bwa_map_SS_to_ref:
 	input:
 		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
 		ss=temp(SSfastqDir+"/merged/{lib}_{id}.combined.fastq")
 	output: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
 	threads: 8
 	log: "log/bwa_map_SS_to_ref_{lib}_{id}.log"
-	shell: "(time bwa mem -t {threads} {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+	shell: "(time bwa mem -t {threads} {input.ref} {input.ss} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule export_SS_fasta_from_bam:
 	input: SSfastqDir+"/merged/{lib}_{id}.combined.bam"
@@ -224,7 +196,7 @@ rule export_pacbio_reads:
 	log: "log/export_pacbio_reads.log"
 	shell:
 		'''
-		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} print \">\" $qname \"_\" $flag \"_\" $rname \"_\" $pos \"\\n\" s}}' \
+		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} if(length(s)>{minPBlen})print \">\" $qname \"_\" $flag \"_\" $rname \"_\" $pos \"\\n\" s}}' \
 		<(samtools view -F 260 {input} | awk '!seen[$1]++') > {output}) > {log} 2>&1
 		'''
  
@@ -247,15 +219,16 @@ rule minimap2_align_SS_to_PB:
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta",
 		ss_reads=expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS)
 	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
-	threads: 8
+	threads: 1
 	log: "log/minimap_align_chunks_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
-	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
+	#shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
+	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
 
 
 # remove SS read names with unknown chromosomes and output columns 1 through 11 and the last column (cigar) of the minimap output
 rule process_minimap_output:
 	input: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz"
+	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz")
 	log:"log/process_minimap_output_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
 		'''
@@ -264,7 +237,7 @@ rule process_minimap_output:
 
 
 rule extend_minimap_columns_by_ground_truth_info:
-	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz"
+	input:  temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.paf.gz")
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz"
 	log: "log/extend_minimap_columns_by_ground_truth_info_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
@@ -303,7 +276,7 @@ rule HARD_clustering:
 	input:
 		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample = "NA12878_WashU_PBreads", chunks=chunkID), 
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData"
 	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell:
 		"""
@@ -321,7 +294,7 @@ rule HARD_clustering:
 rule SOFT_clustering:
 	input:
 		minimapFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
-		HCclustFile = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults.RData"
+		HCclustFile = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData", numClustersHard=numClustersHard)
     
 	output:
 		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
@@ -343,6 +316,20 @@ rule SOFT_clustering:
 		$(pwd)/utils/R-packages/) \
 		> {log} 2>&1
 		"""
+
+
+rule create_SaaRclust_evaluation_plots:
+	input:
+		saarclust="utils/R-packages/SaaRclust/R/SaaRclust",
+		inputfolder="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}"
+	output:
+		acc_table="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/saarclust_accuracy.table",
+		acc_plot= "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/saarclust_accuracy_plot.pdf"
+	params:
+		minLib=5
+	log: "log/create_SaaRclust_evaluation_plots_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/SaaRclust_evaluation_plots.snakemake.R"
+
 
 rule output_wc_cells_clusters:
 	input: expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/{{sample}}_chunk{chunks}_clusters.RData", chunks=chunkID[0])
@@ -487,12 +474,12 @@ rule count_SS_clust_cov:
 		'''
 
 
-rule cluster_SS_reads2:
+rule cluster_SS_reads:
 	input:
 		ss_clust_count=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_SS_cov.data", chunks=chunkID),
 		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data"
-	log: "log/cluster_SS_reads2_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	log: "log/cluster_SS_reads_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/cluster_SS_reads2.snakemake.R"
 
 
@@ -531,20 +518,20 @@ rule append_clusters_to_SS_read_names:
 ##########		mapping SS reads to bubbles		###########
 ###########################################################################
 
-rule map_SS_reads_to_snv_bubbles2:
+rule map_SS_reads_to_snv_bubbles:
 	input:
-		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta", #SSfastqDir + "/all_SS_libs_cluster{cluster}.fa",
-		bubble="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
-	output: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/map_SS_reads_to_snv_bubbles_{x}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta",
+		bubble="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
+	output: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/map_SS_reads_to_snv_bubbles_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
 
 
 # TODO: change to output also the mapping positions (not only the names)
 rule output_valid_maps:
-	input: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	output: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/output_valid_maps_and_SS_bubble_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	input: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	output: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/output_valid_maps_and_SS_bubble_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_valid_maps.py"
 
 
@@ -553,47 +540,47 @@ rule output_valid_maps:
 ###################################################################
 
 rule count_bubble_clust_coverage:
-	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	output: SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	output: SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	shell: "(time tail -n +2 {input} | awk '{{print $3, $4, $5, $6, $7, $8}}' | sort | uniq -c > {output}) > {log} 2>&1"
 
 
-rule cluster_snv_bubbles2:
+rule cluster_snv_bubbles:
 	input:
-		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-	log: "log/cluster_snv_bubbles_k{k}_a{a}_u{u}.log"
+		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+	log: "log/cluster_snv_bubbles_k{k}_a{a}_l{l}.log"
 	script: "utils/cluster_snv_bubbles2.snakemake.R"
 
 
-rule add_bubble_clust_to_maps:
-	input:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		map=SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: SSfastqDir + "/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/add_bubble_clust_to_maps_{x}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/add_bubble_clust_to_maps.snakemake.R"
+#rule add_bubble_clust_to_maps:
+#	input:
+#		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#		map=SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+#	output: SSfastqDir + "/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	log: "log/add_bubble_clust_to_maps_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#		script: "utils/add_bubble_clust_to_maps.snakemake.R"
 
 
 rule output_bubble_ss_lib_coverage:
 	input:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
-	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
+	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
 
 
-rule append_clusters_to_bubble_names2:
+rule append_clusters_to_bubble_names:
 	input:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
-	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa"
+		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
+	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa"
 	run:
 		# mapping bubble names to their clusters
 		bubble_id_to_clust={}
@@ -623,127 +610,25 @@ rule append_clusters_to_bubble_names2:
 ##########		realignment of SS reads to PB reads		###########
 ###################################################################################
 
-rule export_het_kmers2:
+rule export_het_kmers:
 	input:
-		bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
-		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
+		#SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
 		SS_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf",
 		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs), # TODO: to be replaced by strandphaser output
 		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_u{u}_{sample}.data"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
 	params:
 		het_kmer_len=config["het_kmer_len"]
 	script: "utils/export_SS_het_kmers.py"
 
 
-rule compute_haplo_edit_distance2:
-	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_u{u}_{sample}.data"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_u{u}_{sample}.data"
-	log: "log/compute_haplo_edit_distance_chunk{chunks}_k{k}_a{a}_u{u}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+rule compute_haplo_edit_distance:
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_haplo_edit_dist_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
+	log: "log/compute_haplo_edit_distance_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/compute_haplo_edit_distance.py"
-
-
-#################################################
-####     De Bruijn graph building MIKKO      ####
-#################################################
-
-rule format_input_files:
-	output:
-		temp("filelist")
-	shell:
-		"printf '%s\\n' {SHORTREADS}/*.fastq.gz > {output}"
-
-rule run_bcalm2:
-	input:
-		"filelist"
-	output:
-		"filelist_k{k}_a{a}.unitigs.fa"
-	log: "log/run_bcalm2_k{k}_a{a}.log"
-	shadow: "shallow"
-	threads: 46
-	shell:
-		"(time {BCALMPATH} -in {input} -out filelist_k{wildcards.k}_a{wildcards.a} -kmer-size {wildcards.k} -abundance-min {wildcards.a} -nb-cores {threads}) > {log} 2>&1"
-
-rule filter_unitig_coverage:
-	input:
-		"filelist_k{k}_a{a}.unitigs.fa"
-	output:
-		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
-	log: "log/filter_unitig_coverage_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time python {SCRIPTPATH}/filter_bcalm_by_frequency.py {input} {wildcards.u} {output}) > {log} 2>&1"
-
-rule convert_graph:
-	input:
-		"tmp/filelist_k{k}_a{a}_u{u}.unitigs.fa"
-	output:
-		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
-	log: "log/convert_graph_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time {CONVERTTOGFAPATH} {input} {output} {wildcards.k}) > {log} 2>&1"
-
-rule untip_graph:
-	input:
-		"tmp/graph_k{k}_a{a}_u{u}_tipped.gfa"
-	output:
-		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
-	log: "log/untip_graph_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time {ALIGNERBINPATH}/UntipRelative 1000 100 0.1 < {input} > {output}) > {log} 2>&1"
-
-rule extract_biggest_component:
-	input:
-		"tmp/graph_k{k}_a{a}_u{u}_untip.gfa"
-	output:
-		"tmp/graph_k{k}_a{a}_u{u}_component.gfa"
-	log: "log/extract_biggest_component_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time python {SCRIPTPATH}/extract_gfa_biggest_component.py {input} > {output}) > {log} 2>&1"
-
-rule get_contigs:
-	input:
-		"tmp/graph_k{k}_a{a}_u{u}_component.gfa"
-	output:
-		"contigs_k{k}_a{a}_u{u}.fa"
-	log: "log/get_contigs_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time grep S {input} | awk '{{print \">\"$2\"\\n\"$3}}' > {output}) > {log} 2>&1"
-
-rule remake_bcalm_from_contigs:
-	input:
-		"contigs_k{k}_a{a}_u{u}.fa"
-	output:
-		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
-	log: "log/remake_bcalm_from_contigs_k{k}_a{a}_u{u}.log"
-	shadow: "shallow"
-	threads: 46
-	shell:
-		"(time {BCALMPATH} -in {input} -out contigs_k{wildcards.k}_a{wildcards.a}_u{wildcards.u} -abundance-min 1 -kmer-size {wildcards.k} -nb-cores {threads}) > {log} 2>&1"
-
-rule final_graph:
-	input:
-		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
-	output:
-		"tmp/graph_k{k}_a{a}_u{u}.gfa"
-	log: "log/final_graph_k{k}_a{a}_u{u}.log"
-	shell:
-		"(time {CONVERTTOGFAPATH} {input} {output} {wildcards.k}) > {log} 2>&1"
-
-rule convert_gfa_to_vg:
-	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
-	output: "tmp/graph_k{k}_a{a}_u{u}.vg"
-	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
-	log: "log/convert_gfa_to_vg_k{k}_a{a}_u{u}.log"
-	shell: "(time {VG} view -v -F {input} > {output}) > {log} 2>&1"
-
-#rule align_SS_reads_to_DBG:
-#	input:
-#		SS_fastq = SSfastqDir + "/all_SS_libs_cluster{cluster}.fastq",
-#		graph = "contigs_k{k}_a{a}_u{u}.unitigs.fa"
-#	output: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-#	threads: 8
-#	log: "log/align_SS_reads_to_DBG_cluster{cluster}_params_k{k}_a{a}_u{u}.log"
-#	shell: "(time {BGREAT} -t {threads} -k {wildcards.k} -u {input.SS_fastq} -g {input.graph} -q -a 31 -f {output}) > {log} 2>&1"
 
 
 
@@ -754,7 +639,7 @@ rule convert_gfa_to_vg:
 ## computing the ground truth het unitifs:
 ## mapping unitigs to the reference genome
 
-rule index_ref:
+rule bwa_index_ref:
 	input: config["reference"]
 	output:
 		config["reference"] + ".amb",
@@ -762,26 +647,44 @@ rule index_ref:
 		config["reference"] + ".bwt",
 		config["reference"] + ".pac",
 		config["reference"] + ".sa"
-	log: "log/bwa_index.log"
+	log: "log/bwa_index_ref.log"
 	shell: "(time bwa index {input}) > {log} 2>&1"
+
+rule samtools_index_ref:
+	input: config["reference"]
+	output: config["reference"] + ".fai"
+	log: "log/samtools_index_ref.log"
+	shell: "(time samtools faidx {input}) > {log} 2>&1"
+
+### TODO: output unitigs from the gfa file
 
 rule bwa_map_unitigs_to_ref:
 	input:
 		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
 		unitigs="contigs_k{k}_a{a}_u{u}.unitigs.fa"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam"
 	log: "log/bwa_map_unitigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 32 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule bwa_map_contigs_to_ref:
 	input:
 		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
 		contigs="contigs_k{k}_a{a}_u{u}.fa"
 	output: "mapped_contigs_k{k}_a{a}_u{u}.bam"
 	log: "log/bwa_map_contigs_to_ref_k{k}_a{a}_u{u}.log"
 	shell:
-		"(time bwa mem -t 32 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 32 {input.ref} {input.contigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 
 rule sort_bam:
@@ -846,21 +749,6 @@ rule intersect_bam_vcf:
 		      bedtools intersect -a {input.lowconfvcf}  -b {input.bam} > {output.lowconf}) > {log} 2>&1
 		'''
 
-#rule intersect_bedvcf_het_unitigs:
-#	input:
-#		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam",
-#		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
-#	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bed"
-#	log: "log/intersect_bedvcf_het_unitigs_k{k}_a{a}_u{u}.log"
-#	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
-
-
-#rule export_het_unitigs_fasta:
-#	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.bam"
-#	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.unitigs.sorted.fa"
-#	log: "log/export_het_unitigs_fasta_k{k}_a{a}_u{u}.log"
-#	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
-
 rule intersect_contig_bam_vcf:
 	input: 
 		bam="mapped_contigs_k{k}_a{a}_u{u}.sorted.bam",
@@ -911,157 +799,19 @@ rule export_contigs_kmer_count:
 
 ## bubble detection
 rule bubble_detection:
-	input: "tmp/graph_k{k}_a{a}_u{u}.gfa"
-	output: "tmp/bubbles_k{k}_a{a}_u{u}.fa"
-	log: "log/bubble_detection_k{k}_a{a}_u{u}.log"
+	input: GRAPHPATH + "dbg_k{k}/NA12878-l{l}-k{k}-a{a}.gfa"
+	output: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
+	log: "log/bubble_detection_k{k}_a{a}_l{l}.log"
 	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
 
+# Note: for each bubble, exactly two alleles should be written in the output file
 rule output_snv_bubbles:
-	input: "tmp/bubbles_k{k}_a{a}_u{u}.fa"
-	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
-	log: "log/output_snv_bubbles_k{k}_a{a}_u{u}.log"
+	input: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
+	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa"
+	log: "log/output_snv_bubbles_k{k}_a{a}_l{l}.log"
 	#shell: "(time python {getSNVbubbles} {input} > {output}) > {log} 2>&1"
 	script: getSNVbubbles
 
-rule add_seq_len_to_name_snv_bubbles:
-	input: "tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
-	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
-	log: "log/add_seq_len_to_name_snv_bubbles_k{k}_a{a}_u{u}.log"
-	shell: "(time bioawk -c fastx \'{{print \">\" $name \"_len:\" length($seq); print $seq}}\' {input} > {output}) > {log} 2>&1"
-
-
-rule map_SS_reads_to_snv_bubbles:
-	input:
-		SSreads=SSfastqDir + "/all_SS_libs_cluster{cluster}.fa",
-		bubble="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen.fa"
-	output: SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
-	log: "log/map_SS_reads_to_snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}.log"
-	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
-
-
-rule output_valid_maps_and_SS_bubble_cov:
-	input: SSfastqDir + "/exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
-	output:
-		map = SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
-		matrix = SSfastqDir + "/SS_lib_coverage_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
-	log: "log/output_valid_maps_and_SS_bubble_cov_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.log"
-	script: "utils/output_SS_het_unitig_coverage.snakemake.py"
-
-rule count_bubble_SS_lib_cov:
-	input: SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
-	output: SSfastqDir + "/bubble_SS_lib_count_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data"
-	log: "log/count_bubble_SS_lib_cov_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.log"
-	shell: "(time awk \'/^bubble/{{print $1}}\' {input} | cut -d'_' -f2,8 | sort | uniq -c > {output}) > {log} 2>&1"
-
-
-rule cluster_snv_bubbles:
-	input:
-		bubble_ss_count=expand(SSfastqDir + "/bubble_SS_lib_count_cluster{cluster}_snv_bubbles_k{{k}}_a{{a}}_u{{u}}.data", cluster=clusters),
-		clust_to_chrom=outputDir+"/cluster_name_mapping.data",
-		#bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
-	output:
-		bubbles_clust="tmp/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
-		#bubbles_splitted_fasta=expand("tmp/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclust.fa", cluster=clusters)
-	log: "log/cluster_snv_bubbles_k{k}_a{a}_u{u}.log"
-	script: "utils/cluster_snv_bubbles.snakemake.R"
-
-rule append_clusters_to_bubble_names:
-	input:
-		bubbles_clust="tmp/snv_bubbles_k{k}_a{a}_u{u}_cluster.data",
-		bubbles="tmp/snv_bubbles_k{k}_a{a}_u{u}_withlen_and_refmap_info.fa"
-	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa"
-	run:
-		# mapping bubble names to their clusters
-		bubble_id_to_clust={}
-		with open(input["bubbles_clust"]) as clustbubble:
-			for line in clustbubble:
-				sp = line.strip().split()
-				if sp[0] != "clust": # skip the header line
-					bubble_id_to_clust[sp[1].split("_")[0]]=sp[0]
-		
-		# writing PacBio reads clusters in the PacBio fasta file
-		with open(input["bubbles"]) as f:
-			with open(output[0], 'w') as out:
-				for line in f:
-					if line[0]==">":
-						name=line.strip()[1:]
-						bubble_id = name.split("_")[1]
-						if bubble_id in bubble_id_to_clust:
-							clust = bubble_id_to_clust[bubble_id]
-							print(line.strip() + "\t" + clust, file=out)
-						else:
-							print(line.split()[0] + "\tNone", file=out)
-					else:
-						print("sequence"+line.strip(), file=out)
-
-
-rule split_snv_bubble_fasta_file_by_cluster:
-	input: "tmp/snv_bubbles_k{k}_a{a}_u{u}_withclsut.fa",
-	output: temp(expand("tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{{k}}_a{{a}}_u{{u}}_withclsut_temp.fa", cluster=clusters)),
-	log: "log/split_snv_bubble_fasta_file_by_cluster_k{k}_a{a}_u{u}.log"
-	shell: 
-		'''
-		(time set +o pipefail && 
-		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
-		awk '$2!=\"None\" {{print>\"tmp/splitted-per-clust/snv_bubbles_cluster\"$2\"_k{wildcards.k}_a{wildcards.a}_u{wildcards.u}_withclsut_temp.fa\"}}' && 
-		touch {output}) > {log} 2>&1
-		'''
-
-######## TODO: add StrandPhaseR rule here ############
-#rule strandphaser:
-#	input: SSfastqDir + "/SS_lib_coverage_cluster{cluster}_withRCpair_snv_bubbles_k{k}_a{a}_u{u}.data"
-#	output: "strand_states/{lib}_haplo_strand_states.data"
-#	log: "log/strandphaser_{lib}_cluster{cluster}_k{k}_a{a}_u{u}.log"
-#	shell: ...
-
-# This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
-rule correct_splitted_snv_bubble_fasta_files:
-	input: "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut_temp.fa"
-	output: "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa"
-	log: "log/correct_splitted_snv_bubble_fasta_files_cluster{cluster}_k{k}_a{a}_u{u}.log"
-	shell: "(time sort -k1,1 {input} | awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' > {output}) > {log} 2>&1"
-
-
-rule export_het_kmers:
-	input:
-		bubbles= "tmp/splitted-per-clust/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
-		SS_bubble_map= SSfastqDir + "/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
-		SS_PB_minimap=outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}.maf",
-		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs) # TODO: to be replaced by strandphaser output
-	output: outputDir+"/splitted-per-cluster/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data"
-	params:
-		het_kmer_len=config["het_kmer_len"]
-	script: "utils/export_SS_het_kmers.py"
-
-
-rule compute_haplo_edit_distance:
-	input:
-		het_kmers=expand(outputDir+"/splitted-per-cluster/{{sample}}_chunk{chunkID}_cluster{{cluster}}_k{{k}}_a{{a}}_u{{u}}_PacBio_het_kmers.data", chunkID=chunkID),
-		pb_fasta=outputDir + "/splitted-per-cluster/{sample}_cluster{cluster}.fasta"
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_haplo_edit_dist.data"
-	log: "log/compute_haplo_edit_distance_{sample}_cluster{cluster}_k{k}_a{a}_u{u}.log"
-	script: "compute_haplo_edit_distance.py"
-
-
-rule export_het_kmers_test:
-	input:
-		bubbles= "test_export_het_kmers/snv_bubbles_cluster{cluster}_k{k}_a{a}_u{u}_withclsut.fa",
-		SS_bubble_map= "test_export_het_kmers/valid_exact_map_cluster{cluster}_snv_bubbles_k{k}_a{a}_u{u}.data",
-		SS_PB_minimap="test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}.maf",
-		SS_haplo_strand_states=expand("test_export_het_kmers/ground_truth_strand_states/{lib}_haplo_strand_states.data", lib=libs) # TODO: to be replaced by strandphaser output
-	output: "test_export_het_kmers/{sample}_chunk{chunkID}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_het_kmers.data"
-	params:
-		het_kmer_len=config["het_kmer_len"]
-	script: "utils/export_SS_het_kmers.py"
-
-
-rule compute_haplo_edit_distance_test:
-	input: 
-		het_kmers=expand("test_export_het_kmers/{{sample}}_chunk{chunkID}_cluster{{cluster}}_k{{k}}_a{{a}}_u{{u}}_PacBio_het_kmers.data", chunkID=['00']),
-		pb_fasta="test_export_het_kmers/{sample}_cluster{cluster}.fasta"
-	output: "test_export_het_kmers/{sample}_cluster{cluster}_k{k}_a{a}_u{u}_PacBio_haplo_edit_dist.data"
-	log: "log/compute_haplo_edit_distance_{sample}_cluster{cluster}_k{k}_a{a}_u{u}.log"
-	script: "compute_haplo_edit_distance.py"
 
 ##########################################################################################################
 
@@ -1069,11 +819,26 @@ rule compute_haplo_edit_distance_test:
 rule bwa_map_snv_bubble_unitigs_to_ref:
 	input:
 		ref=config["reference"],
-		unitigs="tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
-	output: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
-	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_u{u}.log"
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		unitigs="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa"
+	output: "mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
+	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_l{l}.log"
 	shell:
-		"(time bwa mem -t 46 -c 1 {input} | samtools view -Sb - > {output}) > {log} 2>&1"
+		"(time bwa mem -t 46 -c 1 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule output_bubbles_withlen_and_refmap_info:
+	input: "mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
+	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
+	log: "log/output_bubbles_withlen_and_refmap_info.log"
+	shell:
+		'''
+		(time bioawk -c sam '{{s=$seq; if(and($flag, 16)) {{s=revcomp($seq)}} print \">\" $qname \"_\" $flag \"_\" $rname \"_\" $pos \"_len:\" length($seq) \"\\n\" s}}' \
+		<(samtools view -F 4 {input}) > {output}) > {log} 2>&1
+		'''
 
 rule sort_bam_snv_bubbles:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
@@ -1097,33 +862,12 @@ rule intersect_bam_vcf_snv_bubbles:
 		      bedtools intersect -a {input.lowconfvcf}  -b {input.bam} > {output.lowconf}) > {log} 2>&1
 		'''
 
-#rule vcf_to_bed:
-#	input:[config["vcf_prefix"] + c + ".vcf" for c in chroms]
-#	output:"NA12878_hg38_GIAB_het_pos.bed"
-#	log: "log/vcf_to_bed.log"
-#	shell:"(time cat {input} | grep \"^[^#]\" | awk \'{{print $1\"\t\"$2-1\"\t\"$2}}\' > {output}) > {log} 2>&1"
-
-#rule intersect_bedvcf_snv_bubbles:
-#	input:
-#		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bam",
-#		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
-#	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.snv.bubbles.unitigs.sorted.bed"
-#	log: "log/intersect_bedvcf_snv_bubbles_k{k}_a{a}_u{u}.log"
-#	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
-
 rule export_snv_bubble_unitigs_fasta_from_bam:
 	input: "mapped_contigs_k{k}_a{a}_u{u}.snv.bubbles.unitigs.bam"
-	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}_with_refmap_info.fa"
+	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_with_refmap_info.fa"
 	log: "log/export_snv_bubble_unitigs_fasta_from_bam_k{k}_a{a}_u{u}.log"
 	shell: "(time perl {exportFasta} {input} > {output}) > {log} 2>&1"
 
-
-## debug
-#rule export_revcomp_free_snvbubbles_fasta:
-#	input: "tmp/snv_bubbles_k{k}_a{a}_u{u}.fa"
-#	output: "tmp/snv_bubbles_k{k}_a{a}_u{u}.revcompfree.fa"
-#	log: "log/export_revcomp_free_snvbubbles_fasta.log"
-#	shell: "(time python {computeSimpleBubble} {input} > {output}) > {log} 2>&1"
 
 
 ######################################
@@ -1132,7 +876,7 @@ rule export_snv_bubble_unitigs_fasta_from_bam:
 
 rule output_SS_phased_vcf_header:
 	input: expand(phasedSSvcfDir+ "/{chrom}_phased.vcf", chrom=chroms[0])
-	output: phasedSSvcfDir + "/header.vcf"	
+	output: phasedSSvcfDir + "/header.vcf"
 	log: "log/output_SS_phased_vcf_header.log"
 	shell: "(time awk '/^#/{{print}}' {input} > {output}) > {log} 2>&1"
 
@@ -1158,6 +902,7 @@ rule index_compressed_all_SS_phased_vcf:
 	output: phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi"
 	shell: "tabix {input}"
 
+
 rule index_SS_bams:
 	input: config["SS_bam_dir"]+"/{lib}_srt_dedup.bam"
 	output: config["SS_bam_dir"]+"/{lib}_srt_dedup.bam.bai"
@@ -1167,6 +912,12 @@ rule index_SS_bams:
 rule haplotag_SS_reads:
 	input:
 		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
 		bam=config["SS_bam_dir"]+"/{lib}_srt_dedup.bam",
@@ -1211,7 +962,7 @@ rule output_ground_truth_strand_states:
 		ss_haplotagged_count_watson_h2="haplotagged_SS_bams/{lib}_srt_dedup_watson_haplo2_chrom_count.data",
 		ss_haplotagged_count_crick_h1= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo1_chrom_count.data",
 		ss_haplotagged_count_crick_h2= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo2_chrom_count.data",
-		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"#outputDir + "/cluster_name_mapping.data"
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	params:
 		background_rate=0.05
@@ -1226,32 +977,38 @@ rule bwa_map_PB_fasta:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
-		pb=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.fasta"
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.bam"
-	log: "log/bwa_map_PB_fasta_{sample}_cluster{clust}.log"
-	shell: "(time bwa mem -t 46 {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
+		pb=PBbamDir+"/{sample}.{chunks}.fasta"
+	output: PBbamDir+"/{sample}.{chunks}.bam"
+	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
+	shell: "(time bwa mem -t 46 -x pacbio {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_pb_bam:
-	input: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.bam",
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam"
-	log: "log/{sample}_cluster{clust}.log"
+	input: PBbamDir+"/{sample}.{chunks}.bam",
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	log: "log/{sample}_{chunks}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 
 rule index_PB_bam:
-	input:  outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam"
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam.bai"
-	log: "log/index_PB_bam_{sample}_cluster{clust}.log"
+	input:  PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam.bai"
+	log: "log/index_PB_bam_{sample}_{chunks}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
 rule haplotag_PB_reads:
 	input:
 		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
-		bam=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam",
-		bai=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}.sorted.bam.bai",
-	output: outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_haplotagged.bam"
+		bam=PBbamDir+"/{sample}.{chunks}.sorted.bam",
+		bai=PBbamDir+"/{sample}.{chunks}.sorted.bam.bai",
+	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
 	log: "log/haplotag_PB_reads.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups) > {log} 2>&1"
 
@@ -1306,38 +1063,28 @@ rule convert_jf_to_fa:
 
 
 ######################################
-rule output_unique_covered_nodes:
-	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
-	run:
-		lines = open(input[0]).read()
-		l = list(set(lines.replace(";", " ").split()))
-		open(output[0], "w").write("\n".join(l))
+#rule output_unique_covered_nodes:
+#	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	run:
+#		lines = open(input[0]).read()
+#		l = list(set(lines.replace(";", " ").split()))
+#		open(output[0], "w").write("\n".join(l))
 
-rule find_inter_chr_intersection:
-	input:
-		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
-		cluster_pairs = outputDir + "/clust_partners.txt",
-		node_lens = nodelens
-	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
-	log: "log/find_inter_chr_intersection.log"
-	script: "utils/find_inter_chr_intersection.snakemake.R"
+#rule find_inter_chr_intersection:
+#	input:
+#		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+#		cluster_pairs = outputDir + "/clust_partners.txt",
+#		node_lens = nodelens
+#	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
+#	log: "log/find_inter_chr_intersection.log"
+#	script: "utils/find_inter_chr_intersection.snakemake.R"
 
 
 #######################################
 #####	     Canu assembly	  #####
 #######################################
 
-# FIXME: clustpair shouldn't be used here
-#rule estimate_cluster_sizes:
-#	input:
-#		chromsize=config["chrom_sizes"],		
-#		clustersfasta=expand(outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta", sample = "NA12878_WashU_PBreads", clust=clustpair.keys())
-#	output: config["cluster_sizes"]
-#	shell:
-#		'''
-#		paste {input.chromsize} <(ls -lh {outputDir}/splitted-per-cluster/*_with_RCpair.fasta | awk '{{gsub(\"G\", \"\", $5); gsub(\"{outputDir}/splitted-per-cluster/{sample}_cluster", \"\"); gsub(\"_with_RCpair.fasta\", \"\"); print}}' | sort -n -k5,5 | cut -d\' \' -f9) > {output}
-#		'''
 
 rule correct_reads:
 	input:
@@ -1412,6 +1159,7 @@ rule assembly:
 		minOverlapLength={wildcards.overlap} \
 		-pacbio-corrected {input.trimmed}) 2> {log}
 		"""
+
 
 
 
