@@ -4,7 +4,7 @@ Nchunks: 217
 # https://github.com/maickrau/GraphAligner
 # root directory of the repo
 graphalignerfolder: /MMCI/TM/scratch/mikko/random_bins/
-graphfolder: /MMCI/TM/scratch/mikko/NA12878_illumina_lighter/
+graphfolder: DBG_illumina/
 # https://github.com/GATB/bcalm
 # required for building the de Bruijn graph
 bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2

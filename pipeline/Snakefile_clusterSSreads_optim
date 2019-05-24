@@ -768,7 +768,7 @@ rule export_contigs_kmer_count:
 
 ## bubble detection
 rule bubble_detection:
-	input: GRAPHPATH + "dbg_k{k}/NA12878-l{l}-k{k}-a{a}.gfa"
+	input: GRAPHPATH + "graph_k{k}_a{a}_l{l}.gfa"
 	output: "bubbles/bubbles_k{k}_a{a}_l{l}.fa"
 	log: "log/bubble_detection_k{k}_a{a}_l{l}.log"
 	shell: "(time python utils/simple_bubbles.py {input} > {output}) > {log} 2>&1"
