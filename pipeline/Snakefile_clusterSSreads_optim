@@ -14,6 +14,7 @@ inputDir = config["input_dir"]
 softClustDir = config["soft_clust_dir"]
 outputDir = config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
+SSbamDir = config["SS_bam_dir"]
 VG = config["VG"]
 nodelens = config["node_lens"]
 chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
@@ -49,6 +50,7 @@ logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale  	= config["log_scale"]
 numAlignments   = config["numAlignments"]
+
 
 minimapHeader = "SSreadNames\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
 minimapExtendedHeader = "SSreadNames\\tSSlibNames\\tSSflag\\tSSchrom\\tSSpos\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBflag\\tPBchrom\\tPBpos\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
@@ -872,8 +874,8 @@ rule index_compressed_all_SS_phased_vcf:
 
 
 rule index_SS_bams:
-	input: config["SS_bam_dir"]+"/{lib}_srt_dedup.bam"
-	output: config["SS_bam_dir"]+"/{lib}_srt_dedup.bam.bai"
+	input: config["SS_bam_dir"]+"/{lib}.bam"
+	output: config["SS_bam_dir"]+"/{lib}.bam.bai"
 	log: "log/index_SS_bams.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
@@ -888,16 +890,16 @@ rule haplotag_SS_reads:
 		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
-		bam=config["SS_bam_dir"]+"/{lib}_srt_dedup.bam",
-		bai=config["SS_bam_dir"]+"/{lib}_srt_dedup.bam.bai",
-	output: "haplotagged_SS_bams/{lib}_srt_dedup_haplotagged.bam"
+		bam=config["SS_bam_dir"]+"/{lib}.bam",
+		bai=config["SS_bam_dir"]+"/{lib}.bam.bai",
+	output: "haplotagged_SS_bams/{lib}_haplotagged.bam"
 	log: "log/haplotag_SS_reads_lib{lib}.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups) > {log} 2>&1"
 
 
 rule split_haplotagged_SS_bams_per_direction:
-	input: "haplotagged_SS_bams/{lib}_srt_dedup_haplotagged.bam"
-	output: expand("haplotagged_SS_bams/{{lib}}_srt_dedup_haplotagged_{dir}.bam", dir=directions)
+	input: "haplotagged_SS_bams/{lib}_haplotagged.bam"
+	output: expand("haplotagged_SS_bams/{{lib}}_haplotagged_{dir}.bam", dir=directions)
 	log: "log/split_haplotagged_SS_bams_per_direction_{lib}.log"
 	shell:
 		'''
@@ -906,15 +908,15 @@ rule split_haplotagged_SS_bams_per_direction:
 		'''
 
 rule count_SS_reads_per_chromosome:
-	input: "haplotagged_SS_bams/{lib}_srt_dedup_haplotagged_{dir}.bam"
-	output: "haplotagged_SS_bams/{lib}_srt_dedup_{dir}_chrom_count.data"
+	input: "haplotagged_SS_bams/{lib}_haplotagged_{dir}.bam"
+	output: "haplotagged_SS_bams/{lib}_{dir}_chrom_count.data"
 	log: "log/count_SS_reads_per_chromosome_{lib}_{dir}.log"
 	shell: "(time samtools view {input} | cut -f3 | sort | uniq -c | awk '$2~/chr[0-9]+$/ {{print}}' > {output}) > {log} 2>&1"
 
 
 rule count_haplotagged_SS_reads_per_chrom:
-	input: "haplotagged_SS_bams/{lib}_srt_dedup_haplotagged_{dir}.bam"
-	output: expand("haplotagged_SS_bams/{{lib}}_srt_dedup_{{dir}}_haplo{haplo}_chrom_count.data", haplo=haplotypes)
+	input: "haplotagged_SS_bams/{lib}_haplotagged_{dir}.bam"
+	output: expand("haplotagged_SS_bams/{{lib}}_{{dir}}_haplo{haplo}_chrom_count.data", haplo=haplotypes)
 	log: "log/count_haplotagged_SS_reads_per_chrom_{lib}_{dir}.log"
 	shell: 
 		'''
@@ -924,12 +926,12 @@ rule count_haplotagged_SS_reads_per_chrom:
 
 rule output_ground_truth_strand_states:
 	input:
-		ss_count_watson="haplotagged_SS_bams/{lib}_srt_dedup_watson_chrom_count.data",
-		ss_count_crick= "haplotagged_SS_bams/{lib}_srt_dedup_crick_chrom_count.data",
-		ss_haplotagged_count_watson_h1="haplotagged_SS_bams/{lib}_srt_dedup_watson_haplo1_chrom_count.data",
-		ss_haplotagged_count_watson_h2="haplotagged_SS_bams/{lib}_srt_dedup_watson_haplo2_chrom_count.data",
-		ss_haplotagged_count_crick_h1= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo1_chrom_count.data",
-		ss_haplotagged_count_crick_h2= "haplotagged_SS_bams/{lib}_srt_dedup_crick_haplo2_chrom_count.data",
+		ss_count_watson="haplotagged_SS_bams/{lib}_watson_chrom_count.data",
+		ss_count_crick= "haplotagged_SS_bams/{lib}_crick_chrom_count.data",
+		ss_haplotagged_count_watson_h1="haplotagged_SS_bams/{lib}_watson_haplo1_chrom_count.data",
+		ss_haplotagged_count_watson_h2="haplotagged_SS_bams/{lib}_watson_haplo2_chrom_count.data",
+		ss_haplotagged_count_crick_h1= "haplotagged_SS_bams/{lib}_crick_haplo1_chrom_count.data",
+		ss_haplotagged_count_crick_h2= "haplotagged_SS_bams/{lib}_crick_haplo2_chrom_count.data",
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	params:
