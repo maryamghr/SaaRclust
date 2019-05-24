@@ -12,7 +12,7 @@ BGREAT = config["bgreat"]
 EXTRACTFASTQ = config["extract_fastq"]
 inputDir = config["input_dir"]
 softClustDir = config["soft_clust_dir"]
-outputDir = config["output_dir"]
+outputDir = "output"#config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
 SSbamDir = config["SS_bam_dir"]
 VG = config["VG"]
@@ -57,11 +57,12 @@ minimapExtendedHeader = "SSreadNames\\tSSlibNames\\tSSflag\\tSSchrom\\tSSpos\\tS
 
 print(minimapExtendedHeader)
 
-libs, L, = glob_wildcards(SSfastqDir+"/{lib}_{l}_R1_001.fastq.gz")
-PROJECTS, DIR = [], []
+#libs, L, = glob_wildcards(SSfastqDir+"/{lib}_{l}_R1_001.fastq.gz")
+#PROJECTS, DIR = [], []
+libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
 
-COMBINS = [libs[i]+"_"+L[i] for i in range(len(libs))]
-print(COMBINS)
+#COMBINS = [libs[i]+"_"+L[i] for i in range(len(libs))]
+#print(COMBINS)
 
 
 ###############################################
@@ -188,7 +189,7 @@ rule export_SS_fasta_from_bam:
 rule minimap2_align_SS_to_PB:
 	input:
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta",
-		ss_reads=expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=COMBINS)
+		ss_reads=expand(SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", x=libs)
 	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
 	threads: 1
 	log: "log/minimap_align_chunks_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
@@ -388,24 +389,24 @@ rule append_clusters_to_pb_read_names:
 #######################################################################################
 
 # TODO: change outputDir
-rule split_fasta_file_by_cluster:
-	input: outputDir + "/{sample}_with_cluster.fasta"
-	output: temp(expand(outputDir + "/splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters)),
-	log: "log/split_fasta_file_by_cluster_{sample}.log"
-	shell: 
-		'''
-		(time set +o pipefail && 
-		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
-		awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' && 
-		touch {output}) > {log} 2>&1
-		'''
+#rule split_fasta_file_by_cluster:
+#	input: outputDir + "/{sample}_with_cluster.fasta"
+#	output: temp(expand(outputDir + "/splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters)),
+#	log: "log/split_fasta_file_by_cluster_{sample}.log"
+#	shell: 
+#		'''
+#		(time set +o pipefail && 
+#		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
+#		awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' && 
+#		touch {output}) > {log} 2>&1
+#		'''
 
 # This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
-rule correct_fasta_files:
-	input: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
-	output: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta"
-	log: "log/correct_fasta_files_{sample}_{clust}.log"
-	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
+#rule correct_fasta_files:
+#	input: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
+#	output: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta"
+#	log: "log/correct_fasta_files_{sample}_{clust}.log"
+#	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
 
 
 # FIXME: clustpair shouldn't be used here
@@ -519,7 +520,7 @@ rule count_bubble_clust_coverage:
 
 rule cluster_snv_bubbles:
 	input:
-		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output:
 		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
@@ -540,7 +541,7 @@ rule cluster_snv_bubbles:
 rule output_bubble_ss_lib_coverage:
 	input:
 		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
 	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
@@ -584,8 +585,8 @@ rule append_clusters_to_bubble_names:
 rule export_het_kmers:
 	input:
 		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
-		#SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
-		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=COMBINS),
+		#SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_with_bubble_clust_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
 		SS_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf",
 		SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs), # TODO: to be replaced by strandphaser output
 		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta"

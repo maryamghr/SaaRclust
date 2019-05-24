@@ -67,8 +67,8 @@ input_dir: /MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0
 soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters
 
 # output directory for storing output files
-output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited
-output_dir2: test_merged_fasta
+#output_dir: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/aligns_k15_w1_L50_f0.05_SSsplited
+#output_dir2: test_merged_fasta
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: /MMCI/TM/scratch/maryam/clustering/raw-reads/all_SS_reads
