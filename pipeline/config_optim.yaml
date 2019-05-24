@@ -52,7 +52,7 @@ l: 21
 kmer_abundance: 2
 # Minimum unitig abundance of the graph
 # This should be very low
-unitig_abundance: 5
+#unitig_abundance: 5
 
 # bgreat
 bgreat: /MMCI/TM/scratch/mikko/bgreat2_strandseq/bgreat
