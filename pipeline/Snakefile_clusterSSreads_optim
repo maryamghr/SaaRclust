@@ -150,6 +150,12 @@ rule bwa_map_SS_to_ref:
 	log: "log/bwa_map_SS_to_ref_{lib}.log"
 	shell: "(time bwa mem -t {threads} {input.ref} {input.ss} | samtools view -Sb - > {output}) > {log} 2>&1"
 
+rule sort_SS_bam:
+	input: SSbamDir+"/{lib}.bam"
+	output: SSbamDir+"/{lib}.sorted.bam"
+	log: "log/sort_SS_bam_{lib}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
 rule export_SS_fasta_from_bam:
 	input: SSbamDir+"/{lib}.bam"
 	output: SSfastqDir+"/merged/{lib}.combined.withmapinfo.fasta"
@@ -889,8 +895,8 @@ rule index_compressed_all_SS_phased_vcf:
 
 
 rule index_SS_bams:
-	input: SSbamDir+"/{lib}.bam"
-	output: SSbamDir+"/{lib}.bam.bai"
+	input: SSbamDir+"/{lib}.sorted.bam"
+	output: SSbamDir+"/{lib}.sorted.bam.bai"
 	log: "log/index_SS_bams_{lib}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
@@ -905,8 +911,8 @@ rule haplotag_SS_reads:
 		fai=config["reference"] + ".fai",
 		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
 		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
-		bam=SSbamDir+"/{lib}.bam",
-		bai=SSbamDir+"/{lib}.bam.bai",
+		bam=SSbamDir+"/{lib}.sorted.bam",
+		bai=SSbamDir+"/{lib}.sorted.bam.bai",
 	output: SSbamDir+"haplotagged/{lib}_haplotagged.bam"
 	log: "log/haplotag_SS_reads_lib{lib}.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups) > {log} 2>&1"
