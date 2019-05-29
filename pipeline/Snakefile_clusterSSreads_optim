@@ -924,8 +924,8 @@ rule split_haplotagged_SS_bams_per_direction:
 	log: "log/split_haplotagged_SS_bams_per_direction_{lib}.log"
 	shell:
 		'''
-		(time cat <(samtools view -H {input}) <(samtools view -f 80 {input}) | samtools view -Sb - > {output[0]} &&
-		      cat <(samtools view -H {input}) <(samtools view -f 64 -F 16 {input}) | samtools view -Sb - > {output[1]}) > {log} 2>&1
+		(time cat <(samtools view -H {input}) <(samtools view -f 16 {input}) | samtools view -Sb - > {output[0]} &&
+		      cat <(samtools view -H {input}) <(samtools view -F 16 {input}) | samtools view -Sb - > {output[1]}) > {log} 2>&1
 		'''
 
 rule count_SS_reads_per_chromosome:
