@@ -310,6 +310,7 @@ rule SOFT_clustering:
 rule create_SaaRclust_evaluation_plots:
 	input:
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust",
+		soft_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/{{sample}}_chunk{chunks}_clusters.RData", chunks=chunkID)
 	output:
 		acc_table="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/saarclust_accuracy.table",
 		acc_plot= "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/saarclust_accuracy_plot.pdf"
