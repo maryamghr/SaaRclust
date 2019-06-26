@@ -208,7 +208,7 @@ rule minimap2_align_SS_to_PB:
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta",
 		ss_reads=expand(SSfastqDir+"/merged/{lib}.combined.withmapinfo.fasta", lib=libs)
 	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_temp.paf.gz")
-	threads: 1
+	threads: 8
 	log: "log/minimap_align_chunks_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
 	#shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
 	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
@@ -231,8 +231,8 @@ rule extend_minimap_columns_by_ground_truth_info:
 	log: "log/extend_minimap_columns_by_ground_truth_info_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
 		'''
-		(time cat <(echo -e \"{minimapExtendedHeader}\") <(zcat {input} | tail -n +2 | gawk 'match($1, /(.*)_(.*)_(.*)_(.*)_(.*)_(.*)/, ss) match($6, /(.*)_(.*)_(.*)_(.*)/, pb) \
-		{{print ss[1] \"\t\" ss[2] \"_\" ss[3] \"\t\" ss[4] \"\t\" ss[5] \"\t\" ss[6] \
+		(time cat <(echo -e \"{minimapExtendedHeader}\") <(zcat {input} | tail -n +2 | gawk 'match($1, /(.*)_(.*)_(.*)_(.*)_(.*)/, ss) match($6, /(.*)_(.*)_(.*)_(.*)/, pb) \
+		{{print ss[1] \"\t\" ss[2] \"\t\" ss[3] \"\t\" ss[4] \"\t\" ss[5] \
 		\"\t\" $2 \"\t\" $3 \"\t\" $4 \"\t\" $5 \"\t\" \
 		pb[1] \"\t\" pb[2] \"\t\" pb[3] \"\t\" pb[4] \"\t\" \
 		$7 \"\t\" $8 \"\t\" $9 \"\t\" $10 \"\t\" $11 \"\t\" $12}}') | gzip -c > {output}) > {log} 2>&1
