@@ -239,14 +239,63 @@ rule extend_minimap_columns_by_ground_truth_info:
 		'''
 
 
+###############################################################################
+##############	   	  minimap evaluation			###############
+###############################################################################
+
+
+
+rule intersect_pb_ss_bams:
+	input:
+		pb=PBbamDir+"/{sample}.{chunks}.sorted.bam",
+		#ss=config["SS_bam_dir"]+"/{lib}_srt_dedup.bam"
+		ss=SSbamDir+"/{lib}.sorted.bam"
+	output: PBbamDir+"/intersect_with_ss_bams/intersect_{sample}.{lib}.{chunks}.bed"
+	log: "log/intersect_pb_ss_bams_{sample}_{lib}_{chunks}.log"
+	shell: "(time bedtools intersect -bed -a <(samtools view -F 2304 -Sb {input.pb}) -b {input.ss} -wa -wb > {output}) > {log} 2>&1"
+
+
 rule evaluate_minimap:
 	input: 
 		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
-		log    ="log/minimap_align_chunks_{sample}_chunk{chunks}.log"
+		#pb_ss_intersect=expand(PBbamDir+"/intersect_with_ss_bams/intersect_{{sample}}.{lib}.{{chunks}}.bed", lib=libs),
+		log    ="log/minimap_align_chunks_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_evaluation.txt"
 	params:
 		overlap=0.8
 	script: "utils/evaluate_minimap.py"
+
+
+rule concat_minimap_evaluation_results:
+	input: 
+		minimap_eval=expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{{sample}}_chunk{{chunks}}_evaluation.txt", kMinimap=kMinimap, w=w, f=fMinimap, z=z),
+		pb_ss_intersect=expand(PBbamDir+"/intersect_with_ss_bams/intersect_{{sample}}.{lib}.{{chunks}}.bed", lib=libs)
+	output:"minimap_evaluation_{sample}_chunk{chunks}.txt"
+	shell:
+		'''
+		declare -i l=0
+		for g in {input.pb_ss_intersect}
+		do
+		l=$((l+$(awk \'{{print $4, $16}}\' $g | sort | uniq | wc -l)))
+		done
+		echo \"total number of overlaps = \" $l > {output}
+		for f in {input.minimap_eval}
+		do
+			echo $f \"\n\" >> {output}
+			cat $f >> {output}
+			echo \"\n\" >> {output}
+		done
+		'''
+
+
+#rule evaluate_minimap:
+#	input: 
+#		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
+#		log    ="log/minimap_align_chunks_{sample}_chunk{chunks}.log"
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_evaluation.txt"
+#	params:
+#		overlap=0.8
+#	script: "utils/evaluate_minimap.py"
 
 #######################################################################################################
 ##############	     SaaRclust: clustering PacBio reads	by chromosome and direction	###############
