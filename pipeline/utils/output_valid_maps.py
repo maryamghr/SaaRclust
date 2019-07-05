@@ -7,6 +7,7 @@ def is_valid(s1, l1, s2, l2, aln_len):
 		return (True)
 	elif s2+aln_len-1 == l2 and s1 == 1: # suffix of str2 matches prefix of str1
 		return (True)
+
 	return (False)
 
 ss_name = ""
@@ -36,13 +37,13 @@ with open(snakemake.output[0], 'w') as valid_map:
 				unitig_len = int(sp[0].split("_len:")[-1])
 				ss_name_sp = ss_name.split("_")
 
-				if (not ss_name_sp[5].isdigit()) or ss_name_sp[6] == "clust:None":
+				if (not ss_name_sp[4].isdigit()) or ss_name_sp[5] == "clust:None":
 					continue # the ground true chromosome is unknown (corresponding to the chrom names which contain "_"), or the ss read is not clustered
 				
 				ss_read_name = ss_name_sp[0]
 				ss_lib_name = ss_name_sp[1] + "_" + ss_name_sp[2]
-				ss_clust = ss_name_sp[6].split("clust:")[1]
-				ss_len = int(ss_name_sp[7].split("len:")[1])
+				ss_clust = ss_name_sp[5].split("clust:")[1]
+				ss_len = int(ss_name_sp[6].split("len:")[1])
 
 				if is_valid(unitig_start, unitig_len, ss_start, ss_len, aln_len):
 					bubble_sp = sp[0].split("_")
