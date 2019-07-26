@@ -3,10 +3,12 @@ sink(file=log, type='message')
 sink(file=log, type='output')
 
 library(data.table)
+library(R.utils)
 
 soft.clust.file <- snakemake@input[["soft_clust_file"]]
 minimap.file <- snakemake@input[["minimap_file"]]
-output.map.file <- snakemake@output[[1]]
+output.map.file.gz <- snakemake@output[[1]]
+output.map.file <- gsub('.gz', '', output.map.file.gz)
 
 load(soft.clust.file)
 map <- fread(paste("zcat", minimap.file))
@@ -20,3 +22,4 @@ soft.probs <- soft.probs[, .(PBreadNames, ML_cluster_idx, max_cluster_prob)]
 map <- merge(map, soft.probs, by="PBreadNames", allow.cartesian=T)
 
 fwrite(map, file = output.map.file, quote = F, sep = "\t")
+gzip(output.map.file, destname=output.map.file.gz)

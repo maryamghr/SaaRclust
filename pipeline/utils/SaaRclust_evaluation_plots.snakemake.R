@@ -11,7 +11,7 @@ library(data.table)
 
 source('utils/SaaRclust_evaluation_plots.R')
 
-inputfolder <- snakemake@input[['inputfolder']]
+inputfolder <- snakemake@params[['inputfolder']]
 thresholds <- c(0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99)
 minLib <- snakemake@params[['minLib']]
 

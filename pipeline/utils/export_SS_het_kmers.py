@@ -1,5 +1,7 @@
 import sys
 import copy
+#import zipfile
+import gzip
 #import re
 
 # Note: q should be lower than the kmer length...
@@ -30,6 +32,9 @@ def add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q):
 	for i in range(len(seq[0])):
 		if seq[0][i] != seq[1][i]:
 			if i < q:
+				print('bubble', bubble_id)
+				print(seq[0])
+				print(seq[1])
 				sys.exit('Error in bubble: the heterozygous position is less than q!!!')
 			for al in range(2):
 				bubble_allele_to_kmers[(bubble_id, al)][i]=seq[al][i-q:(i+q+1)]
@@ -88,7 +93,7 @@ with open(snakemake.input["bubbles"]) as bubbles:
 			sp=bubble_name.split("_")
 			bubble_id=int(sp[1])
 			allele=int(sp[3])-1
-			if allele > 2:
+			if allele > 1:
 				bubbles_with_invalid_alleles.add(bubble_id)
 
 			if bubble_id != prev_bubble_id:			
@@ -109,6 +114,10 @@ with open(snakemake.input["bubbles"]) as bubbles:
 				seq[allele] = line.strip()
 
 	add_bubble_kmers(bubble_allele_to_kmers, bubble_id, seq, q)
+
+
+print("bubble_allele_to_kmers:")
+print(bubble_allele_to_kmers)
 
 
 ss_to_kmer_altkmer={}
@@ -174,6 +183,15 @@ for input_file in snakemake.input["SS_bubble_map"]:
 						break
 
 
+print("ss_to_kmer_altkmer =", ss_to_kmer_altkmer)
+print("ss_to_kmer_pos_and_interval =", ss_to_kmer_pos_and_interval)
+print("ss_to_clust =", ss_to_clust)
+print("ss_bubble_map_di r=", ss_bubble_map_dir)
+
+
+
+
+
 # mapping (lib, clust) pairs to haplotype
 lib_clust_to_haplo = {}
 
@@ -188,6 +206,8 @@ for f in snakemake.input["SS_haplo_strand_states"]:
 				lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])-1
 
 
+print("lib_clust_to_haplo =", lib_clust_to_haplo)
+
 
 # pb_to_kmers is a dictionary that maps each pb read name to a list of two lists: the first list contains h0 kmers with their intervals and the second one contains h1 kmers with their intervals in the pb read
 pb_to_kmers={}
@@ -195,8 +215,10 @@ pb_to_kmers={}
 
 print("computing pb kmer intervals...")
 
-with open(snakemake.input["SS_PB_minimap"]) as minimap:
+#with zipfile.ZipFile(snakemake.input["SS_PB_minimap"]) as z:
+with gzip.open(snakemake.input["SS_PB_minimap"], 'rb') as minimap:
 	for line in minimap:
+		line = line.decode("utf-8")
 		if line.strip() == "":
 			break
 		sp=line.split()
@@ -204,6 +226,7 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 		if sp[0] == "PBreadNames":
 			continue
 
+		#print(line.decode("utf-8"), 'class =', type(line.decode("utf-8")))
 		pb_name=sp[0]
 		ss_name=sp[1]
 		lib_name=sp[2]
@@ -220,7 +243,7 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 		if ss_name not in ss_to_clust:
 			continue
 
-		
+	
 		ss_clust=ss_to_clust[ss_name]
 		map_dir= -1 if strand=="-" else 1
 
@@ -235,7 +258,7 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 			ss_kmer_interval = copy.copy(ss_to_kmer_pos_and_interval[ss_name][1])
 			aln_dir = map_dir*copy.copy(ss_bubble_map_dir[ss_name])
 
-			
+		
 			if aln_dir != 1: # either ss to bubble or ss to pb alignment direction is reverse
 				ss_het_pos=ss_len-ss_het_pos-1
 				ss_kmer_interval[0] = ss_len - ss_kmer_interval[0]-1
@@ -255,10 +278,10 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 				pb_to_kmers[pb_name]=[[],[]] # two lists corresponding to h0 and h1 kmers
 
 			# computing the kmer interval in the pb read
-			
+		
 			pb_kmer_interval_start = map_index(ss_kmer_interval[0]-ss_start, cigar)+pb_start
 			pb_kmer_interval_end = map_index(ss_kmer_interval[1]-ss_start, cigar)+pb_start
-			
+		
 			if pb_kmer_interval_start=="" or pb_kmer_interval_start=="":
 				# there are characters other than {M, X, I, D} in the cigar string
 				#print("cigar = ", cigar, "there are characters other than {M, X, I, D} in the cigar string")
@@ -272,6 +295,9 @@ with open(snakemake.input["SS_PB_minimap"]) as minimap:
 			else:
 				pb_to_kmers[pb_name][h].append((reversecomp(ss_kmers[0]), pb_kmer_interval))
 				pb_to_kmers[pb_name][1-h].append((reversecomp(ss_kmers[1]), pb_kmer_interval))
+
+
+print("pb_to_kmers =", pb_to_kmers)
 
 
 # reading pb fasta file and getting het kmer subsequences
