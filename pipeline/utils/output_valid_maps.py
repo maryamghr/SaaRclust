@@ -41,7 +41,7 @@ with open(snakemake.output[0], 'w') as valid_map:
 					continue # the ground true chromosome is unknown (corresponding to the chrom names which contain "_"), or the ss read is not clustered
 				
 				ss_read_name = ss_name_sp[0]
-				ss_lib_name = ss_name_sp[1] + "_" + ss_name_sp[2]
+				ss_lib_name = ss_name_sp[1]# + "_" + ss_name_sp[2]
 				ss_clust = ss_name_sp[5].split("clust:")[1]
 				ss_len = int(ss_name_sp[6].split("len:")[1])
 
