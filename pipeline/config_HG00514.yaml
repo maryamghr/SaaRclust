@@ -73,7 +73,7 @@ het_kmer_len: 10
 #minimap parameters
 w: 1
 k_minimap: 15
-f: 0.0002
+f: 0.1 #0.0002
 z: 500
 
 # saarclust parameters
