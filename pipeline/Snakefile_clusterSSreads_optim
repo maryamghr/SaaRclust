@@ -192,11 +192,11 @@ rule concat_all_fasta:
 	log: "log/concat_all_fasta_{sample}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
 
-rule split_fasta_file:
-	input: expand(PBbamDir+"/{sample}.fasta", sample=sample)
-	output: expand(PBbamDir+"/{sample}.{chunks}.fasta", chunks=chunkID, sample=sample)
-	log: "log/split_fasta_file.log"
-	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
+#rule split_fasta_file:
+#	input: expand(PBbamDir+"/{sample}.fasta", sample=sample)
+#	output: expand(PBbamDir+"/{sample}.{chunks}.fasta", chunks=chunkID, sample=sample)
+#	log: "log/split_fasta_file.log"
+#	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
 	
 
 
@@ -619,7 +619,7 @@ rule cluster_snv_bubbles:
 #		script: "utils/add_bubble_clust_to_maps.snakemake.R"
 
 
-rule output_bubble_ss_lib_coverage:
+rule output_bubble_SSlib_coverage:
 	input:
 		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
@@ -1009,6 +1009,16 @@ rule count_haplotagged_SS_reads_per_chrom:
 		      samtools view {input} | grep {haplotype_tags[1]} | cut -f3 | sort | uniq -c > {output[1]}) > {log} 2>&1
 		'''
 
+#rule sort_wc_cells_by_StrandPhaseR:
+#	input:
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+#		expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data",clust=clusters)																												
+#
+#	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	log: "log/sort_wc_cells_by_StrandPhaseR_{lib}_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+#	script: "utils/run_strandphaser.snakemake.R"
+
+# TODO: to be replaced by StrandPhaseR output
 rule output_ground_truth_strand_states:
 	input:
 		ss_count_watson=SSbamDir+"haplotagged/{lib}_watson_chrom_count.data",
