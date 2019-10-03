@@ -5,6 +5,15 @@ sink(file=log, type='output')
 library(data.table)
 library(reshape2)
 
+print('snakemake@input[["clust_to_chrom"]]:')
+print(snakemake@input[["clust_to_chrom"]])
+print('snakemake@input[["valid_maps"]]:')
+print(snakemake@input[["valid_maps"]])
+print('snakemake@input[["bubbles_clust"]]')
+print(snakemake@input[["bubbles_clust"]])
+print('snakemake@output:')
+print(snakemake@output)
+
 clust.partners <- fread(snakemake@input[["clust_to_chrom"]])
 all.maps <- lapply(snakemake@input[["valid_maps"]], fread)
 map <- Reduce(rbind, all.maps)
@@ -35,7 +44,7 @@ map[, bubbleAllele:=max(bubbleAllele, num.clust.bubble.diff.alleles), .(SSlib, S
 # keep a subset of columns
 map <- map[, .(SSlib, SSclust, bubbleName, bubbleAllele, clust.backward)]
 
-# convert lond to wide data table (put different ss libs in columns)
+# convert long to wide data table (put different ss libs in columns)
 map <- data.table::dcast(map, SSclust+bubbleName+clust.backward~SSlib, value.var="bubbleAllele")
 
 map[is.na(map)] <- "-"
@@ -50,10 +59,18 @@ print(outputs)
 
 
 for (d in map.sp){
+	print('unique(d$SSclust):')
+	print(unique(d$SSclust))
 	# split d by SSclust
 	d.sp <- split(d, d$SSclust)
 	
 	lapply(d.sp, function(x) x[, `:=`(SSclust=NULL, clust.backward=NULL, first.clust.pair=NULL)])
+
+	# FIXME: to be rempved later... The problem of not having properly paired clusters should be fixed later on
+	if (length(d.sp) != 2){
+		print(paste("warning: the size of the cluster pair is", length(d.sp)))
+		next()
+	}
 	
 	# make both clusters have the same set of bubbleNames
 	d.sp[[1]] <- merge(d.sp[[1]], d.sp[[2]][, .SD, .SDcols="bubbleName"], by="bubbleName", all=T)
