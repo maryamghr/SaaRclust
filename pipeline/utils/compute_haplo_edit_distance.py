@@ -3,7 +3,10 @@ import sys
 
 with open(snakemake.input[0]) as f:
 	with open(snakemake.output[0], 'w') as out:
+		line_num = 1
 		for line in f:
+			#print(line_num, line)
+			line_num += 1
 			if line=="":
 				break
 		

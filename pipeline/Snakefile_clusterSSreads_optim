@@ -570,7 +570,8 @@ rule append_clusters_to_SS_read_names:
 ###########################################################################
 ##########		mapping SS reads to bubbles		###########
 ###########################################################################
-
+# mummer [options] ref query
+# -c can be used to make the reverse complemented query positions be reported relative to the original strand (not the reverse strand)
 rule map_SS_reads_to_snv_bubbles:
 	input:
 		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta",
@@ -674,7 +675,8 @@ rule export_het_kmers:
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/PacBio_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
 	params:
 		het_kmer_len=config["het_kmer_len"]
-	script: "utils/export_SS_het_kmers.py"
+	#script: "utils/export_SS_het_kmers.py"
+	script: "utils/export_PB_het_kmers.snakemake.py"
 
 
 rule compute_haplo_edit_distance:

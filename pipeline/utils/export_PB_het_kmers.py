@@ -434,8 +434,8 @@ def read_SS_bubble_map(ss_bubble_map_files, bubble_het_positions, bubble_allele_
 					update_ss_kmer_interval(ss_kmer_interval, ss_end, kmer, alt_kmer)
 					assert(ss_kmer_interval[0]>=ss_start and ss_kmer_interval[1]<=ss_end), 'kmer interval should be in the part of ss read that is mapped to the bubble'
 
-					ss_to_kmer_altkmer[(ss_name, ss_het_pos)] = (kmer, alt_kmer)
-					ss_to_kmer_pos_and_interval[(ss_name, ss_het_pos)] = ss_kmer_interval
+					ss_to_kmer_altkmer[ss_name] = (kmer, alt_kmer)
+					ss_to_kmer_pos_and_interval[ss_name] = (ss_het_pos, ss_kmer_interval)
 						
 				ss_to_clust[ss_name]=ss_clust
 				ss_bubble_map_dir[ss_name]=map_dir
@@ -520,7 +520,10 @@ def get_pb_kmers(minimap_file, ss_to_kmer_altkmer, ss_to_kmer_pos_and_interval, 
 				if pb_kmer_interval[0] > pb_kmer_interval[1]:
 					continue
 
-				pb_to_kmer_intervals[pb_name].append(pb_kmer_interval)
+				if pb_name not in pb_to_kmer_intervals:
+					pb_to_kmer_intervals[pb_name]=[pb_kmer_interval]
+				else:
+					pb_to_kmer_intervals[pb_name].append(pb_kmer_interval)	
 					
 				if map_dir==1:
 					pb_to_kmers[pb_name][h].append(ss_kmers[0])
@@ -563,8 +566,8 @@ def output_pb_het_kmers(fasta_file, output_file, pb_to_kmers, pb_to_kmer_interva
 							pb_kmer_interval = pb_to_kmer_intervals[name][j]
 							subseq=seq[pb_kmer_interval[0]:(pb_kmer_interval[1]+1)]
 
-							print("pb_to_kmers=", pb_to_kmers[name])
-							print("pb_kmer_interval=", pb_kmer_interval)
+							#print("pb_to_kmers=", pb_to_kmers[name])
+							#print("pb_kmer_interval=", pb_kmer_interval)
 						
 
 							#if name == 'm64018_190216_000235/50595562/ccs':
@@ -574,6 +577,6 @@ def output_pb_het_kmers(fasta_file, output_file, pb_to_kmers, pb_to_kmer_interva
 							#		sys.exit('PB subseq is empty!!!!')
 								
 
-							print(name + "\t" + subseq + "\t" + pb_to_kmers[name][0][j][0] + "\t" + pb_to_kmers[name][1][j][0], file=out)
+							print(name + "\t" + subseq + "\t" + pb_to_kmers[name][0][j] + "\t" + pb_to_kmers[name][1][j], file=out)
  
 
