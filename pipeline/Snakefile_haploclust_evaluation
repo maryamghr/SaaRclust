@@ -1,0 +1,169 @@
+configfile: "config_HG00514.yaml"
+whatshap = config["whatshap"]
+PBbamDir = config["pb_bam_dir"]
+N = config["Nchunks"]
+l = len(str(N))
+chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
+sample = config["sample"]
+chroms, = glob_wildcards(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz")
+
+
+wildcard_constraints:
+	chunks = "[0-9]+",
+	sample=sample,
+
+
+rule all:
+	input: 
+		expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = sample, chunks = chunkID),
+		expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample = sample, chunks = chunkID),
+		expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
+		expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai", k=config["k"], a = config["kmer_abundance"], l = config["l"])
+
+
+######################################################
+########### merging and indexing vcf files ###########
+######################################################
+
+rule index_vcf_file:
+	input: config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz"
+	output: config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz.tbi"
+	log: "log/index_vcf_file_{chrom}.log"
+	shell: "tabix {input}"
+
+rule merge_chromosome_vcf:
+	input:
+		vcf=expand(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz", chrom=chroms),
+		tbi=expand(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz.tbi", chrom=chroms)
+	output: config["phased_vcf_dir"]+"merged_phased.vcf.gz"
+	log: "log/merge_chromosome_vcf.log"
+	shell: #"(time bcftools merge --force-samples -Oz {input.vcf} -o {output}) > {log} 2>&1"
+		'''
+		(time cat <(zcat {input[0]} | awk '/^#/{{print}}') <(zcat {input} | awk '/^chr/{{print}}') | bgzip -c > {output}) > {log} 2>&1
+		'''
+
+
+rule index_merged_phased_vcf:
+	input: config["phased_vcf_dir"]+"merged_phased.vcf.gz"
+	output: config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi"
+	log: "log/index_merged_phased_vcf.log"
+	shell: "(time tabix {input}) > {log} 2>&1"
+
+
+###########################################
+######### haplotagging PB reads ###########
+###########################################
+
+
+rule bwa_map_PB_fasta:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		pb=PBbamDir+"/{sample}.{chunks}.fasta"
+	output: PBbamDir+"/{sample}.{chunks}.bam"
+	threads: 1
+	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
+	shell: "(time bwa mem -t {threads} -x pacbio {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule sort_pb_bam:
+	input: PBbamDir+"/{sample}.{chunks}.bam",
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	log: "log/{sample}_{chunks}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
+
+rule index_PB_bam:
+	input:  PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	output: PBbamDir+"/{sample}.{chunks}.sorted.bam.bai"
+	log: "log/index_PB_bam_{sample}_{chunks}.log"
+	shell: "(time samtools index {input}) > {log} 2>&1"
+
+
+rule haplotag_PB_reads:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
+		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
+		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
+		bam=PBbamDir+"/{sample}.{chunks}.sorted.bam",
+		bai=PBbamDir+"/{sample}.{chunks}.sorted.bam.bai",
+	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
+	log: "log/haplotag_PB_reads_{sample}_{chunks}.log"
+	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
+
+
+rule index_haplotagged_PB_bam:
+	input:  PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
+	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai"
+	log: "log/index_haplotagged_PB_bam_{sample}_{chunks}.log"
+	shell: "(time samtools index {input}) > {log} 2>&1"
+
+
+###########################################
+######### haplotagging snv bubbles ########
+###########################################
+
+rule bwa_map_snv_bubble_unitigs_to_ref:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		unitigs="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa"
+	output: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
+	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{k}_a{a}_l{l}.log"
+	threads: 8
+	shell:
+		"(time bwa mem -t {threads} -c 1 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule sort_bam_snv_bubbles:
+	input: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.bam"
+	output: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam"
+	log: "log/sort_bam_snv_bubbles_k{k}_a{a}l{l}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
+
+rule index_bam_snv_bubbles:
+	input:  "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam"
+	output: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam.bai"
+	log: "log/index_bam_snv_bubbles_k{k}_a{a}l{l}.log"
+	shell: "(time samtools index {input}) > {log} 2>&1"
+
+
+rule haplotag_snv_bubbles:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
+		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
+		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
+		bam="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam",
+		bai="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam.bai",
+	output: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam"
+	log: "log/haplotag_snv_bubbles_k{k}_a{a}l{l}.log"
+	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
+
+
+rule index_haplotagged_bam_snv_bubbles:
+	input:  "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam"
+	output: "bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai"
+	log: "log/index_haplotagged_bam_snv_bubbles_k{k}_a{a}l{l}.log"
+	shell: "(time samtools index {input}) > {log} 2>&1"
+
+
+
