@@ -1,10 +1,10 @@
 ### Note: SS read names should not have "_" character
 
 sample: HG00514
-Nchunks: 217
+Nchunks: 100
 
 graphalignerfolder: /MMCI/TM/scratch/mikko/random_bins/
-graphfolder: /local/data/maryam/haploclust-css-HG00514/DBG_illumina/
+graphfolder: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/DBG_illumina/
 # required for building the de Bruijn graph
 bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
 bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
@@ -15,7 +15,7 @@ whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
 
 # PacBio reads
 #pb_fasta: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/NA12878_WashU_PBreads
-pb_bam_dir: /local/data/maryam/haploclust-css-HG00514/ccs_bams
+pb_bam_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ccs_bams
 min_pb_len: 5000
 
 # Illumina reads
@@ -29,8 +29,11 @@ vcf_prefix: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/GIAB/NA12878.hg3
 giab_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/giab_phased_vcf
 platinum_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/platinum-genome-phased-vcf
 
+phased_vcf_dir: trio-based-phasing/
+vcf_prefix: SH032
+
 # SS bams and phased vcf files
-SS_bam_dir: /local/data/maryam/haploclust-css-HG00514/ss_bams
+SS_bam_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ss_bams
 phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/David-StrandPhaseR/VCFfiles
 
 # Kmer size of the graph
@@ -54,7 +57,7 @@ input_dir: /MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0
 soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters
 
 # directory including all Strand-seq fastq files
-SS_fastq_dir: /local/data/maryam/haploclust-css-HG00514/ss_fastq
+SS_fastq_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ss_fastq
 
 # VG tool
 VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
@@ -86,4 +89,4 @@ upperQ: 0.95
 logLth: 1
 theta_constrain: "FALSE"
 log_scale: "TRUE"
-numAlignments: 30000
+numAlignments: 50000
