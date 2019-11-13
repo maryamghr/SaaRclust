@@ -1,13 +1,14 @@
 library(data.table)
 library(reshape2)
 library(stringr)
-library(binaryLogic)
 
 
 mergeAllCoverages <- function(cov, clust.partners) {
 	for (i in 1:length(cov))
 	{
 		colnames(cov[[i]]) <- c("cov", "name", "lib", "flag", "chrom", "pos", "len", "dir", "clust.forward")
+		print(cov[[i]])
+		print(paste('type(flag) =', class(cov[[i]][, flag])))
 		# adding cluster partners
 		cov[[i]] <- merge(cov[[i]], clust.partners, by="clust.forward")
 		# replace each cluster by its pair if the mappint direction is minus
@@ -42,16 +43,12 @@ callMajorityVoteCluster <- function(d) {
 evaluateSSclustering <- function(d) {
 	# compute SS mapping direction based on the flag
 	# compute binary flag values
-	d[, binary.flag:=paste(as.binary(flag[1]), collapse=""), by=flag]
-	# get the forth (direction flag) digit from the right
-	d[, dir.flag:=rep(substr(binary.flag[1], nchar(binary.flag[1])-4, nchar(binary.flag[1])-4), .N), by=binary.flag]
-	# set the dir flag to 0 for the flags that have less than 5 binaray characters
-	d[dir.flag=="", dir.flag:=0]
-	# convert dir flag 1 to 16
-	d[dir.flag==1, dir.flag:=16]
-
+	print('evaluating SS clustering')
+	print(d)
+	d[, direction.flag:=bitwAnd(flag[1], 16), by=flag]
+	
 	d[, name:=paste0(name, "_", lib, "_", flag, "_", chrom, "_", pos, "_len:", len)]
 
 	print("clustering accuracy among SS reads with only one ML cluster:")
-	print(d[, .N, by=paste0(chrom, "_", dir.flag)==inferred.chrom.flag])
+	print(d[, .N, by=paste0(chrom, "_", direction.flag)==inferred.chrom.flag])
 }
