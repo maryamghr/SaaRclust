@@ -12,7 +12,7 @@
 #' @export
 #' @author David Porubsky, Maryam Ghareghani
 
-runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hardClusteringResults.RData") {
+runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, hardclustMinLib = 35, hardclustLowerQ=0.7, hardclustUpperQ=0.9, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hardClusteringResults.RData") {
   
   #=========================#
   ### Create directiories ###
@@ -68,11 +68,11 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", num
     #reuse existing data if they were already created and save in a given location
     if (!file.exists(destination)) {
       # setting the min number of SS libs as a cutoff to use PB reads in hard clustering
-      cov.cutoff = 35
+      
       if (!is.null(cellNum)) {
-        cov.cutoff <- round(cellNum/4)
+        hardclustMinLib <- round(cellNum/4)
       }
-      best.alignments <- getRepresentativeAlignments(inputfolder=inputfolder, numAlignments=numAlignments, quantileSSreads=c(0,0.9), minSSlibs=c(cov.cutoff,Inf))
+      best.alignments <- getRepresentativeAlignments(inputfolder=inputfolder, numAlignments=numAlignments, quantileSSreads=c(hardclustLowerQ, hardclustUpperQ), minSSlibs=c(hardclustMinLib,Inf))
       if (store.bestAlign) {
         save(file = destination, best.alignments)
       }
