@@ -127,18 +127,13 @@ hardClustAccuracy <- function(hard.clust, pb.chr, pb.flag, tab.filt, female=TRUE
 
 numFoundClusters <- function (ord, chr, flag) 
 {
-    hard.clust.dt <- data.table(name = names(ord), 
-        clust = ord, chrom = chr, flag = flag)
-    hard.clust.dt[, `:=`(chrom_flag_count, .N), by = .(clust, 
-        chrom, flag)]
-    hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, 
-        chrom, flag)][, `:=`(name, NULL)]
-    hard.clust.to.chrom[, `:=`(chrom_flag_rank, rank(-chrom_flag_count)), 
-        by = clust]
-    hard.clust.to.chrom <- hard.clust.to.chrom[chrom_flag_rank == 
-        1]
-    hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, .(chrom, 
-        flag)])
+    hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr, flag = flag)
+    hard.clust.dt[, `:=`(chrom_flag_count, .N), by = .(clust, chrom, flag)]
+    hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom, flag)]
+    hard.clust.to.chrom[, name:=NULL]
+    hard.clust.to.chrom[, `:=`(chrom_flag_rank, rank(-chrom_flag_count)), by = clust]
+    hard.clust.to.chrom <- hard.clust.to.chrom[chrom_flag_rank == 1]
+    hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, .(chrom, flag)])
     return(nrow(hard.clust.to.chrom.unq))
 }
 
