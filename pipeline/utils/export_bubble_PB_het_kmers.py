@@ -326,14 +326,16 @@ def output_bubble_and_pb_kmers(minimap_file, bubble_first_haplo_allele, bubble_h
 				for i in range(len(het_pos)):
 					pos, kmer0, kmer1 = het_pos[i], bubble_al0_kmers[i], bubble_al1_kmers[i]
 
-					if pos < bubble_start or pos > bubble_end:
-						# the heterozygous position is not covered by the long read
-						continue
 
 					if strand=='-':
 						pos, kmer0, kmer1 = bubble_len-1-pos, reversecomp(kmer0), reversecomp(kmer1)
 
+					if pos < bubble_start or pos > bubble_end:
+						# the heterozygous position is not covered by the long read
+						continue
+
 					start, end, bubble_kmer0, bubble_kmer1 = get_bubble_kmers_with_interval(pos, bubble_start, bubble_end, kmer0, kmer1 , q)
+
 					pb_kmer_start, pb_kmer_end = find_reference_interval(start, end, pb_start, bubble_start, cigar)
 
 					if pb_kmer_start > pb_kmer_end:
