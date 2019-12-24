@@ -50,13 +50,26 @@ ss_count[, `:=`(W_h=which.max(c(W_h1, W_h2)), C_h=which.max(c(C_h1, C_h2))), by=
 
 
 # computing the fraction of W reads
+
+print('all ss counts:')
+print(ss_count)
+
 ss_count[, w_frac:=W/(W+C), by=1:nrow(ss_count)]
 ss_count <- ss_count[w_frac>0.45 & w_frac < 0.55]
+
+print('WC ss counts:')
+print(ss_count)
 
 ss_count_w = ss_count[W_h!=C_h, .(original.cluster=chrom, haplotype=W_h)]
 ss_count_c = ss_count[W_h!=C_h, .(original.cluster=chrom, haplotype=C_h)]
 ss_count_w[, original.cluster:=paste0(original.cluster, "_16")]
 ss_count_c[, original.cluster:=paste0(original.cluster, "_0")]
+
+print('W ss counts in WC cells:')
+print(ss_count_w)
+
+print('C ss counts in WC cells:')
+print(ss_count_c)
 
 
 

@@ -8,6 +8,7 @@ library(data.table)
 bubbles.cov <- lapply(snakemake@input[["bubble_clust_count"]], function(x) fread(x, col.names=c("N", "clust.forward", "bubble.num", "allele.num", "bubble.chrom", "bubble.flag", "is.reverse")))
 clust.partners <- fread(snakemake@input[["clust_to_chrom"]])
 
+# row bind all input bubble cov files (from different libraries and sum up the coverages for every bubble (for both alleles))
 d <- Reduce(rbind, bubbles.cov)[, lapply(.SD, sum), .(clust.forward, bubble.num, bubble.chrom, bubble.flag, is.reverse)]
 
 # filter out the bubbles with more than one chrom_flag 
@@ -37,5 +38,8 @@ d <- d[num.max.cov.clust == 1]
 # evaluation
 print("accuracy among the clustered bubbles (with only one cluster with maximum coverage)")
 print(d[, .N, paste0(bubble.chrom, "_", bubble.flag)==original.chrom])
+
+print("accuracy among the clustered bubbles (with only one cluster with maximum coverage per chromosome)")
+print(d[, .N, .(paste0(bubble.chrom, "_", bubble.flag)==original.chrom, original.chrom)])
 
 fwrite(d[, .(clust.forward, bubble.num)], file=snakemake@output[["bubbles_clust"]], sep="\t")

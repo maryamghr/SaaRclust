@@ -1,10 +1,3 @@
-#import sys
-#import copy
-#import gzip
-
-
-
-
 def read_strand_states(strand_state_files):
 	'''
 	Reads phased strand states from the input file
@@ -23,7 +16,7 @@ def read_strand_states(strand_state_files):
 				# process the line if it is not empty nor the header line
 				if line!="" and line[0]=="V":
 					sp = line.split()
-					lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])-1
+					lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])
 					
 	return lib_clust_to_haplo
 

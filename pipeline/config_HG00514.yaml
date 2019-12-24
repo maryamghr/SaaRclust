@@ -34,7 +34,7 @@ vcf_prefix: SH032
 
 # SS bams and phased vcf files
 SS_bam_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ss_bams
-phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/David-StrandPhaseR/VCFfiles
+#phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/David-StrandPhaseR/VCFfiles
 
 # Kmer size of the graph
 # This should be very low to prevent fragmentation
@@ -80,6 +80,7 @@ f: 0.1 #0.0002
 z: 500
 
 # saarclust parameters
+testNumClustersHard: [50,60,70,80,90,100]
 numClustersHard: 100
 numClustersSoft: 47
 EMiter: 10
@@ -89,4 +90,4 @@ upperQ: 0.95
 logLth: 1
 theta_constrain: "FALSE"
 log_scale: "TRUE"
-numAlignments: 50000
+numAlignments: 150000

@@ -35,5 +35,3 @@ clust.to.chr_dir.map[, chrom:=strsplit(original.chrom, "_")[[1]][1], by=original
 clust.to.chr_dir.map[, clust.backward:=rev(clust.forward), by=chrom]
 
 fwrite(clust.to.chr_dir.map[, .(original.chrom, clust.forward, clust.backward)], args[3], sep="\t")
-
-

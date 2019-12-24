@@ -5,7 +5,27 @@ N = config["Nchunks"]
 l = len(str(N))
 chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
 sample = config["sample"]
+w = config["w"]
+kMinimap = config["k_minimap"]
+fMinimap = config["f"]
+z = config["z"]
+SSfastqDir = config["SS_fastq_dir"]
+SSbamDir = config["SS_bam_dir"]
+outputfolder    = "SaaRclust_results"
 chroms, = glob_wildcards(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz")
+libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
+outputfolder    = "SaaRclust_results"
+#numClustersHard = config["numClustersHard"]
+testNumClustersHard = config["testNumClustersHard"]
+#numClustersSoft = config["numClustersSoft"]
+#EMiter          = config["EMiter"]
+alpha           = config["alpha"]
+minLib          = config["minLib"]
+upperQ          = config["upperQ"]
+logLth          = config["logLth"]
+theta_constrain = config["theta_constrain"]
+log_scale  	= config["log_scale"]
+numAlignments   = config["numAlignments"]
 
 
 wildcard_constraints:
@@ -15,10 +35,17 @@ wildcard_constraints:
 
 rule all:
 	input: 
-		expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = sample, chunks = chunkID),
-		expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample = sample, chunks = chunkID),
-		expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
-		expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai", k=config["k"], a = config["kmer_abundance"], l = config["l"])
+		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam", sample = sample, chunks = chunkID),
+		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample = sample, chunks = chunkID),
+		#expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
+		#expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
+		expand("evaluation/bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("ground_truth_strand_states/{lib}_chrom_haplo_count.data", lib=libs),
+		expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("evaluation/long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 
 
 ######################################################
@@ -166,4 +193,137 @@ rule index_haplotagged_bam_snv_bubbles:
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
 
+###############################################################################
+##############	     SaaRclust HARD clustering evaluation	###############
+###############################################################################
+
+
+rule HARD_clustering_test:
+	input:
+		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}.maf.gz", chunks=chunkID), 
+		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{testNumClustersHard}clusters.RData"
+	log: "log/HARD_clustering_k{kMinimap}_w{w}_f{f}_z{z}_{testNumClustersHard}clusters.log"
+	shell:
+		"""
+		(time Rscript utils/SaaRclust_hardclust_pipeline.R \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z} \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
+		{wildcards.testNumClustersHard} \
+		{alpha} \
+		{numAlignments} \
+		{log_scale} \
+		$(pwd)/utils/R-packages/) \
+		> {log} 2>&1
+		"""
+
+rule plot_num_found_clusters:
+	input: expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{testNumClustersHard}clusters.RData", testNumClustersHard=testNumClustersHard)
+	output:
+		table="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.data",
+		plot="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.pdf"
+	log: "log/plot_num_found_clusters_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/plot_num_found_clusters.snakemake.R"
+
+
+###############################################################################
+##############	     SaaRclust pairing clusters evaluation	###############
+###############################################################################
+
+
+rule evaluate_pairing_clusters:
+	input:
+		clust_chrom_count=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_clust_chrom_dir_count.data", chunks=chunkID[3]),
+		soft_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/{{sample}}_chunk{chunks}_clusters.RData", chunks=chunkID[3])
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
+	script: "utils/evaluate_pairing_clusters.R"
+
+
+#########################################################
+#########	bubble phasing evaluation	#########
+#########################################################
+
+
+rule cluster_snv_bubbles:
+	input:
+		bubble_clust_count=expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output:
+		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+	log: "log/cluster_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/cluster_snv_bubbles2.snakemake.R"
+
+
+rule evaluate_bubble_phasing:
+	input:
+		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
+		bubble_phase_file="bubbles/phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: 
+		evaluation="evaluation/bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		false_phased_bubbles_file="evaluation/false_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	script: "utils/evaluate_bubbles_phase.snakemake.py"
+
+
+
+#################################################
+#########	SS haplo strand states	#########
+#################################################
+
+rule haplotag_SS_reads:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		fai=config["reference"] + ".fai",
+		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
+		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
+		bam=SSbamDir+"/{lib}.sorted.bam",
+		bai=SSbamDir+"/{lib}.sorted.bam.bai",
+	output: SSbamDir+"/{lib}_haplotagged.bam"
+	log: "log/haplotag_SS_reads_lib{lib}.log"
+	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample {sample}) > {log} 2>&1"
+
+rule index_ss_haplotagged_bams:
+	input: SSbamDir+"/{lib}_haplotagged.bam"
+	output: SSbamDir+"/{lib}_haplotagged.bam.bai"
+	shell: "samtools index {input}"
+
+
+rule output_ss_read_counts:
+	input:
+		ss_haplotagged_bam=SSbamDir+"/{lib}_haplotagged.bam",
+		ss_haplotagged_index=SSbamDir+"/{lib}_haplotagged.bam.bai"
+	output:
+		ss_counts_file="ground_truth_strand_states/{lib}_chrom_haplo_count.data"
+	script: "utils/count_ss_reads.snakemake.py"
+
+
+rule output_ss_haplo_strand_states:
+	input:
+		ss_counts_file="ground_truth_strand_states/{lib}_chrom_haplo_count.data",
+		clust_partners_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
+	output:
+		SS_haplo_strand_states="ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	params:
+		min_w_frac_in_wc_state=0.4,
+		max_w_frac_in_wc_state=0.6,
+		max_haplo_count_ratio=0.15
+	script: "utils/compute_ss_haplo_strand_states.snakemake.py"
+
+#########################################################
+#########	long read phasing evaluation	#########
+#########################################################
+
+rule evaluate_long_read_phasing:
+	input:
+		long_read_haplotagged_bam_files=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
+		long_read_phase_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_k{k}_a{a}_l{l}_{sample}.data",
+	output: 
+		evaluation="evaluation/long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+	script: "utils/evaluate_long_reads_phasing.snakemake.py"
 
