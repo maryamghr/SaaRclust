@@ -106,7 +106,7 @@ rule all:
 		#expand("bubbles/phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
 		#expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/statistics/ss_cov_in_long_reads_chunk{chunks}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/statistics/histogram_ss_cov_in_long_reads.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
@@ -463,36 +463,36 @@ rule map_clust_to_chrom_dir:
 		'''
 
 
-rule append_clusters_to_pb_read_names:
-	input:
-		minimap_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf.gz",
-		pb=PBbamDir+"/{sample}.{chunks}.fasta"
-	output: PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta"
-	run:
-		# mapping PacBio readNames to their clusters and soft probs
-		pb_name_to_clust={}
-		with zipfile.ZipFile(input["minimap_file"]) as z:
-			with open(z) as clustpb:
-				for line in clustpb:
-					sp = line.strip().split()
-					if sp[0] != "PBreadNames":
-						pb_name_to_clust[sp[0]]=(sp[19], sp[20])
-		
-		# writing PacBio reads clusters in the PacBio fasta file
-		with open(input["pb"]) as f:
-			with open(output[0], 'w') as out:
-				for line in f:
-					if line[0]==">":
-						sp = line.split()[0].split("_")
-						if len(sp) > 3:
-							pb_name = "_".join(sp[:-3])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
-						if len(sp) > 3 and pb_name in pb_name_to_clust:
-							pbclust = pb_name_to_clust[pb_name]
-							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1], file=out)
-						else:
-							print(line.split()[0] + "\tNone\t1", file=out)
-					else:
-						print("sequence" + line.strip(), file=out)
+#rule append_clusters_to_pb_read_names:
+#	input:
+#		minimap_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf.gz",
+#		pb=PBbamDir+"/{sample}.{chunks}.fasta"
+#	output: PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta"
+#	run:
+#		# mapping PacBio readNames to their clusters and soft probs
+#		pb_name_to_clust={}
+#		with zipfile.ZipFile(input["minimap_file"]) as z:
+#			with open(z) as clustpb:
+#				for line in clustpb:
+#					sp = line.strip().split()
+#					if sp[0] != "PBreadNames":
+#						pb_name_to_clust[sp[0]]=(sp[19], sp[20])
+#		
+#		# writing PacBio reads clusters in the PacBio fasta file
+#		with open(input["pb"]) as f:
+#			with open(output[0], 'w') as out:
+#				for line in f:
+#					if line[0]==">":
+#						sp = line.split()[0].split("_")
+#						if len(sp) > 3:
+#							pb_name = "_".join(sp[:-3])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
+#						if len(sp) > 3 and pb_name in pb_name_to_clust:
+#							pbclust = pb_name_to_clust[pb_name]
+#							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1], file=out)
+#						else:
+#							print(line.split()[0] + "\tNone\t1", file=out)
+#					else:
+#						print("sequence" + line.strip(), file=out)
 
 
 #######################################################################################
