@@ -1,6 +1,6 @@
 args=commandArgs(TRUE)
 
-.libPaths( c( .libPaths(), args[4]))
+.libPaths( c( .libPaths(), args[3]))
 
 suppressPackageStartupMessages(library(SaaRclust))
 suppressPackageStartupMessages(library(lpSolve))
@@ -45,31 +45,29 @@ findClusterPartners <- function(theta.param=NULL) {
 	return(matrix(get.clust.idx[max.partners.idx], ncol=2))
 }
 
-### finding the garbage cluster
-soft.clust <- get(load(args[2]))
-# getting cluster partners
-partners <- findClusterPartners(soft.clust$theta.param)
-# finding the unpaored cluster
-garbage.clust <- paste0("V", setdiff(1:(length(partners)+1), partners))
-
-counts <- lapply(args[1], fread)
-
-valid.chr_flag.names <- paste0(paste0("chr", c(1:22, "X")), "_", c(rep(0,23), rep(16, 23)))
-
-for (i in 1:length(counts))
+numFoundClusters <- function (ord, chr, flag) 
 {
-	colnames(counts[[i]]) <- c("count", "original.chrom", "clust.forward")
-	counts[[i]] <- counts[[i]][original.chrom %in% valid.chr_flag.names & clust.forward != garbage.clust]
+	hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr, flag = flag)
+	hard.clust.dt[, `:=`(chrom_flag_count, .N), by = .(clust, chrom, flag)]
+	hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom, flag)]
+	hard.clust.to.chrom[, name:=NULL]
+	hard.clust.to.chrom[, `:=`(chrom_flag_rank, rank(-chrom_flag_count)), by = clust]
+	hard.clust.to.chrom <- hard.clust.to.chrom[chrom_flag_rank == 1]
+	hard.clust.to.chromflag <- hard.clust.to.chrom[,.(clust, chrom, flag)][order(chrom)]
+	hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, .(chrom, flag)])
+	return(list(hard.clust.to.chromflag, nrow(hard.clust.to.chrom.unq)))
 }
 
-total.counts <- Reduce(rbind, counts)[, lapply(.SD, sum), by=.(original.chrom, clust.forward)]
 
-clust.to.chr_dir.map <- total.counts[, rank:=rank(-count), by=clust.forward][rank==1]
+hard.clust <- get(load(args[1]))
+# getting cluster partners
+partners <- findClusterPartners(hard.clust$theta.param)
 
-# adding chromosome to the columns
-clust.to.chr_dir.map[, chrom:=strsplit(original.chrom, "_")[[1]][1], by=original.chrom]
+clust.partners <- data.table(clust=c(partners[,1], partners[,2]), pair=c(partners[,2], partners[,1]))
 
-# finding cluster pairs
-clust.to.chr_dir.map[, clust.backward:=rev(clust.forward), by=chrom]
+hard.clust.to.chromflag <- numFoundClusters(hard.clust$ord, hard.clust$pb.chr, hard.clust$pb.flag)[[1]]
+hard.clust.to.chromflag <- merge(hard.clust.to.chromflag, clust.partners, by="clust", all=TRUE)
 
-fwrite(clust.to.chr_dir.map[, .(original.chrom, clust.forward, clust.backward)], args[3], sep="\t")
+hard.clust.to.chromflag[, `:=`(original.chrom=paste0(chrom, '_', flag), clust.forward=paste0('V',clust), clust.backward=paste0('V',pair))]
+
+fwrite(hard.clust.to.chromflag[, .(original.chrom, clust.forward, clust.backward)], args[2], sep="\t")

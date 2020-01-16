@@ -449,15 +449,13 @@ rule count_clust_chrom_dir:
 
 rule map_clust_to_chrom_dir:
 	input:
-		clust_chrom_count=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_clust_chrom_dir_count.data", chunks=chunkID[0]),
-		soft_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/{{sample}}_chunk{chunks}_clusters.RData", chunks=chunkID[0])
+		hard_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData", numClustersHard=numClustersHard)
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	log: "log/map_clust_to_chrom_dir_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	shell: 
 		'''
 		(time Rscript utils/map_clust_to_chrom_dir.snakemake.R \
-		{input.clust_chrom_count}  \
-		{input.soft_clust}  \
+		{input.hard_clust}  \
 		{output} \
 		$(pwd)/utils/R-packages/ ) > {log} 2>&1
 		'''
