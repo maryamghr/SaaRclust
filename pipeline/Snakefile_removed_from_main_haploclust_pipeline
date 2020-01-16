@@ -1,0 +1,421 @@
+rule bwa_map_unitigs_to_ref:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		unitigs="contigs_k{k}_a{a}_u{u}.unitigs.fa"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam"
+	log: "log/bwa_map_unitigs_to_ref_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time bwa mem -t 32 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule bwa_map_contigs_to_ref:
+	input:
+		ref=config["reference"],
+		amb=config["reference"] + ".amb",
+		ann=config["reference"] + ".ann",
+		bwt=config["reference"] + ".bwt",
+		pac=config["reference"] + ".pac",
+		sa=config["reference"] + ".sa",
+		contigs="contigs_k{k}_a{a}_u{u}.fa"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.bam"
+	log: "log/bwa_map_contigs_to_ref_k{k}_a{a}_u{u}.log"
+	shell:
+		"(time bwa mem -t 32 {input.ref} {input.contigs} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+
+rule sort_bam:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.bam",
+	output: "mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam"
+	log: "log/sort_bam_k{k}_a{a}_u{u}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
+
+rule sort_contig_bam:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.bam",
+	output: "mapped_contigs_k{k}_a{a}_u{u}.sorted.bam"
+	log: "log/sort_contig_bam_k{k}_a{a}_u{u}.log"
+	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
+
+rule output_het_vcf:
+	input: platinumVCFdir + "/NA12878.{chrom}.vcf.gz"
+	output: platinumVCFdir + "/NA12878.{chrom}.het.vcf"
+	log: "log/output_het_vcf_{chrom}.log"
+	shell: "(time zcat {input} | awk '/^chr/$10~/1\|0|0\|1/ {{print}}' > {output}) > {log} 2>&1"
+
+
+rule concatenate_all_het_vcf_files:
+	input: expand(platinumVCFdir + "/NA12878.{chrom}.het.vcf", chrom=chroms)
+	output: platinumVCFdir + "/NA12878.het.vcf"
+	log: "log/concatenate_all_het_vcf_files.log"
+	shell: 
+		'''
+		(time awk '/^#/{{print}}' {input[0]} > {output} &&
+		cat {input} | awk '/^chr/{{print}}' | sort -k 1,1 >> {output}) > {log} 2>&1
+		'''
+
+rule output_high_conf_het_vcf:
+	input:
+		vcf=platinumVCFdir + "/NA12878.het.vcf",
+		bed=platinumVCFdir + "/ConfidentRegions.bed"
+	output: platinumVCFdir + "/NA12878.highconf.het.vcf"
+	log: "log/output_high_conf_het_vcf.log"
+	shell: "(time bedtools intersect -a {input.vcf} -b {input.bed} > {output}) > {log} 2>&1"
+
+rule output_low_conf_het_vcf:
+	input:
+		vcf=platinumVCFdir + "/NA12878.het.vcf",
+		highconfvcf=platinumVCFdir + "/NA12878.highconf.het.vcf"
+	output: platinumVCFdir + "/NA12878.lowconf.het.vcf"
+	log: "log/output_low_conf_het_vcf.log"
+	shell: "(time grep -vxF -f {input.vcf} {input.highconfvcf} > {output}) > {log} 2>&1"
+
+
+rule intersect_bam_vcf:
+	input: 
+		bam="mapped_contigs_k{k}_a{a}_u{u}.unitigs.sorted.bam",
+		highconfvcf=platinumVCFdir + "/NA12878.highconf.het.vcf",
+		lowconfvcf =platinumVCFdir + "/NA12878.lowconf.het.vcf"
+	output:
+		highconf="mapped_contigs_k{k}_a{a}_u{u}.highconf.heterozygous.unitigs.vcf",
+		lowconf ="mapped_contigs_k{k}_a{a}_u{u}.lowconf.heterozygous.unitigs.vcf"
+	log: "log/intersect_bam_vcf_k{k}_a{a}_u{u}.log"
+	shell:
+		'''
+		(time bedtools intersect -a {input.highconfvcf} -b {input.bam} > {output.highconf}
+		      bedtools intersect -a {input.lowconfvcf}  -b {input.bam} > {output.lowconf}) > {log} 2>&1
+		'''
+
+rule intersect_contig_bam_vcf:
+	input: 
+		bam="mapped_contigs_k{k}_a{a}_u{u}.sorted.bam",
+		vcf=[config["vcf_prefix"] + c + ".vcf" for c in chroms]
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam"
+	log: "log/intersect_contig_bam_vcf_k{k}_a{a}_u{u}.log"
+	shell: "(time bedtools intersect -a {input.bam} -b {input.vcf} > {output}) > {log} 2>&1"
+
+rule intersect_bedvcf_het_contigs:
+	input:
+		bam="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam",
+		bedvcf="NA12878_hg38_GIAB_het_pos.bed"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bed"
+	log: "log/intersect_contig_bedvcf_het_unitigs_k{k}_a{a}_u{u}.log"
+	shell: "(time bedtools intersect -a {input.bedvcf} -b {input.bam} > {output}) > {log} 2>&1"
+
+
+rule export_het_contigs_fasta:
+	input: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.bam"
+	output: "mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa"
+	log: "log/export_het_contigs_fasta_k{k}_a{a}_u{u}.log"
+	shell: "(time perl utils/printRead2fasta_pacbio.pl {input} > {output}) > {log} 2>&1"
+
+rule export_contigs_kmer_count:
+	input:
+		graph="tmp/graph_k{k}_a{a}_u{u}_component.gfa",
+		het="mapped_contigs_k{k}_a{a}_u{u}.heterozygous.sorted.fa"
+	output:
+		"contigs_k{k}_a{a}_u{u}.kmer.count.data"
+	run:
+		hetcontigs={}
+		name=""
+		with open(input["het"]) as f:
+			for line in f:
+				if line[0]==">":
+					name=line.split("_")[0][1:]
+					hetcontigs[name] = True
+		with open(input["graph"]) as g:
+			with open(output[0], 'w') as out:
+				for line in g:
+					hetstatus = ""
+					sp = line.split()
+					if sp[0]=="S":
+						hetstatus = "het" if sp[1] in hetcontigs else "hom"
+						km = sp[-1].split(":")[-1]
+						print(sp[1] + "\t" + sp[2] + "\t" + hetstatus + "\t" + km, file=out)
+
+
+rule intersect_bam_vcf_snv_bubbles:
+	input: 
+		bam="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.sorted.bam",
+		highconfvcf=platinumVCFdir + "/NA12878.highconf.het.vcf",
+		lowconfvcf =platinumVCFdir + "/NA12878.lowconf.het.vcf"
+	output:
+		highconf="bubbles/mapped_contigs_k{k}_a{a}_l{l}.highconf.heterozygous.snv.bubbles.unitigs.vcf",
+		lowconf ="bubbles/mapped_contigs_k{k}_a{a}_l{l}.lowconf.heterozygous.snv.bubbles.unitigs.vcf"
+	log: "log/intersect_bam_vcf_snv_bubbles_k{k}_a{a}_l{l}.log"
+	shell:
+		'''
+		(time bedtools intersect -a {input.highconfvcf} -b {input.bam} > {output.highconf}
+		      bedtools intersect -a {input.lowconfvcf}  -b {input.bam} > {output.lowconf}) > {log} 2>&1
+		'''
+
+
+######################################
+####   	     evaluation		  ####
+######################################
+
+#rule map_ss_to_ref:
+#	input
+
+#rule output_SS_phased_vcf_header:
+#	input: expand(phasedSSvcfDir+ "/{chrom}_phased.vcf", chrom=chroms[0])
+#	output: phasedSSvcfDir + "/header.vcf"
+#	log: "log/output_SS_phased_vcf_header.log"
+#	shell: "(time awk '/^#/{{print}}' {input} > {output}) > {log} 2>&1"
+
+#rule concat_all_SS_phased_vcf:
+#	input:
+#		header=phasedSSvcfDir + "/header.vcf",
+#		vcf=expand(phasedSSvcfDir+ "/{chrom}_phased.vcf", chrom=chroms)
+#	output: phasedSSvcfDir + "/whole_genome_phased.vcf"
+#	log: "log/concat_all_SS_phased_vcfs.log"
+#	shell:
+#		'''
+#		(time cat {input.header} > {output} &&
+#		for f in {input.vcf}; do echo $f && awk '/^chr/{{print}}' $f >> {output}; done) > {log} 2>&1
+#		'''
+
+#rule compress_all_SS_phased_vcf:
+#	input: phasedSSvcfDir + "/whole_genome_phased.vcf"
+#	output: phasedSSvcfDir + "/whole_genome_phased.vcf.gz"
+#	shell: "bgzip {input}"
+
+#rule index_compressed_all_SS_phased_vcf:
+#	input: phasedSSvcfDir + "/whole_genome_phased.vcf.gz"
+#	output: phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi"
+#	shell: "tabix {input}"
+
+
+#rule index_SS_bams:
+#	input: SSbamDir+"/{lib}.sorted.bam"
+#	output: SSbamDir+"/{lib}.sorted.bam.bai"
+#	log: "log/index_SS_bams_{lib}.log"
+#	shell: "(time samtools index {input}) > {log} 2>&1"
+
+#rule haplotag_SS_reads:
+#	input:
+#		ref=config["reference"],
+#		amb=config["reference"] + ".amb",
+#		ann=config["reference"] + ".ann",
+#		bwt=config["reference"] + ".bwt",
+#		pac=config["reference"] + ".pac",
+#		sa=config["reference"] + ".sa",
+#		fai=config["reference"] + ".fai",
+#		vcf=phasedSSvcfDir + "/whole_genome_phased.vcf.gz",
+#		tbi=phasedSSvcfDir + "/whole_genome_phased.vcf.gz.tbi",
+#		bam=SSbamDir+"/{lib}.sorted.bam",
+#		bai=SSbamDir+"/{lib}.sorted.bam.bai",
+#	output: SSbamDir+"haplotagged/{lib}_haplotagged.bam"
+#	log: "log/haplotag_SS_reads_lib{lib}.log"
+#	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups) > {log} 2>&1"
+
+
+#rule split_haplotagged_SS_bams_per_direction:
+#	input: SSbamDir+"haplotagged/{lib}_haplotagged.bam"
+#	output: expand(SSbamDir+"haplotagged/{{lib}}_haplotagged_{dir}.bam", dir=directions)
+#	log: "log/split_haplotagged_SS_bams_per_direction_{lib}.log"
+#	shell:
+#		'''
+#		(time cat <(samtools view -H {input}) <(samtools view -f 16 {input}) | samtools view -Sb - > {output[0]} &&
+#		      cat <(samtools view -H {input}) <(samtools view -F 16 {input}) | samtools view -Sb - > {output[1]}) > {log} 2>&1
+#		'''
+
+#rule count_SS_reads_per_chromosome:
+#	input: SSbamDir+"haplotagged/{lib}_haplotagged_{dir}.bam"
+#	output: SSbamDir+"haplotagged/{lib}_{dir}_chrom_count.data"
+#	log: "log/count_SS_reads_per_chromosome_{lib}_{dir}.log"
+#	shell: "(time samtools view {input} | cut -f3 | sort | uniq -c | awk '$2~/chr[0-9]+$/ {{print}}' > {output}) > {log} 2>&1"
+
+
+#rule count_haplotagged_SS_reads_per_chrom:
+#	input: SSbamDir+"haplotagged/{lib}_haplotagged_{dir}.bam"
+#	output: expand(SSbamDir+"haplotagged/{{lib}}_{{dir}}_haplo{haplo}_chrom_count.data", haplo=haplotypes)
+#	log: "log/count_haplotagged_SS_reads_per_chrom_{lib}_{dir}.log"
+#	shell: 
+#		'''
+#		(time samtools view {input} | grep {haplotype_tags[0]} | cut -f3 | sort | uniq -c > {output[0]} &&
+#		      samtools view {input} | grep {haplotype_tags[1]} | cut -f3 | sort | uniq -c > {output[1]}) > {log} 2>&1
+#		'''
+
+#rule sort_wc_cells_by_StrandPhaseR:
+#	input:
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+#		expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data",clust=clusters)																												
+#
+#	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	log: "log/sort_wc_cells_by_StrandPhaseR_{lib}_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+#	script: "utils/run_strandphaser.snakemake.R"
+
+# TODO: to be replaced by StrandPhaseR output
+
+#rule output_ground_truth_strand_states:
+#	input:
+#		ss_count_watson=SSbamDir+"haplotagged/{lib}_watson_chrom_count.data",
+#		ss_count_crick= SSbamDir+"haplotagged/{lib}_crick_chrom_count.data",
+#		ss_haplotagged_count_watson_h1=SSbamDir+"haplotagged/{lib}_watson_haplo1_chrom_count.data",
+#		ss_haplotagged_count_watson_h2=SSbamDir+"haplotagged/{lib}_watson_haplo2_chrom_count.data",
+#		ss_haplotagged_count_crick_h1= SSbamDir+"haplotagged/{lib}_crick_haplo1_chrom_count.data",
+#		ss_haplotagged_count_crick_h2= SSbamDir+"haplotagged/{lib}_crick_haplo2_chrom_count.data",
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
+#	output: "ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	params:
+#		background_rate=0.05
+#	log: "log/output_ground_truth_strand_states_{lib}_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+#	script: "utils/output_ground_truth_strand_states.snakemake.R"
+
+
+
+
+######################################
+####   	  k-mer counting	  ####
+######################################
+
+rule get_contig_kmer_coverage:
+	input: "tmp/graph_k{k}_a{a}_u{u}_component.gfa"
+	output: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
+	log: "log/get_contig_kmer_coverage_k{k}_a{a}_u{u}.log"
+	shell: "(time awk \'$1!=\"S\" {{gsub(\"km:f:\", \"\"); print $6}}\' {input} > {output}) > {log} 2>&1"
+
+rule get_contig_kmer_coverage_histogram:
+	input: "tmp/graph_k{k}_a{a}_u{u}_component_km.txt"
+	output: "tmp/graph_k{k}_a{a}_u{u}_component_km_hist.pdf"
+	params:
+		trim=0.05,
+		breaks=200
+	log: "get_contig_kmer_coverage_histogram_k{k}_a{a}_u{u}.log"
+	script: "utils/contig_kmer_coverage_histogram.snakemake.R"
+
+rule jellyfish_bloom_count_kmers:
+	input: "filelist"
+	output:	"short_reads_{k}mer_count.bc"
+	log: "log/bloom_count_kmers_k{k}.log"
+	threads: 32
+	shell: 
+		'''
+		(time set +o pipefail zcat {input} | jellyfish bc -m {wildcards.k} -s 200G -t {threads} -C -o {output}) > {log} 2>&1
+		'''
+
+# This rule does not work properly
+rule jellyfish_count_kmers:
+	input: 
+		reads="filelist",
+		bc="short_reads_{k}mer_count.bc"
+	output:	"short_reads_{k}mer_count.jf"
+	log: "log/count_kmers_k{k}.log"
+	threads: 32
+	shell: 
+		'''
+		(time set +o pipefail zcat {input.reads} | jellyfish count -m {wildcards.k} -s 3G -t {threads} -C --bc {input.bc} -o {output}) > {log} 2>&1
+		'''
+
+rule convert_jf_to_fa:
+	input: "short_reads_{k}mer_count.jf"
+	output: "short_reads_{k}mer_count.fa"
+	log: "log/convert_jf_to_fa_k{k}.log"
+	shell: "(time jellyfish dump {input} > {output}) > {log} 2>&1"
+
+
+######################################
+#rule output_unique_covered_nodes:
+#	input: "graph_alignment/aln_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	output: "graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data"
+#	run:
+#		lines = open(input[0]).read()
+#		l = list(set(lines.replace(";", " ").split()))
+#		open(output[0], "w").write("\n".join(l))
+
+#rule find_inter_chr_intersection:
+#	input:
+#		nodes = expand("graph_alignment/nodes_cluster{cluster}_params_k{k}_a{a}_u{u}.data", cluster=clusters, k=config["k"], a = config["kmer_abundance"], u = config["unitig_abundance"]),
+#		cluster_pairs = outputDir + "/clust_partners.txt",
+#		node_lens = nodelens
+#	output:	"graph_alignment/graph_nodes_inter_chr_intersection.RData"
+#	log: "log/find_inter_chr_intersection.log"
+#	script: "utils/find_inter_chr_intersection.snakemake.R"
+
+
+#######################################
+#####	     Canu assembly	  #####
+#######################################
+
+
+rule correct_reads:
+	input:
+		fasta=outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta",
+		clustersizes=config["cluster_sizes"]
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.correctedReads.fasta.gz"
+	log:
+		"log/correct_reads_{sample}_cluster{clust}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
+	threads: 32
+
+	shell:
+		"""
+		time(canu -correct \
+		-p PacBio \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		genomeSize={params.genomeSize} \
+		-minThreads=1 \
+		-maxThreads={threads} \
+		-pacbio-raw {input.fasta}) 2> {log}
+		"""
+
+rule trim_reads:
+	input:
+		corrected=outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.correctedReads.fasta.gz",
+		clustersizes=config["cluster_sizes"]
+		
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.trimmedReads.fasta.gz"
+	log:
+		"log/trim_reads_{sample}_cluster{clust}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
+	threads: 32
+
+	shell:
+		"""
+		time(canu -trim \
+		-p PacBio \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		genomeSize={params.genomeSize} \
+		-minThreads=1 \
+		-maxThreads={threads} \
+		-pacbio-corrected {input.corrected}) 2> {log}
+		"""
+
+rule assembly:
+	input:
+		trimmed=outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio.trimmedReads.fasta.gz",
+		clustersizes=config["cluster_sizes"]
+
+	output:
+		outputDir+"/splitted-per-cluster/Canu-assembly_{sample}_cluster{clust}_with_RCpair/PacBio_errorRate{error}_overlap{overlap}.contigs.fasta"
+
+	log:
+		"log/assembly_{sample}_cluster{clust}_errorRate{error}_overlap{overlap}_with_RCpair.log"
+	params:
+		genomeSize = lambda wc: getclustersize(wc.clust, clustersizes)
+	threads: 32
+
+	shell:
+		"""
+		time(canu -assemble \
+		-p PacBio_errorRate{wildcards.error}_overlap{wildcards.overlap} \
+		-d {outputDir}/splitted-per-cluster/Canu-assembly_{wildcards.sample}_cluster{wildcards.clust}_with_RCpair \
+		genomeSize={params.genomeSize} \
+		-minThreads=1 \
+		-maxThreads={threads} \
+		correctedErrorRate={wildcards.error} \
+		minOverlapLength={wildcards.overlap} \
+		-pacbio-corrected {input.trimmed}) 2> {log}
+		"""
+
+
+
+
