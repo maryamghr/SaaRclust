@@ -21,8 +21,8 @@ for (i in 1:length(hard.clusters)){
 }
 
 dt.long <- melt(dt, id.var='num.clust', variable.name='merged', value.name='num.found.clust')
-dt.long[merged=='num.clust.unmerged.found', merged:='FALSE']
-dt.long[merged=='num.clust.found', merged:='TRUE']
+dt.long[merged=='num.clust.unmerged.found', merged:='not merged']
+dt.long[merged=='num.clust.found', merged:='merged']
 
 plt <- ggplot(dt.long, aes(x=num.clust, y=num.found.clust, color=merged)) + geom_point() + geom_line()
 
