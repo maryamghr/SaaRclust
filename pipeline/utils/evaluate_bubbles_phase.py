@@ -91,45 +91,60 @@ def get_bubble_id_to_h0_allele(bubble_phase_file):
 
 def evaluate_bubble_phase(num_bubbles, bubble_id_to_chrom, ground_true_bubble_id_to_h0_allele, clust_to_chrom, bubble_id_to_clust, bubble_id_to_h0_allele, output_file, false_phased_bubbles_file):
 	
-	num_clustered_bubbles = len(bubble_id_to_clust)
+	num_clustered_bubbles = 0 #len(bubble_id_to_clust)
 	num_true_clustered_bubbles, num_phased_bubbles, num_true_phased_bubbles = 0, 0, 0
 	chrom_to_num_bubbles_with_same_haplo = {}
 	chrom_to_num_bubbles_with_diff_haplo = {}
 	chrom_to_flip_haplotype = {}
+	chrom_to_num_clustered_bubbles = {chrom:0 for chrom in valid_chroms}
+	chrom_to_num_true_clustered_bubbles = {chrom:0 for chrom in valid_chroms}
+	chrom_to_num_phased_bubbles = {chrom:0 for chrom in valid_chroms}
+	chrom_to_num_true_phased_bubbles = {chrom:0 for chrom in valid_chroms}
+
+	
 
 	for bubble_id in bubble_id_to_clust:
 		clust = bubble_id_to_clust[bubble_id]
 
+
 		if clust not in clust_to_chrom or bubble_id not in bubble_id_to_chrom:
 			continue
 
-		chrom = clust_to_chrom[clust]
+		ground_true_chrom = bubble_id_to_chrom[bubble_id]
 
-		if chrom != bubble_id_to_chrom[bubble_id]:
+		num_clustered_bubbles += 1
+		chrom_to_num_clustered_bubbles[ground_true_chrom] += 1
+
+		if clust_to_chrom[clust] != ground_true_chrom:
 			continue
 
 		num_true_clustered_bubbles += 1
+		chrom_to_num_true_clustered_bubbles[ground_true_chrom] += 1
 
 		if bubble_id not in bubble_id_to_h0_allele:
+			# bubble is not phased
 			continue
 
 		num_phased_bubbles += 1
+		chrom_to_num_phased_bubbles[ground_true_chrom] += 1
 
-		if chrom not in chrom_to_num_bubbles_with_same_haplo:
-			chrom_to_num_bubbles_with_same_haplo[chrom], chrom_to_num_bubbles_with_diff_haplo[chrom] = 0, 0
+		if ground_true_chrom not in chrom_to_num_bubbles_with_same_haplo:
+			chrom_to_num_bubbles_with_same_haplo[ground_true_chrom], chrom_to_num_bubbles_with_diff_haplo[ground_true_chrom] = 0, 0
 
 		if bubble_id not in ground_true_bubble_id_to_h0_allele:
 			continue
 			
 		if bubble_id_to_h0_allele[bubble_id] == ground_true_bubble_id_to_h0_allele[bubble_id]:
-			chrom_to_num_bubbles_with_same_haplo[chrom] += 1
+			chrom_to_num_bubbles_with_same_haplo[ground_true_chrom] += 1
 		else:
-			chrom_to_num_bubbles_with_diff_haplo[chrom] += 1
+			chrom_to_num_bubbles_with_diff_haplo[ground_true_chrom] += 1
 
 
 
 	for chrom in chrom_to_num_bubbles_with_same_haplo:
-		num_true_phased_bubbles += max(chrom_to_num_bubbles_with_same_haplo[chrom], chrom_to_num_bubbles_with_diff_haplo[chrom])
+		chrom_to_num_true_phased_bubbles[chrom] = max(chrom_to_num_bubbles_with_same_haplo[chrom], chrom_to_num_bubbles_with_diff_haplo[chrom])
+		num_true_phased_bubbles += chrom_to_num_true_phased_bubbles[chrom]
+
 		chrom_to_flip_haplotype[chrom] = False if chrom_to_num_bubbles_with_same_haplo[chrom] > chrom_to_num_bubbles_with_diff_haplo[chrom] else True
 
 	with open(false_phased_bubbles_file, 'w') as out_false:
@@ -169,6 +184,11 @@ def evaluate_bubble_phase(num_bubbles, bubble_id_to_chrom, ground_true_bubble_id
 		print('number of true clustered bubbles = ' + str(num_true_clustered_bubbles) + ', (' + str(num_true_clustered_bubbles*100/num_clustered_bubbles) + ' % of #clustered bubbled)', file=out)
 		print('number of phased bubbles = ' + str(num_phased_bubbles) + ', (' + str(num_phased_bubbles*100/num_bubbles) + '% of #bubbles)', file=out)
 		print('number of true phased bubbles = ' + str(num_true_phased_bubbles) + ', (' + str(num_true_phased_bubbles*100/num_phased_bubbles) + '% of #phased bubbles)', file=out)
+		print('chromosome wise clustering accuracy:')
+		print('chrom\t#clustered_bubbles\ttrue_clustered_bubbles\tclustering_accuracy\tnum_phased_bubbles\tnum_true_phased_bubbles\tphasing_accuracy', file=out)
+		for chrom in chrom_to_num_true_clustered_bubbles:
+			num_clustered, num_true_clustered, num_phased, num_true_phased = chrom_to_num_clustered_bubbles[chrom], chrom_to_num_true_clustered_bubbles[chrom], chrom_to_num_phased_bubbles[chrom], chrom_to_num_true_phased_bubbles[chrom]
+			print(chrom, '\t', num_clustered, '\t', num_true_clustered, '\t', num_true_clustered*100/num_clustered, num_phased, '\t', num_true_phased, '\t', num_true_phased*100/num_phased, file=out)
 
 
 
