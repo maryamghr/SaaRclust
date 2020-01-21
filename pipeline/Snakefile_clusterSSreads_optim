@@ -650,19 +650,10 @@ rule cluster_snv_bubbles:
 #		script: "utils/add_bubble_clust_to_maps.snakemake.R"
 
 
-#rule output_bubble_SSlib_coverage:
-#	input:
-#		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-#		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
-#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-#	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
-#	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-#	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
-
 
 rule append_clusters_to_bubble_names:
 	input:
-		bubbles_clust="tmp/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
 	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa"
 	run:
@@ -693,6 +684,24 @@ rule append_clusters_to_bubble_names:
 ###################################################################################
 ##########		realignment of SS reads to PB reads		###########
 ###################################################################################
+
+rule output_bubble_SSlib_coverage_matrix:
+	input:
+		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
+	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
+
+rule strandphaser:
+	input:
+		bubble_lib_cov_matrix=expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters),
+		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output:	expand("phased_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs),
+	log: "log/strandphaser_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	script: "utils/phase_snv_bubbles.snakemake.py"
+
 
 rule phase_snv_bubbles:
 	input:
