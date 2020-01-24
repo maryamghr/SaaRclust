@@ -1,12 +1,16 @@
+<<<<<<< HEAD
 log <- file(snakemake@log[[1]], open='wt')
 sink(file=log, type='message')
 sink(file=log, type='output')
 
 
+=======
+>>>>>>> 0cf722152bcf6a7cff658e785779d8cf437b54ad
 ## Load required libraries
 library(dplyr)
 library(tidyr)
 library(reshape2)
+<<<<<<< HEAD
 library(data.table)
 
 ## FUNCTIONS ##
@@ -33,12 +37,38 @@ output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.li
 }
 
 phase_strand_states <- function(cluster1.file, cluster2.file, cluster1, cluster2, select.libs) {
+=======
+
+## Get WC regions ##
+#WC.regions <- read.table("/home/porubsky/WORK/Phase_bubbles/LTS_results/wc_lib_clust.data", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+WC.regions <- read.table("/home/porubsky/WORK/Phase_bubbles/LTS_results/adjusted_bubble/wc_cells_clusters.data", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+## Get selected library names
+select.libs <- unique(WC.regions$lib)
+#select.libs <- gsub(select.libs, pattern = "\\.", replacement = "-")
+
+## Get cluster partners ##
+clust.pairs <- read.table("/home/porubsky/WORK/Phase_bubbles/LTS_results/clust_partners.txt", header = TRUE)
+## Keep only unique pairs
+forw <- as.numeric(gsub("[^\\d]+", "", clust.pairs$clust.forward, perl=TRUE))
+backw <- as.numeric(gsub("[^\\d]+", "", clust.pairs$clust.backward, perl=TRUE))
+pairs <- cbind(pmin(forw, backw), pmax(forw, backw))
+clust.pairs <- clust.pairs[!duplicated(pairs),]
+
+## Go over all cluster pairs and perform phasing ## (test: i <- 6; cluster pair V7 & V10)
+for (i in 1:nrow(clust.pairs)) {
+  cluster.pair <- clust.pairs[i,]
+  #cluster1.file <- paste0("/home/porubsky/WORK/Phase_bubbles/LTS_results/bubble_SSlib_cov_cluster", cluster.pair$clust.forward,"_snv_bubbles_k63_a3_l23_kminimap15_w1_f0.1_z500_HG00514.data")
+  #cluster2.file <- paste0("/home/porubsky/WORK/Phase_bubbles/LTS_results/bubble_SSlib_cov_cluster", cluster.pair$clust.backward,"_snv_bubbles_k63_a3_l23_kminimap15_w1_f0.1_z500_HG00514.data")
+  cluster1.file <- paste0("/home/porubsky/WORK/Phase_bubbles/LTS_results/adjusted_bubble/adjusted_bubble_SSlib_cov_cluster", cluster.pair$clust.forward,"_snv_bubbles_k63_a3_l23_kminimap15_w1_f0.1_z500_HG00514.data")
+  cluster2.file <- paste0("/home/porubsky/WORK/Phase_bubbles/LTS_results/adjusted_bubble/adjusted_bubble_SSlib_cov_cluster", cluster.pair$clust.backward,"_snv_bubbles_k63_a3_l23_kminimap15_w1_f0.1_z500_HG00514.data")
+>>>>>>> 0cf722152bcf6a7cff658e785779d8cf437b54ad
   ## Load bubbles into matrices
   matrices <- loadClusterBubbles(cluster1.file = cluster1.file,
                                  cluster2.file = cluster2.file)
   
   ## Sort matrices
   srt.matrices <- sortClusterBubbles(matrices = matrices, select.libs = select.libs)
+<<<<<<< HEAD
 
   ## adding the haplo-phased strand states to the 
 
@@ -50,14 +80,26 @@ phase_strand_states <- function(cluster1.file, cluster2.file, cluster1, cluster2
   clust2.haplo.strand.states[, `:=`(cluster=cluster2, haplotype=1-haplotype)]
   haplo.strand.states <- rbind(haplo.strand.states, clust2.haplo.strand.states)
   
+=======
+>>>>>>> 0cf722152bcf6a7cff658e785779d8cf437b54ad
  
   ## Get consensus
   h1.cons <- exportConsensus(data.matrix = srt.matrices$cluster1.m)
   h2.cons <- exportConsensus(data.matrix = srt.matrices$cluster2.m)
+<<<<<<< HEAD
 
   return(haplo.strand.states)
 }
 
+=======
+  
+}
+
+
+## FUNCTIONS ##
+###############
+
+>>>>>>> 0cf722152bcf6a7cff658e785779d8cf437b54ad
 loadClusterBubbles <- function(cluster1.file = NULL, cluster2.file = NULL) {
     
   cluster1 <- read.table(cluster1.file, stringsAsFactors = FALSE, header=TRUE)
@@ -241,4 +283,7 @@ calcEnt <- function(bases) {
   ent <- -( probs[1]*getlog2(probs[1]) + probs[2]*getlog2(probs[2]) + probs[3]*getlog2(probs[3]) + probs[4]*getlog2(probs[4]) )
   return(ent)    
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0cf722152bcf6a7cff658e785779d8cf437b54ad
