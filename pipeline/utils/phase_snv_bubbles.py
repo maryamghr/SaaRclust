@@ -14,13 +14,31 @@ def read_strand_states(strand_state_files):
 		with open(f) as states:
 			for line in states:
 				# process the line if it is not empty nor the header line
-				if line!="" and line[0]=="V":
+				if line!="" and line[0]!="V":
 					sp = line.split()
 					lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])
 					
 	return lib_clust_to_haplo
 
+
+def read_strandphaser_strand_states(strand_states_file):
+	'''
+	Reads phased strand states from the input file
 	
+	Args:
+		strand_states_file: the file containing phased strand states 
+	'''
+	
+	lib_clust_to_haplo = {}
+
+	with open(strand_states_file) as states:
+		#skip the header line
+		next(states)
+		for line in states:
+			if line!="":
+				sp = line.split()
+				lib_clust_to_haplo[(sp[0], sp[1])]=int(sp[2])
+	return lib_clust_to_haplo
 
 
 def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
@@ -34,6 +52,7 @@ def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
 	'''
 	
 	bubble_haplo_allele_count = {}
+	bubbles_with_invalid_alleles = {}
 
 
 	for input_file in ss_bubble_map_files:
@@ -53,6 +72,11 @@ def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
 				if (ss_lib, ss_clust) not in lib_clust_to_haplo:
 					continue
 
+				if bubble_allele!='0' and bubble_allele!='1':
+					print('Warning: bubble', bubble_id, 'has non binary allele!')
+					bubbles_with_invalid_alleles[bubble_id] = True
+					continue
+
 				haplo = lib_clust_to_haplo[(ss_lib, ss_clust)]
 
 				haplo_allele = str(haplo) + bubble_allele
@@ -66,6 +90,9 @@ def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
 	with open(bubble_phase_file, 'w') as out:
 		print("bubbleName\thaplotype0Allele", file=out)
 		for bubble_id in bubble_haplo_allele_count:
+			if bubble_id in bubbles_with_invalid_alleles:
+				continue
+
 			haplo_allele_count = bubble_haplo_allele_count[bubble_id]
 			h0_a0 = haplo_allele_count[0]+haplo_allele_count[3] # count(h=0,a=0) + count(h=1,a=1)
 			h0_a1 = haplo_allele_count[1]+haplo_allele_count[2]	# count(h=0,a=1) + count(h=1,a=0)
