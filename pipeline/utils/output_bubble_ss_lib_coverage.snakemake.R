@@ -14,6 +14,7 @@ print(snakemake@input[["bubbles_clust"]])
 print('snakemake@output:')
 print(snakemake@output)
 
+wc.cell.clust <- fread(snakemake@input[["wc_cell_clust"]])
 clust.partners <- fread(snakemake@input[["clust_to_chrom"]])
 all.maps <- lapply(snakemake@input[["valid_maps"]], fread)
 map <- Reduce(rbind, all.maps)
@@ -34,12 +35,11 @@ map <- map[clust.backward==bubbleClust | SSclust==bubbleClust]
 # for each bubble, check whether both alleles are covered by strand seq reads from the same cluster
 map[, num.clust.bubble.diff.alleles:=length(unique(bubbleAllele)), .(SSlib, SSclust, bubbleName)]
 
-# have only one row per bubble/SSclust
+# have only one row per bubble/SSclust/SSlib
 map <- map[, head(.SD, 1), .(SSlib, SSclust, bubbleName)]
 
 # set bubbleAllele equal to 2 if both alleles of the bubble are covered by the clust
-map[num.clust.bubble.diff.alleles==1, num.clust.bubble.diff.alleles:=0]
-map[, bubbleAllele:=max(bubbleAllele, num.clust.bubble.diff.alleles), .(SSlib, SSclust, bubbleName)]
+map[num.clust.bubble.diff.alleles>1, bubbleAllele:=2]
 
 # keep a subset of columns
 map <- map[, .(SSlib, SSclust, bubbleName, bubbleAllele, clust.backward)]
@@ -60,13 +60,14 @@ print(outputs)
 
 for (d in map.sp){
 	print('unique(d$SSclust):')
-	print(unique(d$SSclust))
+	clust.pair = unique(d$SSclust)
+	print(clust.pair)
+
 	# split d by SSclust
 	d.sp <- split(d, d$SSclust)
 	
 	lapply(d.sp, function(x) x[, `:=`(SSclust=NULL, clust.backward=NULL, first.clust.pair=NULL)])
 
-	# FIXME: to be rempved later... The problem of not having properly paired clusters should be fixed later on
 	if (length(d.sp) != 2){
 		print(paste("warning: the size of the cluster pair is", length(d.sp)))
 		next()
@@ -80,14 +81,26 @@ for (d in map.sp){
 	d.sp[[2]][is.na(d.sp[[2]])] <- "-"
 
 	lapply(d.sp, function(x) setkey(x, bubbleName))
+
+	# select a subset of cells that are wc in this cluster pair
+	wc.cells <- wc.cell.clust[clust.forward==clust.pair[1], lib]
+	selected.col.names <- c('bubbleName', wc.cells)
+
+	d.sp[[1]] <- d.sp[[1]][, selected.col.names, with=FALSE]
+	d.sp[[2]] <- d.sp[[2]][, selected.col.names, with=FALSE]
+
+
 	
 	# find the right output file name
 	for (i in 1:2)
 	{
 		cl <- grep(paste0("_cluster", names(d.sp)[i], "_"), outputs)
+		print(paste('cl =', cl, ', file =', outputs[cl]))
 		fwrite(d.sp[[i]], file=outputs[cl], sep="\t")
 	}
 }
 
-for (f in outputs)
-	system(paste("touch", f))
+# touching the garbage cluster
+garbage.clust <- setdiff(paste0('V',1:(nrow(clust.partners)+1)), clust.partners[, clust.forward])
+garbage.out.file.idx <- grep(paste0("_cluster", garbage.clust, "_"), outputs)
+system(paste("touch", outputs[garbage.out.file.idx]))
