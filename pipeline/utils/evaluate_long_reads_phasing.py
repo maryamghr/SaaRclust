@@ -36,14 +36,15 @@ def get_ground_true_chrom_haplo(long_reads_haplotagged_bam_files):
 	return chrom_to_num_ground_true_phased_reads, ground_true_read_to_chrom, ground_true_read_to_haplo
 
 
-def get_reads_haplotypes(long_reads_phase_file):
+def get_reads_haplotypes(long_reads_phase_file_list):
 	read_to_haplo = {}
-	with open(long_reads_phase_file) as f:
-		# skip the header line
-		next(f)
-		for line in f:
-			sp = line.split()
-			read_to_haplo[sp[0]] = sp[-1]
+	for long_reads_phase_file in long_reads_phase_file_list:
+		with open(long_reads_phase_file) as f:
+			# skip the header line
+			next(f)
+			for line in f:
+				sp = line.split()
+				read_to_haplo[sp[0]] = sp[-1]
 
 	return read_to_haplo
 
