@@ -12,3 +12,4 @@ print_dict_head(bubble_id_to_clust, 10)
 print('len(bubble_id_to_chrom) =', len(bubble_id_to_chrom), ', len(bubble_id_to_h0_allele)=', len(bubble_id_to_h0_allele), ', len(bubble_id_to_clust)=', len(bubble_id_to_clust))
 
 evaluate_bubble_phase(num_bubbles, bubble_id_to_chrom, ground_true_bubble_id_to_h0_allele, clust_to_chrom, bubble_id_to_clust, bubble_id_to_h0_allele, snakemake.output["evaluation"], snakemake.output["false_phased_bubbles_file"])
+

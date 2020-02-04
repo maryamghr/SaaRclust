@@ -185,10 +185,10 @@ def evaluate_bubble_phase(num_bubbles, bubble_id_to_chrom, ground_true_bubble_id
 		print('number of phased bubbles = ' + str(num_phased_bubbles) + ', (' + str(num_phased_bubbles*100/num_bubbles) + '% of #bubbles)', file=out)
 		print('number of true phased bubbles = ' + str(num_true_phased_bubbles) + ', (' + str(num_true_phased_bubbles*100/num_phased_bubbles) + '% of #phased bubbles)', file=out)
 		print('chromosome wise clustering accuracy:')
-		print('chrom\t#clustered_bubbles\ttrue_clustered_bubbles\tclustering_accuracy\tnum_phased_bubbles\tnum_true_phased_bubbles\tphasing_accuracy', file=out)
+		print('chrom\t#clustered_bubbles\ttrue_clustered_bubbles\tclustering_accuracy\tnum_phased_bubbles\tfraction_phased_bubbles\tnum_true_phased_bubbles\tphasing_accuracy', file=out)
 		for chrom in chrom_to_num_true_clustered_bubbles:
 			num_clustered, num_true_clustered, num_phased, num_true_phased = chrom_to_num_clustered_bubbles[chrom], chrom_to_num_true_clustered_bubbles[chrom], chrom_to_num_phased_bubbles[chrom], chrom_to_num_true_phased_bubbles[chrom]
-			print(chrom, '\t', num_clustered, '\t', num_true_clustered, '\t', num_true_clustered*100/num_clustered, num_phased, '\t', num_true_phased, '\t', num_true_phased*100/num_phased, file=out)
+			print(chrom, '\t', num_clustered, '\t', num_true_clustered, '\t', num_true_clustered*100/num_clustered, num_phased, '\t', num_phased*100/num_clustered, '\t', num_true_phased, '\t', num_true_phased*100/num_phased, file=out)
 
 
 
