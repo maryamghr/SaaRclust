@@ -1,13 +1,21 @@
-from cluster_ss_reads import *
+from cluster_ss_reads2 import *
+import time
 
-clust_partners_file = snakemake.input['clust_partners']
-minimap_files = snakemake.input['minimap']
-out_file = snakemake.output[0]
+ss_clust_cov_files = snakemake.input['ss_clust_cov']
 log_file = snakemake.log[0]
 colnames = ['clust.forward', 'name']
+outfile = snakemake.output[0]
 
-cluster_to_chrom_flag, cluster_pair = map_cluster_to_pair_and_chrom_flag(clust_partners_file)
-print(cluster_to_chrom_flag)
-print(cluster_pair)
-ss_to_clust, ss_chrom_flag = cluster_ss_reads(minimap_files, cluster_pair, out_file, colnames)
-evaluate_clustering_ss_reads(ss_to_clust, ss_chrom_flag, cluster_to_chrom_flag, log_file)
+print('ss_clust_cov_files:')
+print(ss_clust_cov_files)
+print('log file =', log_file)
+
+print('start clustering...')
+
+with open(log_file, 'w') as log:
+	print('clustering ss reads', file=log)
+	start_time = time.time()
+	ss_to_clust_cov = cluster_ss_reads(ss_clust_cov_files)
+	output_ss_clust(ss_to_clust_cov, outfile, colnames)
+	print('elapsed time =', time.time(), file=log)
+
