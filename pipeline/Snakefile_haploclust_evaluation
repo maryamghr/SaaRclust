@@ -39,13 +39,16 @@ rule all:
 		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample = sample, chunks = chunkID),
 		#expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
 		#expand("bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai", k=config["k"], a = config["kmer_abundance"], l = config["l"]),
-		expand("evaluation/bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand("evaluation/strandphaser_bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("evaluation/{itr}bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
 		#expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		expand("ground_truth_strand_states/{lib}_chrom_haplo_count.data", lib=libs),
-		expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		expand("evaluation/long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand("ground_truth_strand_states/{lib}_chrom_haplo_count.data", lib=libs),
+		#expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		expand("evaluation/{itr}long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
+		expand("evaluation/ss_clustering_evaluation_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 
 
 ######################################################
@@ -90,7 +93,7 @@ rule bwa_map_PB_fasta:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
-		pb=PBbamDir+"/{sample}.{chunks}.fasta"
+		pb=PBbamDir+"/raw_reads/{sample}.{chunks}.fasta"
 	output: PBbamDir+"/{sample}.{chunks}.bam"
 	threads: 1
 	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
@@ -238,6 +241,18 @@ rule evaluate_pairing_clusters:
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	script: "utils/evaluate_pairing_clusters.R"
 
+#########################################################
+#########	ss clustering evaluation	#########
+#########################################################
+
+rule evaluate_ss_clustering:
+	input:
+		clust_to_chrom_dir="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+		ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
+		ss_bam_list=expand(SSbamDir+"/{lib}.sorted.bam", lib=libs),
+	output: "evaluation/ss_clustering_evaluation_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	script: "utils/evaluate_ss_clustering.snakemake.py"
+
 
 #########################################################
 #########	bubble phasing evaluation	#########
@@ -264,12 +279,24 @@ rule cluster_snv_bubbles:
 rule evaluate_bubble_phasing:
 	input:
 		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
-		bubble_phase_file="bubbles/phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+		bubble_phase_file="bubbles/{itr}phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
 		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output: 
-		evaluation="evaluation/bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		false_phased_bubbles_file="evaluation/false_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+		evaluation="evaluation/{itr}bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		false_phased_bubbles_file="evaluation/{itr}false_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	script: "utils/evaluate_bubbles_phase.snakemake.py"
+
+
+rule evaluate_strandphaser_bubble_phasing:
+	input:
+		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
+		bubble_phase_file="bubbles/strandphaser_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: 
+		evaluation="evaluation/strandphaser_bubble_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		false_phased_bubbles_file="evaluation/strandphaser_false_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	script: "utils/evaluate_bubbles_phase.snakemake.py"
 
 
@@ -329,8 +356,8 @@ rule output_ss_haplo_strand_states:
 rule evaluate_long_read_phasing:
 	input:
 		long_read_haplotagged_bam_files=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
-		long_read_phase_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_k{k}_a{a}_l{l}_{sample}.data",
+		long_read_phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/{{itr}}pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
 	output: 
-		evaluation="evaluation/long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		evaluation="evaluation/{itr}long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 	script: "utils/evaluate_long_reads_phasing.snakemake.py"
 
