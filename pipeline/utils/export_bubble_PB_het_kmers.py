@@ -155,17 +155,30 @@ def find_reference_interval(query_start, query_end, aln_ref_start_pos, aln_query
 	return (aligned_ref_positions[ref_start], aligned_ref_positions[ref_end])
 
 
+def get_bubble_clusters(bubbles_clust_file):
+	bubble_id_to_clust = {}
+	with open(bubbles_clust_file) as f:
+		# skip the header line
+		next(f)
+
+		for line in f:
+			sp = line.split()
+			bubble_id, clust = int(sp[1]), sp[0]
+			bubble_id_to_clust[bubble_id] = clust
+
+	return bubble_id_to_clust
+
 	
-def read_het_snv_bubbles(bubbles_file, q):
+def read_het_snv_bubbles(bubbles_file, bubbles_clust_file, q):
 	'''
-	Reads the bubbles fasta file and returns the set of heterozygous positions and kmers for all valid bubbles that are clustered 
+	Reads the bubbles fasta file and the bubbles clusters file and returns the set of heterozygous positions and kmers for all valid bubbles that are clustered 
 	
 	Args:
 		bubble_file: a fasta file containing SNV bubble chains
 		q: the length of the extention to the right and left to read from the heterozygous position (=k/2-1 for a kmer) 
 	'''
 	
-	def add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, bubble_id, seq0, seq1, q, clust, num_bubble_chains, bubbles_with_invalid_alleles):
+	def add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, bubble_id, bubble_id_to_clust, seq0, seq1, q, num_bubble_chains, bubbles_with_invalid_alleles):
 		'''
 		If the bubble is valid and the clust is not None,
 		adds the set of heterozygous positions and kmers of a bubble to the corresponding dictionaries
@@ -173,20 +186,20 @@ def read_het_snv_bubbles(bubbles_file, q):
 		Args:
 			bubbles_with_invalid_alleles: bubbles with alleles other than 0 and 1
 		'''
-
-		if clust!="None" and num_bubble_chains == 2 and bubble_id not in bubbles_with_invalid_alleles:				
+		
+		if bubble_id in bubble_id_to_clust and num_bubble_chains == 2 and bubble_id not in bubbles_with_invalid_alleles:				
 			assert(len(seq0)==len(seq1)), "Error in bubble " + str(bubble_id) + ": the two chains of the bubble should have the same length for SNV bubbles."				
 			add_bubble_kmers(bubble_het_positions, bubble_allele_to_kmers, prev_bubble_id, seq0, seq1, q)
 	
 	bubble_het_positions = {}
 	bubble_allele_to_kmers = {}
+	bubble_id_to_clust = get_bubble_clusters(bubbles_clust_file)
 
 	# FIXME: there are some alleles higher than 2 in the input file. They should not exist!!!
 	bubbles_with_invalid_alleles = set()
 
 	with open(bubbles_file) as bubbles:
 		prev_bubble_id=-1
-		prev_clust = "None"
 		num_bubble_chains=0
 		seq=["", ""]
 		for line in bubbles:
@@ -196,7 +209,7 @@ def read_het_snv_bubbles(bubbles_file, q):
 			if line[0]==">":
 				sp_line=line.split()
 				
-				clust, bubble_name = sp_line[1], sp_line[0][1:]
+				bubble_name = sp_line[0][1:]
 				sp=bubble_name.split("_")
 				bubble_id, allele=int(sp[1]), int(sp[3])-1
 				
@@ -206,10 +219,9 @@ def read_het_snv_bubbles(bubbles_file, q):
 				if bubble_id != prev_bubble_id:
 					if prev_bubble_id != -1:
 						# process the previous bubble
-						add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, prev_bubble_id, seq[0], seq[1], q, prev_clust, num_bubble_chains, bubbles_with_invalid_alleles)
+						add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, prev_bubble_id, bubble_id_to_clust, seq[0], seq[1], q, num_bubble_chains, bubbles_with_invalid_alleles)
 					
 					prev_bubble_id = bubble_id
-					prev_clust = clust
 					num_bubble_chains = 1
 					
 				else:
@@ -220,27 +232,9 @@ def read_het_snv_bubbles(bubbles_file, q):
 				if allele < 2:
 					seq[allele] = line.strip()
 
-		add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, prev_bubble_id, seq[0], seq[1], q, prev_clust, num_bubble_chains, bubbles_with_invalid_alleles)
+		add_bubble_pos_and_kmers(bubble_het_positions, bubble_allele_to_kmers, prev_bubble_id, bubble_id_to_clust, seq[0], seq[1], q, num_bubble_chains, bubbles_with_invalid_alleles)
 		
 	return bubble_het_positions, bubble_allele_to_kmers
-
-
-def get_bubble_haplotype(bubble_phase_file):
-	bubble_first_haplo_allele = {}
-	with open(bubble_phase_file) as f:
-		for line in f:
-			if line == "":
-				break
-
-			sp = line.split()
-			
-			if sp[0]=="bubbleName":
-				continue
-
-			
-			bubble_first_haplo_allele[int(sp[0])] = int(sp[1])
-
-	return bubble_first_haplo_allele
 
 
 def get_bubble_kmers_with_interval(bubble_het_pos, bubble_aln_start, bubble_aln_end, kmer0, kmer1 , q):
@@ -285,7 +279,7 @@ def get_pb_name_to_seq(fasta_file):
 
 # pb_to_kmers is a dictionary that maps each pb read name to a list of two lists: the first list contains h0 kmers with their intervals and the second one contains h1 kmers with their intervals in the pb read
 
-def output_bubble_and_pb_kmers(minimap_file, bubble_first_haplo_allele, bubble_het_positions, bubble_allele_to_kmers, pb_name_to_seq, q, output_file):
+def output_bubble_and_pb_kmers(minimap_file, bubble_het_positions, bubble_allele_to_kmers, pb_name_to_seq, q, output_file):
 	
 	print("computing pb kmer intervals...")
 
@@ -344,14 +338,10 @@ def output_bubble_and_pb_kmers(minimap_file, bubble_first_haplo_allele, bubble_h
 
 					pb_kmer = pb_name_to_seq[pb_name][pb_kmer_start:(pb_kmer_end+1)]
 					
-					# note that the haplotype of al0 is 0 iff allele of haplotype 0 is al0 (i.e., bubble_al0_haplo = bubble_first_haplo_allele)
-					bubble_al0_haplo = '?' if bubble_id not in bubble_first_haplo_allele else bubble_first_haplo_allele[bubble_id]
-					bubble_al1_haplo = '?' if bubble_al0_haplo=='?' else 1-bubble_al0_haplo
-
 					edit_dist_bubble_al0_pb = edit_distance(pb_kmer, bubble_kmer0)
 					edit_dist_bubble_al1_pb = edit_distance(pb_kmer, bubble_kmer1)
 
-					print(str(bubble_id) + "\t0\t" + pb_name + "\t" + bubble_kmer0 + "\t" + pb_kmer + "\t" + str(bubble_al0_haplo) + "\t" + str(edit_dist_bubble_al0_pb), file=out)
-					print(str(bubble_id) + "\t1\t" + pb_name + "\t" + bubble_kmer1 + "\t" + pb_kmer + "\t" + str(bubble_al1_haplo) + "\t" + str(edit_dist_bubble_al1_pb), file=out)
+					print(str(bubble_id) + "\t0\t" + pb_name + "\t" + bubble_kmer0 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al0_pb), file=out)
+					print(str(bubble_id) + "\t1\t" + pb_name + "\t" + bubble_kmer1 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al1_pb), file=out)
 				
 
