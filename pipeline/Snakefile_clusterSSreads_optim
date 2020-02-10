@@ -101,7 +101,8 @@ rule all:
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		#expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		#expand("bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=libs, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 
 
 
@@ -132,6 +133,14 @@ rule concat_merged_with_first_unmerged:
 	output: temp(SSfastqDir+"/merged/{lib}.combined.fastq")
 	log: "log/concat_merged_with_first_unmerged_{lib}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
+
+rule concat_assembled_with_first_pair_of_unassembled:
+	input:
+		SSfastqDir+"/merged/{lib}.assembled.fastq",
+		SSfastqDir+"/merged/{lib}.unassembled.forward.fastq",
+	output: SSfastqDir+"/merged/{lib}.combined.fasta"
+	log: "log/concat_merged_with_first_unmerged_{lib}.log"
+	shell: "(time bioawk -c fastx '{{print \">\"$name; print $seq}}' <(cat {input}) > {output}) > {log} 2>&1"
 
 ###############################################################################
 ##############	     Adding ground true info to SS read names	###############
@@ -494,7 +503,7 @@ rule count_SS_clust_cov:
 		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
 		soft_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData",
 		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data"
+	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data")
 	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	script: 'utils/count_ss_clust_cov.snakemake.R'
 
@@ -512,7 +521,7 @@ rule count_bubble_clust_cov:
 		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz",
 		soft_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData",
 		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: "bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	output: temp("bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data")
 	log: "log/count_bubble_clust_cov_{sample}_chunk{chunks}_k{k}_a{a}_l{l}_k{kMinimap}_w{w}_f{f}_z{z}.log"
 	script: 'utils/count_bubble_clust_cov.snakemake.R'
 
@@ -526,7 +535,7 @@ rule cluster_bubbles:
 
 
 #rule count_bubble_clust_coverage:
-#	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	input: "bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 #	output: temp(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data")
 #	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 #	shell: "(time tail -n +2 {input} | awk '{{print $3, $4, $5, $6, $7, $8}}' | sort | uniq -c > {output}) > {log} 2>&1"
@@ -581,9 +590,9 @@ rule cluster_bubbles:
 # -c can be used to make the reverse complemented query positions be reported relative to the original strand (not the reverse strand)
 rule map_SS_reads_to_snv_bubbles:
 	input:
-		SSreads=SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta", #SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta",
-		bubble="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
-	output: SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data"
+		SSreads=SSfastqDir+"/merged/{x}.combined.fasta",
+		bubble="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa" #_withlen_and_refmap_info.fa"
+	output: "bubble_ss_map/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data"
 	log: "log/map_SS_reads_to_snv_bubbles_{x}_k{k}_a{a}_l{l}.log"
 	shell: "(time mummer -l {wildcards.k} -b {input.bubble} {input.SSreads} > {output}) > {log} 2>&1"
 
@@ -591,11 +600,12 @@ rule map_SS_reads_to_snv_bubbles:
 # TODO: change to output also the mapping positions (not only the names)
 rule output_valid_maps:
 	input:
-		map=SSfastqDir + "/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data",
-		ss_reads=SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta",
-		clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
-	output: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/output_valid_maps_and_SS_bubble_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}.log"
+		map="bubble_ss_map/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data",
+		ss_reads=SSfastqDir+"/merged/{x}.combined.fasta",
+		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
+		#clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
+	output: "bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/output_valid_maps_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_valid_maps.py"
 
 
@@ -644,9 +654,10 @@ rule output_bubble_SSlib_coverage_matrix:
 	input:
 		wc_cell_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/wc_cells_clusters.data",
 		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		valid_maps=expand(SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
+		valid_maps=expand("bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output: expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
+	output: expand("bubble_SSlib_cov/cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters)
 	log: "log/output_bubble_ss_lib_coverage_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_bubble_ss_lib_coverage.snakemake.R"
 
@@ -655,7 +666,7 @@ rule output_bubble_SSlib_coverage_matrix:
 rule strandphaser:
 	input:
 		wc_cell_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/wc_cells_clusters.data",
-		bubble_lib_cov_matrix=expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters),
+		bubble_lib_cov_matrix=expand("bubble_SSlib_cov/cluster{clust}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust=clusters),
 		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output:
 		phased_strand_states="phased_strand_states/haplo_strand_states_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
@@ -666,10 +677,11 @@ rule strandphaser:
 
 rule phase_snv_bubbles:
 	input:
-		SS_bubble_map=expand(SSfastqDir+"/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		SS_bubble_map=expand("bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs),
+		ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
 		phased_strand_states="phased_strand_states/haplo_strand_states_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 	output: "bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data"
-	script: "utils/phase_snv_bubbles_from_strandphaser.snakemake.py"
+	script: "utils/phase_snv_bubbles.snakemake.py"
 
 
 rule minimap_align_bubbles_to_PB_reads:

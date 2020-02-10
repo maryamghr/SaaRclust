@@ -16,8 +16,8 @@ output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.li
 		cluster1 <- as.character(cluster.pair$clust.forward)
 		cluster2 <- as.character(cluster.pair$clust.backward)
 		
-		clust1.file.idx <- grep(paste0("_cluster", cluster1, "_"), bubble.cov.files)
-		clust2.file.idx <- grep(paste0("_cluster", cluster2, "_"), bubble.cov.files)
+		clust1.file.idx <- grep(paste0("cluster", cluster1, "_"), bubble.cov.files)
+		clust2.file.idx <- grep(paste0("cluster", cluster2, "_"), bubble.cov.files)
 
 		cluster1.file <- bubble.cov.files[clust1.file.idx]
 		cluster2.file <- bubble.cov.files[clust2.file.idx]

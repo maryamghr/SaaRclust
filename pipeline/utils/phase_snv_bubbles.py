@@ -40,8 +40,23 @@ def read_strandphaser_strand_states(strand_states_file):
 				lib_clust_to_haplo[(sp[0], sp[1])]=int(sp[2])
 	return lib_clust_to_haplo
 
+def get_ss_clust(ss_clust_file):
+	ss_to_clust = {}
+	with open(ss_clust_file) as f:
+		#skip the header line
+		next(f)
 
-def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
+		for line in f:
+			if line == "":
+				continue
+
+			ss_clust, ss_name = line.split()
+			ss_to_clust[ss_name] = ss_clust
+
+	return ss_to_clust
+
+
+def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_phase_file):
 	'''
 	Computes the bubble allele corresponding to the first haplotype (h0) and writes it in the output file
 	
@@ -67,8 +82,13 @@ def phase_bubbles(ss_bubble_map_files, lib_clust_to_haplo, bubble_phase_file):
 					
 				sp = line.split()
 				
-				ss_name, ss_lib, ss_clust, bubble_id, bubble_allele, is_reverse = sp[0], sp[1], sp[2], sp[3], sp[4], sp[7]
+				ss_name, ss_lib, bubble_id, bubble_allele, is_reverse = sp[0], sp[1], sp[2], sp[3], sp[4]
 				
+				if ss_name not in ss_to_clust:
+					continue
+
+				ss_clust = ss_to_clust[ss_name]
+
 				if (ss_lib, ss_clust) not in lib_clust_to_haplo:
 					continue
 

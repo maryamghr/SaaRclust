@@ -11,6 +11,8 @@ print('snakemake@input[["valid_maps"]]:')
 print(snakemake@input[["valid_maps"]])
 print('snakemake@input[["bubbles_clust"]]')
 print(snakemake@input[["bubbles_clust"]])
+print('snakemake@input[["ss_clust"]]')
+print(snakemake@input[["ss_clust"]])
 print('snakemake@output:')
 print(snakemake@output)
 
@@ -22,8 +24,12 @@ map <- Reduce(rbind, all.maps)
 bubbles.clust <- fread(snakemake@input[["bubbles_clust"]])
 colnames(bubbles.clust) <- c("bubbleClust", "bubbleName")
 
+ss.clust <- fread(snakemake@input[["ss_clust"]])
+colnames(ss.clust) <- c("SSclust", "SSname")
+
 # merge map and bubbles clusters
 map <- merge(map, bubbles.clust, by="bubbleName")
+map <- merge(map, ss.clust, by="SSname")
 
 # compute SS cluster partners
 clust.partners[, SSclust:=clust.forward]
@@ -94,7 +100,7 @@ for (d in map.sp){
 	# find the right output file name
 	for (i in 1:2)
 	{
-		cl <- grep(paste0("_cluster", names(d.sp)[i], "_"), outputs)
+		cl <- grep(paste0("cluster", names(d.sp)[i], "_"), outputs)
 		print(paste('cl =', cl, ', file =', outputs[cl]))
 		fwrite(d.sp[[i]], file=outputs[cl], sep="\t")
 	}
@@ -102,5 +108,5 @@ for (d in map.sp){
 
 # touching the garbage cluster
 garbage.clust <- setdiff(paste0('V',1:(nrow(clust.partners)+1)), clust.partners[, clust.forward])
-garbage.out.file.idx <- grep(paste0("_cluster", garbage.clust, "_"), outputs)
+garbage.out.file.idx <- grep(paste0("cluster", garbage.clust, "_"), outputs)
 system(paste("touch", outputs[garbage.out.file.idx]))
