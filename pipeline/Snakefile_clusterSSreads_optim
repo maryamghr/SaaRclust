@@ -98,16 +98,11 @@ wildcard_constraints:
 
 rule all:
 	input:
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/statistics/histogram_ss_cov_in_long_reads.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand(SSfastqDir + "/bubble_SSlib_cov_cluster{clust}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", clust=clusters, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("phased_strand_states/haplo_strand_states_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/saarclust_accuracy_plot.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_SS_cov.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+
 
 
 ###############################################################################
@@ -424,22 +419,22 @@ rule output_wc_cells_clusters:
 ##############	   	  adding clust info to files		###############
 ###############################################################################
 
-rule output_soft_clust_in_long_reads:
-	input:
-		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
-	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads_chunk{chunks}.data")
-	log: "log/output_soft_clust_in_long_reads_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_chunk{chunks}.log"
-	script: "utils/outputSoftProbs.R"
+#rule output_soft_clust_in_long_reads:
+#	input:
+#		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads_chunk{chunks}.data"
+#	log: "log/output_soft_clust_in_long_reads_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_chunk{chunks}.log"
+#	script: "utils/outputSoftProbs.R"
 
-rule concat_long_reads_soft_clusters:
-	input: temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID))
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads.data"
-	log: "log/concat_long_reads_soft_clusters_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	shell:
-		'''
-		(time echo PBreadNames\\\tML_cluster_idx\\\tmax_cluster_prob > {output} &&
-		cat {input} >> {output}) > {log} 2>&1
-		'''
+#rule concat_long_reads_soft_clusters:
+#	input: temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID))
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads.data"
+#	log: "log/concat_long_reads_soft_clusters_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#	shell:
+#		'''
+#		(time echo PBreadNames\\\tML_cluster_idx\\\tmax_cluster_prob > {output} &&
+#		cat {input} >> {output}) > {log} 2>&1
+#		'''
 
 
 
@@ -489,67 +484,62 @@ rule map_clust_to_chrom_dir:
 #						print("sequence" + line.strip(), file=out)
 
 
-#######################################################################################
-##############	   	  split pb fasta file by clusters 		###############
-#######################################################################################
-###########	 (to be corrected: should be done per chunk now)	    ###########
-#######################################################################################
-
-# TODO: change outputDir
-#rule split_fasta_file_by_cluster:
-#	input: outputDir + "/{sample}_with_cluster.fasta"
-#	output: temp(expand(outputDir + "/splitted-per-cluster/{{sample}}_cluster{clust}_temp.fasta", clust=clusters)),
-#	log: "log/split_fasta_file_by_cluster_{sample}.log"
-#	shell: 
-#		'''
-#		(time set +o pipefail && 
-#		awk 'BEGIN{{RS=\">\"}} NR>1 {{gsub(\"\\n\", \"\\t\"); print \">\"$0}}' {input} | 	# put every read(name + sequence) in one single line
-#		awk '$2!=\"None\" {{print>\"{outputDir}/splitted-per-cluster/{wildcards.sample}_cluster\"$2\"_temp.fasta\"}}' && 
-#		touch {output}) > {log} 2>&1
-#		'''
-
-# This rule converts the temporary files (which have each read (name+seq) in one line) to the right fasta format files
-#rule correct_fasta_files:
-#	input: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}_temp.fasta"
-#	output: outputDir + "/splitted-per-cluster/{sample}_cluster{clust}.fasta"
-#	log: "log/correct_fasta_files_{sample}_{clust}.log"
-#	shell: "(time awk \'{{gsub(\"\\tsequence\", \"\\n\")}}; {{print $0}}\' {input} > {output}) > {log} 2>&1"
-
-
-# FIXME: clustpair shouldn't be used here
-#rule merge_and_correct_dir_paired_clust_fasta:
-#	input:
-#		lambda wc: expand(outputDir + "/splitted-per-cluster/" + wc.sample + "_cluster{pair}.fasta", pair = [wc.clust, clustpair[wc.clust]]),
-#	output:
-#		outputDir+"/splitted-per-cluster/{sample}_cluster{clust}_with_RCpair.fasta"
-#	run:
-#		os.system("cat " + input[0] + " > " + output[0])
-#		revcompfasta(input[1], output[0])
-
-
-
-
-###################################################################
-##########		clustering SS reads		###########
-###################################################################
+###########################################################################
+##########		clustering SS reads and bubbles		###########
+###########################################################################
 
 
 rule count_SS_clust_cov:
 	input:
 		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
 		soft_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData",
-		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
-	output: temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_SS_cov.data")
+		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data"
 	log: "log/count_SS_clust_cov_{sample}_chunk{chunks}_k{kMinimap}_w{w}_f{f}_z{z}.log"
-	script: 'utils/countSSclustCov.R'
+	script: 'utils/count_ss_clust_cov.snakemake.R'
 
 
 rule cluster_SS_reads:
 	input:
-		ss_clust_cov=temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_SS_cov.data", chunks=chunkID)),
+		clust_cov=temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_ss_clust_cov.data", chunks=chunkID)),
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data"
 	log: "log/cluster_SS_reads_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/cluster_ss_reads2.snakemake.py"
+	script: "utils/cluster_short_reads.snakemake.py"
+
+
+rule count_bubble_clust_cov:
+	input:
+		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz",
+		soft_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData",
+		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+	output: "bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/count_bubble_clust_cov_{sample}_chunk{chunks}_k{k}_a{a}_l{l}_k{kMinimap}_w{w}_f{f}_z{z}.log"
+	script: 'utils/count_bubble_clust_cov.snakemake.R'
+
+
+rule cluster_bubbles:
+	input:
+		clust_cov=temp(expand("bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", chunks=chunkID)),
+	output: "bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	log: "log/cluster_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
+	script: "utils/cluster_short_reads.snakemake.py"
+
+
+#rule count_bubble_clust_coverage:
+#	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+#	output: temp(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data")
+#	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#	shell: "(time tail -n +2 {input} | awk '{{print $3, $4, $5, $6, $7, $8}}' | sort | uniq -c > {output}) > {log} 2>&1"
+
+
+#rule cluster_snv_bubbles:
+#	input:
+#		bubble_clust_count=temp(expand(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs)),
+#		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+#	output:
+#		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#	log: "log/cluster_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#	script: "utils/cluster_snv_bubbles2.snakemake.R"
 
 
 
@@ -613,21 +603,6 @@ rule output_valid_maps:
 ##########		clustering bubbles		###########
 ###################################################################
 
-rule count_bubble_clust_coverage:
-	input: SSfastqDir + "/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	output: temp(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data")
-	log: "log/count_bubble_clust_coverage_{x}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	shell: "(time tail -n +2 {input} | awk '{{print $3, $4, $5, $6, $7, $8}}' | sort | uniq -c > {output}) > {log} 2>&1"
-
-
-rule cluster_snv_bubbles:
-	input:
-		bubble_clust_count=expand(temp(SSfastqDir + "/bubble_clust_cov_{x}_snv_bubbles_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", x=libs)),
-		clust_to_chrom="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-	output:
-		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-	log: "log/cluster_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/cluster_snv_bubbles2.snakemake.R"
 
 
 
@@ -644,7 +619,7 @@ rule cluster_snv_bubbles:
 #				sp = line.strip().split()
 #				if sp[0] != "clust.forward": # skip the header line
 #					bubble_id_to_clust[sp[1]]=sp[0]
-		
+#		
 #		# writing bubbles clusters in bubbles fasta file
 #		with open(input["bubbles"]) as f:
 #			with open(output[0], 'w') as out:
