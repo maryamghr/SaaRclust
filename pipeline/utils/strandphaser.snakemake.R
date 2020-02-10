@@ -3,7 +3,6 @@ sink(file=log, type='message')
 sink(file=log, type='output')
 
 source('utils/bubble_phasing_lts.R')
-
 sample=snakemake@wildcards[['sample']]
 
 print(paste('sample=', sample))
@@ -14,7 +13,6 @@ print('WC.regions')
 print(WC.regions)
 ## Get selected library names
 select.libs <- unique(WC.regions$lib)
-#select.libs <- gsub(select.libs, pattern = "\\.", replacement = "-")
 
 print('select.libs')
 print(select.libs)
@@ -35,4 +33,4 @@ clust.pairs <- clust.pairs[!duplicated(pairs),]
 print('clust.pairs =')
 print(clust.pairs)
 
-output_phased_strand_states(bubble.cov.files, clust.pairs, select.libs, snakemake@output[[1]])
+output_phased_strand_states(bubble.cov.files, clust.pairs, select.libs, snakemake@output[["phased_strand_states"]], snakemake@output[["phased_bubbles"]])

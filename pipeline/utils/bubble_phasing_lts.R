@@ -1,8 +1,3 @@
-log <- file(snakemake@log[[1]], open='wt')
-sink(file=log, type='message')
-sink(file=log, type='output')
-
-
 ## Load required libraries
 library(dplyr)
 library(tidyr)
@@ -12,8 +7,9 @@ library(data.table)
 ## FUNCTIONS ##
 ###############
 
-output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.libs, output.file){
+output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.libs, output.phased.strand.states.file, output.phased.bubbles.file){
 	phased.strand.states = data.table()
+	phased.bubbles = data.table()
 
 	for (i in 1:nrow(clust.pairs)) {
 		cluster.pair <- clust.pairs[i,]
@@ -26,36 +22,47 @@ output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.li
 		cluster1.file <- bubble.cov.files[clust1.file.idx]
 		cluster2.file <- bubble.cov.files[clust2.file.idx]
 
-		phased.strand.states = rbind(phased.strand.states, phase_strand_states(cluster1.file, cluster2.file, cluster1, cluster2, select.libs))
+		phased.data = phase_strand_states_and_bubbles(cluster1.file, cluster2.file, cluster1, cluster2, select.libs)
+		haplo.strand.states = phased.data[[1]]
+		bubble.phase = phased.data[[2]]
+
+		phased.strand.states = rbind(phased.strand.states, haplo.strand.states)
+		phased.bubbles = rbind(phased.bubbles, bubble.phase)
 	}
 
-	fwrite(phased.strand.states, file=output.file, row.names=F, sep='\t')
+	fwrite(phased.strand.states, file=output.phased.strand.states.file, row.names=F, sep='\t')
+	fwrite(phased.bubbles, file=output.phased.bubbles.file, row.names=F, sep='\t')
 }
 
-phase_strand_states <- function(cluster1.file, cluster2.file, cluster1, cluster2, select.libs) {
-  ## Load bubbles into matrices
-  matrices <- loadClusterBubbles(cluster1.file = cluster1.file,
-                                 cluster2.file = cluster2.file)
-  
-  ## Sort matrices
-  srt.matrices <- sortClusterBubbles(matrices = matrices, select.libs = select.libs)
+phase_strand_states_and_bubbles <- function(cluster1.file, cluster2.file, cluster1, cluster2, select.libs) {
+	## Load bubbles into matrices
+	matrices <- loadClusterBubbles(cluster1.file = cluster1.file,
+		                 cluster2.file = cluster2.file)
 
-  ## adding the haplo-phased strand states to the 
+	## Sort matrices
+	srt.matrices <- sortClusterBubbles(matrices = matrices, select.libs = select.libs)
 
-  clust1.haplo.strand.states <- data.table(lib=srt.matrices$cluster1.libs, cluster=cluster1)
-  clust1.haplo.strand.states[,`:=`(lib=lapply(lib, function(x) strsplit(x, "__")[[1]][1]), haplotype=sapply(lib, function(x) as.integer(strsplit(x, "__C")[[1]][2])-1))]
-  haplo.strand.states <- clust1.haplo.strand.states
+	## adding the haplo-phased strand states to the 
 
-  clust2.haplo.strand.states = clust1.haplo.strand.states
-  clust2.haplo.strand.states[, `:=`(cluster=cluster2, haplotype=1-haplotype)]
-  haplo.strand.states <- rbind(haplo.strand.states, clust2.haplo.strand.states)
-  
+	haplo.strand.states <- data.table()
+
+	clust1.haplo.strand.states <- data.table(lib=srt.matrices$cluster1.libs, cluster=cluster1)
+	clust1.haplo.strand.states[,`:=`(lib=lapply(lib, function(x) strsplit(x, "__")[[1]][1]), haplotype=sapply(lib, function(x) as.integer(strsplit(x, "__C")[[1]][2])-1))]
+	haplo.strand.states <- rbind(haplo.strand.states, clust1.haplo.strand.states)
+
+	clust2.haplo.strand.states = clust1.haplo.strand.states
+	clust2.haplo.strand.states[, `:=`(cluster=cluster2, haplotype=1-haplotype)]
+	haplo.strand.states <- rbind(haplo.strand.states, clust2.haplo.strand.states)
+	
  
-  ## Get consensus
-  h1.cons <- exportConsensus(data.matrix = srt.matrices$cluster1.m)
-  h2.cons <- exportConsensus(data.matrix = srt.matrices$cluster2.m)
+	## Get consensus
+	h1.cons <- exportConsensus(data.matrix = srt.matrices$cluster1.m)
+	bubble.phase <- data.table(bubbleName=h1.cons$pos, haplotype0Allele=h1.cons$hap-1)
 
-  return(haplo.strand.states)
+	h2.cons <- exportConsensus(data.matrix = srt.matrices$cluster2.m)
+	bubble.phase <- rbind(bubble.phase, data.table(bubbleName=h2.cons$pos, haplotype0Allele=h2.cons$hap-1))
+
+  return(list(haplo.strand.states, bubble.phase))
 }
 
 loadClusterBubbles <- function(cluster1.file = NULL, cluster2.file = NULL) {
@@ -124,6 +131,10 @@ sortClusterBubbles <- function(matrices = NULL, select.libs = NULL) {
   cluster1.m <- cluster1.m[,-mask]
   cluster2.m <- cluster2.m[,-mask]
   
+
+	consensus.score = data.table()
+	swap.consensus.score = data.table()
+
   ## sort parallel matrices
   for ( i in 1:length(shared.libs)) {
     filename <- shared.libs[i]
@@ -151,6 +162,10 @@ sortClusterBubbles <- function(matrices = NULL, select.libs = NULL) {
     ## calculate new score
     curr.cluster1.m.score <- calcMatrixScore(matrix = cluster1.m, covered.pos = cov.pos)
     curr.cluster2.m.score <-  calcMatrixScore(matrix = cluster2.m, covered.pos = cov.pos)
+
+		## store consensus scores in data tables
+		consensus.score = rbind(consensus.score, data.table(lib=filename, cons.score=cluster1.m.score+cluster2.m.score))
+		swap.consensus.score = rbind(swap.consensus.score, data.table(lib=filename, swap.cons.score=curr.cluster1.m.score+curr.cluster2.m.score))
     
     ## compare previous matrix score with score after swapping rows
     if ( (cluster1.m.score + cluster2.m.score) < (curr.cluster1.m.score + curr.cluster2.m.score) ) {
@@ -169,6 +184,8 @@ sortClusterBubbles <- function(matrices = NULL, select.libs = NULL) {
   sorted.matrices[['cluster2.m']] <- cluster2.m
   sorted.matrices[['cluster2.libs']] <- cluster2.libs
   sorted.matrices[['cluster.bubble.id']] <- shared.bubble.id
+	sorted.matrices[['consensus.score']] <- consensus.score
+	sorted.matrices[['swap.consensus.score']] <- swap.consensus.score
   return(sorted.matrices)
 }
 
