@@ -1,10 +1,9 @@
 ### Note: SS read names should not have "_" character
 
-sample: HG00514
+sample: HG00733
 Nchunks: 100
 
-graphalignerfolder: /MMCI/TM/scratch/mikko/random_bins/
-graphfolder: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/DBG_illumina/
+graphfolder: ../../DBG_illumina/
 # required for building the de Bruijn graph
 bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
 bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
@@ -14,62 +13,31 @@ whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
 
 
 # PacBio reads
-#pb_fasta: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/NA12878_WashU_PBreads
-pb_bam_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ccs_bams
+pb_bam_dir: ../../ccs_bams
 min_pb_len: 5000
 
-# Illumina reads
-# Accepted file formats: https://github.com/GATB/bcalm#input-formats
-# The file names MUST NOT contain underscores _
-#shortreads: /MMCI/TM/nanopore/work/mikko/NA12878_illumina
 
-#reference: GRCh38_full_analysis_set_plus_decoy_hla.fa
-reference: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/hg38.fa
-#vcf_prefix: /MMCI/TM/scratch/maryam/clustering/haplo-clustering/GIAB/NA12878.hg38.GIAB.chr
-#giab_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/giab_phased_vcf
-#platinum_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/platinum-genome-phased-vcf
+reference: ../../hg38.fa
 
 phased_vcf_dir: trio-based-phasing/
 vcf_prefix: SH032
 
 # SS bams and phased vcf files
-SS_bam_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ss_bams
-#phased_SSbased_vcf_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/David-StrandPhaseR/VCFfiles
+SS_bam_dir: ../../ss_bams
 
 # Kmer size of the graph
 # This should be very low to prevent fragmentation
 k: 63
 l: 23
+
 # Minimum kmer abundance of the graph
 # This should be very low
 kmer_abundance: 3
 
-# bgreat
-#bgreat: /MMCI/TM/scratch/mikko/bgreat2_strandseq/bgreat
-
-# script for extracting fastq file for each cluster
-#extract_fastq: /MMCI/TM/scratch/mikko/random_bins/pick_reads.py
-
-# input directory containing initial minimap alignment files
-#input_dir: /MMCI/TM/scratch/david/Chunks_50000reads_200iter/aligns_k15_w1_L50_f0.05
-
-# directory including saarclust soft clustering files
-#soft_clust_dir: /MMCI/TM/scratch/maryam/clustering/SaaRclust_experiments/allCells_100itr/aligns_k15_w1_L50_f0.05_withDupsNoS/SaaRclust_results/NULLcells/100EMiter/Clusters
 
 # directory including all Strand-seq fastq files
-SS_fastq_dir: /MMCI/TM/scratch/maryam/haploclust-css-HG00514/ss_fastq
+SS_fastq_dir: ../../ss_fastq
 
-# VG tool
-#VG: /MMCI/TM/scratch/mikko/random_bins/vg_1_9_0
-
-# DB node lengths
-#node_lens: /MMCI/TM/scratch/mikko/aligner/fake_ref/tmp/node_lengths_min50.txt
-
-# canu params
-#chrom_sizes: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/chrom_sizes.txt
-#errorRate: 0.1
-#overlapLen: 200
-#cluster_sizes: /MMCI/TM/scratch/maryam/clustering/SaaRclust/pipeline/clusters_fasta_file_sizes.txt
 
 het_kmer_len: 10
 
@@ -80,8 +48,8 @@ f: 0.1 #0.0002
 z: 500
 
 # saarclust parameters
-testNumClustersHard: 100
-numClustersHard: 100
+testNumClustersHard: 70
+numClustersHard: 70
 numClustersSoft: 47
 EMiter: 10
 alpha: 0.01
