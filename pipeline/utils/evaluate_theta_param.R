@@ -34,11 +34,11 @@ compare_theta_with_wfrac <- function(theta, title)
 		theta.wc = rbind(theta.wc, cell.theta.wc[, .(lib, cluster, thetawc, W.frac)])
 	}
 
-	return(ggplot(theta.wc, aes(x=W.frac, y=thetawc))+geom_point()+ggtitle(title))
+	return(list(theta.wc, ggplot(theta.wc, aes(x=W.frac, y=thetawc))+geom_point()+ggtitle(title)))
 }
 
-soft.clust.plt <- compare_theta_with_wfrac(soft.theta, 'soft clustering theta')
-hard.clust.plt <- compare_theta_with_wfrac(hard.theta, 'hard clustering theta')
+soft.clust.plt <- compare_theta_with_wfrac(soft.theta, 'soft clustering theta')[[2]]
+hard.clust.plt <- compare_theta_with_wfrac(hard.theta, 'hard clustering theta')[[2]]
 
 grid.arrange(soft.clust.plt, hard.clust.plt, nrow=2)
 
