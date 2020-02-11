@@ -2,7 +2,7 @@ import os
 import subprocess
 import zipfile
 
-configfile: "config_HG00514.yaml"
+configfile: "config.yaml"
 #SHORTREADS = config["shortreads"]
 #ALIGNERBINPATH = config["graphalignerfolder"]
 GRAPHPATH = config["graphfolder"]
