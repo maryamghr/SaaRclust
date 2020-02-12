@@ -6,21 +6,11 @@ configfile: "config.yaml"
 #SHORTREADS = config["shortreads"]
 #ALIGNERBINPATH = config["graphalignerfolder"]
 GRAPHPATH = config["graphfolder"]
-SCRIPTPATH = config["graphalignerfolder"] + "scripts"
-#BCALMPATH = config["bcalmpath"]
-#CONVERTTOGFAPATH = config["bcalm_converttoGFApath"]
-#BGREAT = config["bgreat"]
-#EXTRACTFASTQ = config["extract_fastq"]
-#inputDir = config["input_dir"]
-#softClustDir = config["soft_clust_dir"]
-#outputDir = "output"#config["output_dir"]
 SSfastqDir = config["SS_fastq_dir"]
 SSbamDir = config["SS_bam_dir"]
 #VG = config["VG"]
 #nodelens = config["node_lens"]
 chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
-#exportFasta = config["export_fasta_path"]
-#computeSimpleBubble = config["simple_bubble_detection_path"]
 #getSNVbubbles = config["get_snv_bubbles_path"]
 #getRevcompFree = config["get_rev_comp_free_path"]
 #clustersizes = config["cluster_sizes"]
@@ -449,6 +439,7 @@ rule output_wc_cells_clusters:
 
 rule map_clust_to_chrom_dir:
 	input:
+		saarclust="utils/R-packages/SaaRclust/R/SaaRclust",
 		hard_clust=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData", numClustersHard=numClustersHard)
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt"
 	log: "log/map_clust_to_chrom_dir_{sample}_k{kMinimap}_w{w}_f{f}_z{z}.log"
