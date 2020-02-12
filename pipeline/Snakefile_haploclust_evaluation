@@ -1,4 +1,4 @@
-configfile: "config_HG00514.yaml"
+configfile: "config.yaml"
 whatshap = config["whatshap"]
 PBbamDir = config["pb_bam_dir"]
 N = config["Nchunks"]
@@ -48,7 +48,7 @@ rule all:
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_num_hitted_clusters.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand(PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
-		expand("evaluation/ss_clustering_evaluation_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand("evaluation/ss_clustering_evaluation_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 
 
 ######################################################
@@ -83,6 +83,24 @@ rule index_merged_phased_vcf:
 ###########################################
 ######### haplotagging PB reads ###########
 ###########################################
+
+rule bwa_index_ref:
+	input: config["reference"]
+	output:
+		config["reference"] + ".amb",
+		config["reference"] + ".ann",
+		config["reference"] + ".bwt",
+		config["reference"] + ".pac",
+		config["reference"] + ".sa"
+	log: "log/bwa_index_ref.log"
+	shell: "(time bwa index {input}) > {log} 2>&1"
+
+
+rule samtools_index_ref:
+	input: config["reference"]
+	output: config["reference"] + ".fai"
+	log: "log/samtools_index_ref.log"
+	shell: "(time samtools faidx {input}) > {log} 2>&1"
 
 
 rule bwa_map_PB_fasta:
@@ -279,6 +297,7 @@ rule cluster_snv_bubbles:
 rule evaluate_bubble_phasing:
 	input:
 		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
+		bubble_haplotagged_bam_index="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai",
 		bubble_phase_file="bubbles/{itr}phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
 		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
@@ -360,4 +379,5 @@ rule evaluate_long_read_phasing:
 	output: 
 		evaluation="evaluation/{itr}long_read_phase_evaluation_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 	script: "utils/evaluate_long_reads_phasing.snakemake.py"
+
 
