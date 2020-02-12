@@ -9,6 +9,12 @@ import pysam
 global valid_chroms
 valid_chroms = ['chr' + str(i) for i in range(1,23)] + ['chrX']
 
+def print_dict_head(dic, num):
+	for i in range(num):
+		key = list(dic.keys())[i]
+		print(key, ':', dic[key])
+
+
 def get_ground_true_chrom_haplo(long_reads_haplotagged_bam_files):
 	chrom_to_num_ground_true_phased_reads = {chrom:0 for chrom in valid_chroms}
 	ground_true_read_to_chrom, ground_true_read_to_haplo = {}, {}
@@ -29,6 +35,9 @@ def get_ground_true_chrom_haplo(long_reads_haplotagged_bam_files):
 			if not chrom in valid_chroms:
 				# the chromosome name is not valid
 				continue
+
+			read_name_sp = read_name.split('/ccs')
+			read_name = read_name_sp[0]+'/ccs'
 		
 			chrom_to_num_ground_true_phased_reads[chrom] += 1
 			ground_true_read_to_chrom[read_name], ground_true_read_to_haplo[read_name] = chrom, haplotype
@@ -44,7 +53,11 @@ def get_reads_haplotypes(long_reads_phase_file_list):
 			next(f)
 			for line in f:
 				sp = line.split()
-				read_to_haplo[sp[0]] = sp[-1]
+				read_name, haplo = sp[0], sp[-1]
+				read_name_sp = read_name.split('/ccs')
+				read_name = read_name_sp[0]+'/ccs'
+
+				read_to_haplo[read_name] = haplo
 
 	return read_to_haplo
 
