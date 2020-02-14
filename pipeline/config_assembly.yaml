@@ -1,6 +1,6 @@
 ### Note: SS read names should not have "_" character
 
-sample: HG00514
+sample: HG00733
 Nchunks: 100
 
 graphfolder: ../../DBG_illumina/
@@ -9,7 +9,7 @@ bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
 bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
 
 # whatshap
-whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
+whatshap: ../../whatshap-env/bin/whatshap
 
 
 # PacBio reads

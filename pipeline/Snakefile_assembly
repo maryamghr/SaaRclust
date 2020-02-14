@@ -52,6 +52,7 @@ kMinimap = config["k_minimap"]
 fMinimap = config["f"]
 z = config["z"]
 outputfolder    = "SaaRclust_results"
+haplotypes = ['H1', 'H2']
 
 #####################################################################
 ###### getting clusters
@@ -68,7 +69,7 @@ with open(clust_pairs_file) as f:
 		clust1, clust2 = sp[1], sp[2]
 		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
 		clust_pair = min_clust + '_' + max_clust
-
+		
 		clusters.append(clust1)
 		if clust1 == min_clust:
 			clust_pairs.append(clust_pair)
@@ -79,9 +80,14 @@ print('clust_pairs =', clust_pairs)
 
 #####################################################################
 
+wildcard_constraints:
+	clust = "[V]\d+",
+
+
 rule all:
 	input:
-		expand("assembly/cluster{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust=clusters)
+		expand("assembly/splitted_fastq/cluster{clust}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust=clusters, haplo=haplotypes),
+		expand("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clustpair=clust_pairs, haplo=haplotypes)
 
 rule output_soft_clust_in_long_reads:
 	input:
@@ -95,7 +101,30 @@ rule split_phase_file_by_clust:
 	input:
 		phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
 		clust_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID)
-	output: expand("assembly/cluster{clust}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", clust=clusters)
+	output: expand("assembly/haplotype_lists/cluster{clust}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", clust=clusters)
 	log: "log/ split_phase_file_by_clust_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	script: "utils/split_phased_long_reads_by_cluster.snakemake.py"
+
+
+rule whatshap_split:
+	input:
+		fastq=PBbamDir+"/{sample}.fastq.gz",
+		haplo_list="assembly/haplotype_lists/cluster{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.data"
+	output:
+		splitted=expand("assembly/splitted_fastq/cluster{{clust}}_{haplo}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.fastq.gz", haplo=haplotypes)
+	log: "log/whatshap_split_{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
+	shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads) > {log} 2>&1"
+
+
+
+rule merge_clustpairs_fastq:
+	input: lambda wc: ["assembly/splitted_fastq/cluster{}_{}_iteration2_pb_phase_kMinimap{}_w{}_f{}_z{}_k{}_a{}_l{}_{}.fastq.gz".format(clust, wc.haplo, wc.kMinimap, wc.w, wc.f, wc.z, wc.k, wc.a, wc.l, wc.sample) for clust in wc.clustpair.split('_')]
+	output: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz"
+	log: "log/merge_clustpairs_fastq_{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
+	shell:
+		'''
+		(time zcat {input[0]} > {output} &&
+		zcat {input[1]} | bioawk -c fastx '{{print \"@\"$name; print revcomp($seq); print \"+\"; print $qual}}' >> {output} &&
+		gzip {output}) > {log} 2>&1
+		'''
 
