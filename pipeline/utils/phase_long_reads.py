@@ -24,15 +24,21 @@ def phase_long_reads(bubble_pb_kmer_file, bubble_phase_file, pb_phase_file):
 				break
 
 			sp = line.split()
-			bubble_id, bubble_allele, pb_name, kmer_edit_dist = sp[0], int(sp[1]), sp[2], int(sp[5])
+			pb_name = sp[2]
+
 			if pb_name not in pb_name_to_num_kmers:
 				pb_name_to_num_kmers[pb_name] = 0
 				pb_name_to_num_phased_kmers[pb_name] = 0
-
-			pb_name_to_num_kmers[pb_name] += 1
-
 			if pb_name not in pb_to_h0_h1_dist:
 				pb_to_h0_h1_dist[pb_name] = [0,0]
+
+			if sp[0]=="none":
+				# the long read is not aligned to any phased bubble				
+				continue
+
+			bubble_id, bubble_allele, kmer_edit_dist = sp[0], int(sp[1]), int(sp[5])
+
+			pb_name_to_num_kmers[pb_name] += 1
 
 			if bubble_id not in bubble_to_allele0_haplo:
 				# the bubble is not phased
@@ -91,6 +97,10 @@ def update_bubble_phase(bubble_pb_kmer_file_list, pb_phase_file_list, bubble_pha
 					break
 
 				sp = line.split()
+				if sp[0]=="none":
+					# no bubble is aligned to the long read
+					continue
+
 				bubble_id, bubble_allele, pb_name, kmer_edit_dist = int(sp[0]), sp[1], sp[2], int(sp[5])
 				if pb_name not in pb_to_haplo:
 					continue
