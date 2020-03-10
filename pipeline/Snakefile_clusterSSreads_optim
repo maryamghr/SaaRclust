@@ -45,12 +45,16 @@ numAlignments   = config["numAlignments"]
 minimapHeader = "SSreadNames\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
 minimapExtendedHeader = "SSreadNames\\tSSlibNames\\tSSflag\\tSSchrom\\tSSpos\\tSSreadLen\\tQueryCoordStart\\tQueryCoordend\\tstrand\\tPBreadNames\\tPBflag\\tPBchrom\\tPBpos\\tPBreadLen\\tTargetCoordStart\\tTargetCoordend\\tNumResidueMatches\\tMatchedBasesWithGaps\\tcigar"
 
-print(minimapExtendedHeader)
+#print(minimapExtendedHeader)
 
 libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
+# The following two lines are just for limiting libs and chunls to the first lib/chunk just for dag
+#libs = libs[0]
+#chunkID = chunkID[0]
+
 PBbamfiles,=glob_wildcards(PBbamDir+"/{bamfile}.bam")
-print(libs)
-print(SSfastqDir)
+#print(libs)
+#print(SSfastqDir)
 
 
 ###############################################
@@ -116,13 +120,13 @@ rule pear_merge_mates:
 	shell: "(time pear -f {input.fq1} -r {input.fq2} -t 101 -o {SSfastqDir}/merged/{wildcards.lib}) > {log} 2>&1"
 	
 
-rule concat_merged_with_first_unmerged:
-	input:
-		SSfastqDir+"/merged/{lib}.assembled.fastq",
-		SSfastqDir+"/merged/{lib}.unassembled.forward.fastq",
-	output: temp(SSfastqDir+"/merged/{lib}.combined.fastq")
-	log: "log/concat_merged_with_first_unmerged_{lib}.log"
-	shell: "(time cat {input} > {output}) > {log} 2>&1"
+#rule concat_merged_with_first_unmerged:
+#	input:
+#		SSfastqDir+"/merged/{lib}.assembled.fastq",
+#		SSfastqDir+"/merged/{lib}.unassembled.forward.fastq",
+#	output: temp(SSfastqDir+"/merged/{lib}.combined.fastq")
+#	log: "log/concat_merged_with_first_unmerged_{lib}.log"
+#	shell: "(time cat {input} > {output}) > {log} 2>&1"
 
 rule concat_assembled_with_first_pair_of_unassembled:
 	input:
@@ -144,7 +148,7 @@ rule bwa_map_SS_to_ref:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa= config["reference"] + ".sa",
-		ss= SSfastqDir+"/merged/{lib}.combined.fastq"
+		ss= SSfastqDir+"/merged/{lib}.combined.fasta"
 	output: SSbamDir+"/{lib}.bam"
 	threads: 8
 	log: "log/bwa_map_SS_to_ref_{lib}.log"
@@ -418,12 +422,12 @@ rule output_wc_cells_clusters:
 ##############	   	  adding clust info to files		###############
 ###############################################################################
 
-#rule output_soft_clust_in_long_reads:
-#	input:
-#		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
-#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads_chunk{chunks}.data"
-#	log: "log/output_soft_clust_in_long_reads_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_chunk{chunks}.log"
-#	script: "utils/outputSoftProbs.R"
+rule output_soft_clust_in_long_reads:
+	input:
+		soft_clust_file = "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads_chunk{chunks}.data"
+	log: "log/output_soft_clust_in_long_reads_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_chunk{chunks}.log"
+	script: "utils/outputSoftProbs.R"
 
 #rule concat_long_reads_soft_clusters:
 #	input: temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID))
@@ -523,6 +527,7 @@ rule cluster_bubbles:
 	output: "bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	log: "log/cluster_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	script: "utils/cluster_short_reads.snakemake.py"
+
 
 
 #rule count_bubble_clust_coverage:
@@ -688,12 +693,12 @@ rule minimap_align_bubbles_to_PB_reads:
 
 rule export_bubble_pb_het_kmers:
 	input:
-		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",  #"bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
+		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
 		bubbles_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz",
 		#SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs), # TODO: to be replaced by strandphaser output
 		#bubble_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
-		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta"
+		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta",
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
 	params:
 		het_kmer_len=config["het_kmer_len"]
@@ -715,6 +720,7 @@ rule update_bubbles_phasing:
 		long_reads_phase_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID)
 	output: "bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data"
 	script: "utils/update_bubbles_phasing.snakemake.py"
+
 
 rule update_long_reads_phasing:
 	input:
@@ -801,6 +807,7 @@ rule export_snv_bubble_unitigs_fasta_from_bam:
 	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_with_refmap_info.fa"
 	log: "log/export_snv_bubble_unitigs_fasta_from_bam_k{k}_a{a}_l{l}.log"
 	shell: "(time perl utils/printRead2fasta_pacbio.pl {input} > {output}) > {log} 2>&1"
+
 
 
 
