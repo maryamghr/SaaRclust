@@ -11,6 +11,9 @@ bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
 # whatshap
 whatshap: ../../whatshap-env/bin/whatshap
 
+# whatshap split command
+whatshap_split_add_untagged: True
+
 
 # PacBio reads
 pb_bam_dir: ../../ccs_bams

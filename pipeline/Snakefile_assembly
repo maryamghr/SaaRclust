@@ -54,6 +54,8 @@ z = config["z"]
 outputfolder    = "SaaRclust_results"
 haplotypes = ['H1', 'H2']
 
+add_untagged = "--add-untagged" if config["whatshap_split_add_untagged"] else ""
+
 #####################################################################
 ###### getting clusters
 clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMinimap) + "_z" + str(z) + "/SaaRclust_results_" + sample + "/clust_partners.txt"
@@ -102,7 +104,7 @@ rule split_phase_file_by_clust:
 		phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
 		clust_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID)
 	output: expand("assembly/haplotype_lists/cluster{clust}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", clust=clusters)
-	log: "log/ split_phase_file_by_clust_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
+	log: "log/split_phase_file_by_clust_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	script: "utils/split_phased_long_reads_by_cluster.snakemake.py"
 
 
@@ -113,18 +115,23 @@ rule whatshap_split:
 	output:
 		splitted=expand("assembly/splitted_fastq/cluster{{clust}}_{haplo}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.fastq.gz", haplo=haplotypes)
 	log: "log/whatshap_split_{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
-	shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads) > {log} 2>&1"
+	shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads {add_untagged}) > {log} 2>&1"
 
 
 
 rule merge_clustpairs_fastq:
 	input: lambda wc: ["assembly/splitted_fastq/cluster{}_{}_iteration2_pb_phase_kMinimap{}_w{}_f{}_z{}_k{}_a{}_l{}_{}.fastq.gz".format(clust, wc.haplo, wc.kMinimap, wc.w, wc.f, wc.z, wc.k, wc.a, wc.l, wc.sample) for clust in wc.clustpair.split('_')]
-	output: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz"
+	output: temp("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq")
 	log: "log/merge_clustpairs_fastq_{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	shell:
 		'''
 		(time zcat {input[0]} > {output} &&
-		zcat {input[1]} | bioawk -c fastx '{{print \"@\"$name; print revcomp($seq); print \"+\"; print $qual}}' >> {output} &&
-		gzip {output}) > {log} 2>&1
+		zcat {input[1]} | bioawk -c fastx '{{print \"@\"$name; print revcomp($seq); print \"+\"; print $qual}}' >> {output}) > {log} 2>&1
 		'''
+
+rule compress_clustpairs_fastq:
+	input: temp("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq")
+	output: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz"
+	shell: "gzip {input}"
+
 
