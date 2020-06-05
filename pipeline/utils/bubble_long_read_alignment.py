@@ -1,3 +1,5 @@
+from whatshap.align import edit_distance
+
 class Bubble:
 
 	def __init__(self, id=None):
@@ -7,6 +9,7 @@ class Bubble:
 		self.allele0, self.allele1 = None, None
 		self.actual_type = None # in ["unmapped", "invalid_chrom", "untagged"]
 		self.pred_type = None # in ["true_haplo", "false_haplo", "haploclust_false_pos", "not_chrom_clust", "garbage_clust", "not_haplo_clust"]
+		self.het_positions = []
 
 	def print(self):
 		print('id =', self.id)
@@ -27,6 +30,11 @@ class Bubble:
 			print('allele1: None')
 
 		print('****************************')
+		
+	def add_het_positions(self):
+		assert (len(self.allele0.seq)==len(self.allele1.seq)), 'the lengths of the two bubble chains should be equal'
+		self.het_positions = [i for i in range(len(self.allele0.seq)) if self.allele0.seq[i]!=self.allele1.seq[i]]
+		assert (len(self.het_positions)>0), 'there should be at least one heterozygous position in the bubble'
 
 	def add_allele(self, bubble_allele):
 		assert (bubble_allele.id==0 or bubble_allele.id==1), 'bubble allele =, ' + str(bubble_allele.id) + 'should be 0 or 1'
@@ -48,11 +56,12 @@ class Bubble:
 
 class BubbleAllele:
 
-	def __init__(self, id=None, bubble=None):
+	def __init__(self, id=None, bubble=None, seq=""):
 		self.id = id
 		self.bubble = bubble
+		self.seq = seq
 		self.actual_haplo, self.pred_haplo = None, None
-		#self.haplo_edit_dist = [0,0]
+		self.kmers = []
 		self.km = 0
 		self.alignments = []
 
@@ -63,6 +72,11 @@ class BubbleAllele:
 		print('actual_haplo =', self.actual_haplo)
 		print('pred_haplo =', self.pred_haplo)
 		print('alignments =', self.alignments)
+		
+	def add_kmers(self, q=10):
+		for p in self.bubble.het_positions:
+			assert (q <= p <= len(self.bubble.seq)-q-1), 'het position should at least ' + q + ' base pairs far from the start and end points of the bubble'
+			kmers.append(self.bubble.seq[p-q:p+q+1])
 
 	def get_haplotypes_edit_dist(self):
 
@@ -84,8 +98,9 @@ class BubbleAllele:
 
 class LongRead:
 
-	def __init__(self, name):
+	def __init__(self, name, seq=""):
 		self.name = name
+		self.seq = seq
 		self.actual_haplo, self.pred_haplo = None, None
 		self.actual_chrom, self.clust = None, None
 		self.haplo0_edit_dist, self.haplo1_edit_dist = 0, 0
@@ -126,6 +141,25 @@ class Alignment:
 		self.bubble_kmer = bubble_kmer
 		self.long_read_kmer = long_read_kmer
 		self.edit_dist = edit_dist
+	
+	def __init__(self, long_read, bubble_allele, cigar) #, edit_dist=None):
+		self.long_read, self.bubble_allele = long_read, bubble_allele
+		self.long_read.alignments.append(self)
+		self.bubble_allele.alignments.append(self)
+		self.cigar = cigar
+		#self.bubble_allele_kmer = #self.bubble_allele.kmers[bubble_het_pos_idx]
+		#self.long_read_kmer = long_read_kmer
+		self.edit_dist = edit_dist
+		
+	def set_kmers():
+		bubble_het_pos = self.bubble_allele.bubble[bubble_het_pos_idx]
+		q = (len(self.bubble_allele.kmers[0])-1)/2
+		long_read_kmer
+		pass
+		
+	def set_edit_dist(self):
+		self.edit_dist = edit_distance(long_read_kmer, bubble_kmer)
+		
 		
 	def output_print(self):
 		# bubbleName	bubbleAllele	PBname	bubbleKmer	PBkmer	kmersEditDistance bubble_alle_pred_haplo	long_read_pred_haplo
