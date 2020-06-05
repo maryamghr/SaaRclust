@@ -126,6 +126,12 @@ class LongRead:
 
 		self.haplo0_edit_dist, self.haplo1_edit_dist = haplo_edit_dist[0], haplo_edit_dist[1]
 		
+	def phase(self):
+		if self.haplo0_edit_dist < self.haplo1_edit_dist:
+			self.pred_haplo = 0
+		elif self.haplo0_edit_dist > self.haplo1_edit_dist:
+			self.pred_haplo = 1
+		
 
 class Alignment:
 	
@@ -142,23 +148,30 @@ class Alignment:
 		self.long_read_kmer = long_read_kmer
 		self.edit_dist = edit_dist
 	
-	def __init__(self, long_read, bubble_allele, cigar) #, edit_dist=None):
+	def __init__(self, long_read, bubble_allele, long_read_start_pos, long_read_end_pos, bubble_start_pos, bubble_end_pos, cigar):
 		self.long_read, self.bubble_allele = long_read, bubble_allele
 		self.long_read.alignments.append(self)
 		self.bubble_allele.alignments.append(self)
+		self.long_read_start_pos = long_read_start_pos
+		self.long_read_end_pos = long_read_end_pos
+		self.bubble_start_pos = bubble_start_pos
+		self.bubble_end_pos = bubble_end_pos
 		self.cigar = cigar
-		#self.bubble_allele_kmer = #self.bubble_allele.kmers[bubble_het_pos_idx]
-		#self.long_read_kmer = long_read_kmer
-		self.edit_dist = edit_dist
-		
-	def set_kmers():
-		bubble_het_pos = self.bubble_allele.bubble[bubble_het_pos_idx]
-		q = (len(self.bubble_allele.kmers[0])-1)/2
-		long_read_kmer
-		pass
-		
-	def set_edit_dist(self):
-		self.edit_dist = edit_distance(long_read_kmer, bubble_kmer)
+		self.edit_dist = 0
+				
+	def set_edit_dist():
+		for h in range(len(self.bubble_allele.het_positions)):
+			het_pos = self.bubble_allele.het_positions[h]
+			bubble_allele_kmer = self.allele0.kmers[h]
+			q = (len(bubble_allele_kmer)-1)/2
+			
+			if not bubble_start_pos+q <= het_pos <= bubble_end_pos-q:
+				# het pos is not fully covered in the alignment
+				continue
+				
+			long_read_kmer = get_reference_aln_substr(self.long_read.seq, self.bubble_allele.seq, self.long_read_start_pos, self.bubble_start_pos, self.cigar, het_pos-q, het_pos+q)
+			
+			self.edit_dist += edit_distance(bubble_allele_kmer, long_read_kmer)
 		
 		
 	def output_print(self):
