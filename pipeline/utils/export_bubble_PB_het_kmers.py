@@ -212,7 +212,7 @@ def read_het_snv_bubbles(bubbles_file, bubbles_clust_file, q):
 				bubble_name = sp_line[0][1:]
 				sp=bubble_name.split("_")
 				bubble_id, allele=int(sp[1]), int(sp[3])-1
-				
+
 				if allele > 1:
 					bubbles_with_invalid_alleles.add(bubble_id)
 
@@ -280,14 +280,17 @@ def get_pb_name_to_seq(fasta_file):
 
 # pb_to_kmers is a dictionary that maps each pb read name to a list of two lists: the first list contains h0 kmers with their intervals and the second one contains h1 kmers with their intervals in the pb read
 
-def output_bubble_and_pb_kmers(minimap_file, bubble_het_positions, bubble_allele_to_kmers, pb_name_to_seq, q, output_file):
+def output_bubble_and_pb_kmers(minimap_file, bubble_info, bubble_het_positions, bubble_allele_to_kmers, pb_name_to_seq, q, output_file):
 
 	print("computing pb kmer intervals...")
 	pb_names_aligned_to_phased_bubbles = {}
 
 	with open(output_file, 'w') as out:
 		with gzip.open(minimap_file, 'rb') as minimap:
-			print("bubbleName\tbubbleAllele\tPBname\tbubbleKmer\tPBkmer\tbubbleAlleleHaplotype\tkmersEditDistance", file=out)
+			if bubble_info:
+				print("bubbleName\tbubbleAllele\tPBname\tbubbleKmer\tPBkmer\tkmersEditDistance\tbubble_km", file=out)
+			else:
+				print("bubbleName\tbubbleAllele\tPBname\tbubbleKmer\tPBkmer\tkmersEditDistance", file=out)
 
 			for line in minimap:
 				line = line.decode("utf-8")
@@ -297,13 +300,16 @@ def output_bubble_and_pb_kmers(minimap_file, bubble_het_positions, bubble_allele
 				
 				bubble_name, bubble_len, bubble_start, bubble_end, strand, pb_name, pb_start, pb_end = sp[0], int(sp[1]), int(sp[2]), int(sp[3]), sp[4], sp[5], int(sp[7]), int(sp[8])
 				bubble_name_sp = bubble_name.split('_')
-				bubble_id, allele = int(bubble_name_sp[1]), int(bubble_name_sp[3])
+				bubble_id, allele = int(bubble_name_sp[1]), int(bubble_name_sp[3])-1
 				# remove flag_chrom_pos from the end of the name
 				#pb_name = '_'.join(pb_name.split("_")[:-3])
 
 				if strand=='-':
 					bubble_start, bubble_end = bubble_len-1-bubble_end, bubble_len-1-bubble_start
 
+				if bubble_info:
+					bubble_chain, bubble_km= bubble_name_sp[5], bubble_name_sp[7]
+				
 				# process only allele 0 because of symmetry in building the dict
 				if allele == 1:
 					continue
@@ -348,8 +354,12 @@ def output_bubble_and_pb_kmers(minimap_file, bubble_het_positions, bubble_allele
 					if pb_name not in pb_names_aligned_to_phased_bubbles:
 						pb_names_aligned_to_phased_bubbles[pb_name] = True
 
-					print(str(bubble_id) + "\t0\t" + pb_name + "\t" + bubble_kmer0 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al0_pb), file=out)
-					print(str(bubble_id) + "\t1\t" + pb_name + "\t" + bubble_kmer1 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al1_pb), file=out)
+					if bubble_info:
+						print(str(bubble_id) + "\t0\t" + pb_name + "\t" + bubble_kmer0 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al0_pb)+ "\t"+ bubble_km, file=out)
+						print(str(bubble_id) + "\t1\t" + pb_name + "\t" + bubble_kmer1 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al1_pb)+ "\t"+ bubble_km, file=out)
+					else:
+						print(str(bubble_id) + "\t0\t" + pb_name + "\t" + bubble_kmer0 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al0_pb), file=out)
+						print(str(bubble_id) + "\t1\t" + pb_name + "\t" + bubble_kmer1 + "\t" + pb_kmer + "\t" + str(edit_dist_bubble_al1_pb), file=out)
 
 		for pb_name in pb_name_to_seq:
 			if pb_name not in pb_names_aligned_to_phased_bubbles:

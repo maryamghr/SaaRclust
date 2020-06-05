@@ -1,6 +1,7 @@
 from __future__ import division
 from bubble_long_read_alignment import *
 import pysam
+import numpy
 import time
 import pdb
 from argparse import ArgumentParser
@@ -8,12 +9,212 @@ from argparse import ArgumentParser
 global valid_chroms
 valid_chroms = ['chr' + str(i) for i in range(1,23)] + ['chrX']
 
+
+## supplementary functions
 def print_dict_head(dic, num):
 	for i in range(num):
 		key = list(dic.keys())[i]
 		print(key, ':', dic[key])
 
+def print_dp_table(dp_table, str1=None, str2=None, max_dist_digits=2):
+	def adjust_space(char, max_digits):
+		n_digits = len(str(char))
+		add_space = " "*(max_digits - n_digits)
+		return add_space+str(char)
+	
+	if str2 != None:
+		print("-", [adjust_space(char, max_dist_digits) for char in '-'+str2])
+		
+	for i in range(len(dp_table)):
+		char = ""
+		if str1 != None:
+			char = "-" if i==0 else str1[i-1]			
+			
+		print(char, [adjust_space(dist, max_dist_digits) for dist in dp_table[i]])
+		
+def needleman_wunsch(str1, str2):
+	m, n = len(str1), len(str2)
+	edit_dist = [[j for j in range(n+1)]]
+	
+	for i in range(1, m+1):
+		edit_dist.append([i])
+		
+		for j in range(1, n+1):				
+			d = 0 if str1[i-1]==str2[j-1] else 1
+			
+			edit_dist[i].append(min(d+edit_dist[i-1][j-1], \
+											1+edit_dist[i-1][j], # str1[i] aligned with gap \
+											1+edit_dist[i][j-1]
+											))
+	assert (len(edit_dist)==m+1), 'number of rows in edit distance should be ' + str(m+1)
+	for i in range(m+1):
+		assert (len(edit_dist[i])==n+1), 'number of columns in edit distance should be ' + str(n+1)
+		
+	# backtracking
+	str1_aln, aln, str2_aln = "", "", ""
+	
+	i, j = m, n
+	
+	while i > 0 or j > 0:
+		#print('i, j =', i, j)
+		#print(str1_aln+"\n"+aln+"\n"+str2_aln)
+	
+		back_dist = []
+		if j != 0:
+			back_dist.append(1+edit_dist[i][j-1])
+			
+		if i != 0:
+			back_dist.append(1+edit_dist[i-1][j])
+		
+		if i != 0 and j != 0:
+			d = 0 if str1[i-1]==str2[j-1] else 1
+			back_dist.append(d+edit_dist[i-1][j-1])
+			
+		min_back_dist = min(back_dist)
+		
+		if i != 0 and j != 0 and min_back_dist == d+edit_dist[i-1][j-1]:
+			# pos i in str1 is aligned with pos j in str2
+			str1_aln = str1[i-1] + str1_aln
+			str2_aln = str2[j-1] + str2_aln
+			aln_char = "|" if str1[i-1]==str2[j-1] else "."
+			aln = aln_char + aln
+			i, j = i-1, j-1
+			continue
+		
+		elif j != 0 and min_back_dist == 1+edit_dist[i][j-1]:
+			# pos j in str2 is aligned with gap
+			str1_aln = "-" + str1_aln
+			str2_aln = str2[j-1] + str2_aln
+			aln = " " + aln
+			j = j-1
+			continue
+			
+		else: # i!=0 and min_back_dist == 1+edit_dist[i-1][j]:
+			# pos i in str1 is aligned with gap
+			str1_aln = str1[i-1] + str1_aln
+			str2_aln = "-" + str2_aln
+			aln = " " + aln
+			i = i-1
+			
+	print(str1_aln)
+	print(aln)
+	print(str2_aln)
 
+	return edit_dist[m][n]
+	
+	
+def get_alignment_from_cigar(ref, query, aln_ref_start_pos, aln_query_start_pos, cigar):
+	'''
+	This function returns the alignment from a cigar string
+	
+	Args:
+		ref: the reference sequence
+		query: the query sequence
+		aln_ref_start_pos: 0-based alignment start position in the reference sequence
+		aln_query_start_pos: 0-based alignment start position in the query sequence
+		cigar: A string describing how the query sequence aligns to the reference sequence. It has integers followed by characters \in "MIDNSHP=X".
+			The characters have the following meaning:
+				M: alignment match (consumes_query=yes, consumes_reference=yes)
+				I: insertion to the reference (consumes_query=yes, consumes_reference=no)
+				D: deletion from the reference (consumes_query=no, consumes_reference=yes)
+				N: skipped region from the reference (consumes_query=no, consumes_reference=yes)
+				S: soft clipping (consumes_query=yes, consumes_reference=no)
+				H: hard clipping (consumes_query=no, consumes_reference=no)
+				P: padding: silent deletion from padded reference (consumes_query=no, consumes_reference=no)
+				=: sequence match (consumes_query=yes, consumes_reference=yes)
+				X: sequence mismatch (consumes_query=yes, consumes_reference=yes)
+					
+			consumes_query and consumes_reference indicate whether the CIGAR operation causes the alignment to step along the query sequence and the reference sequence respectively
+				
+	Returns:
+		a tuple containing aligned reference, alignment sequence, and aligned query
+	'''
+
+	cigar_operations = 'MIDNSHP=X'	
+	
+	# defining consumes_query and consumes_ref for all cigar operations
+	
+	consumes_query = {'M': True, 'I': True , 'D': False, 'N': False, 'S': True , 'H': False, 'P': False, '=': True, 'X': True}
+	consumes_ref =   {'M': True, 'I': False, 'D': True , 'N': True , 'S': False, 'H': False, 'P': False, '=': True, 'X': True}
+		
+	ref_pos = aln_ref_start_pos
+	query_pos = aln_query_start_pos
+	
+	aln = ''
+	ref_aln = ''
+	query_aln = ''
+		
+	length = ''
+	for i in range(len(cigar)):
+		if cigar[i].isdigit():
+			length = length + cigar[i]
+			
+		else:
+			assert(len(length) > 0), 'there should not be two cigar operation characters next to each other'
+			assert(cigar[i] in cigar_operations), "cigar " + cigar + " does not have valid characters"
+			
+			length = int(length)
+			
+			aln_char = '|'
+			
+			if consumes_ref[cigar[i]]:
+				ref_aln += ref[ref_pos : ref_pos+length]
+				ref_pos += length
+			else:
+				ref_aln += "-"*length
+				aln_char = " "
+				
+			if consumes_query[cigar[i]]:
+				query_aln += query[query_pos : query_pos+length]
+				query_pos += length
+			else:
+				query_aln += "-"*length
+				aln_char = " "
+				
+			aln = aln + aln_char * length
+
+	assert(len(ref_aln)==len(query_aln)), 'the lengths of the aligned sequences should be the same'
+	
+	return ref_aln, aln, query_aln
+	
+	
+def get_reference_aln_substr(ref, query, aln_ref_start_pos, aln_query_start_pos, cigar, query_start, query_end):
+	'''
+	This function returns the reference subsequence aligned to the given interval of the query sequence (query start and end are both included in the interval)
+	
+	Args:
+		ref: 						@inherited from get_alignment_from_cigar
+		query: 					@inherited from get_alignment_from_cigar
+		aln_ref_start_pos: 	@inherited from get_alignment_from_cigar
+		aln_query_start_pos: @inherited from get_alignment_from_cigar
+		cigar: 					@inherited from get_alignment_from_cigar
+		query_start: 0-based start of the interval of interest in the query sequence
+		query_end  : 0-based end   of the interval of interest in the query sequence
+	
+	Returns:
+		the reference subsequence aligned to the given interval of the query sequence
+	'''
+
+	# getting the alignments from the cigar string
+	
+	ref_aln, aln, query_aln = get_alignment_from_cigar(ref, query, aln_ref_start_pos, aln_query_start_pos, cigar)
+	
+	# computing the reference substr of interest
+	
+	ref_substr = ""
+	query_pos = 0
+	for i in range(len(ref_aln)):
+		if query_start <= query_pos <= query_end and ref_aln[i] != "-":
+			ref_substr += ref_aln[i]
+		
+		if query_aln[i] != "-":
+			# we read one char from query
+			query_pos += 1
+			
+	return ref_substr
+	
+
+####################################################################################
 
 
 def get_bubbles(bubble_haplotagged_bam_file, with_km=True):
@@ -292,18 +493,14 @@ def set_alignments(kmers_files_list, bubbles, phased_long_reads):
 				if sp[0]=='none':
 					continue # the long read is not mapped to any bubble
 
-				bubble_id, bubble_al, read_name, edit_dist = \
-				int(sp[0]), int(sp[1]), sp[2], int(sp[5])
+				bubble_id, bubble_al, read_name, bubble_kmer, long_read_kmer, edit_dist = \
+				int(sp[0]), int(sp[1]), sp[2], sp[3], sp[4], int(sp[5])
 
 				read_name_sp = read_name.split('/ccs')
 				read_name = read_name_sp[0]+'/ccs'
 
 				assert (bubble_id in bubbles), 'bubble ' + str(bubble_id) + ' is not present in the bubbles'
 				assert (read_name in long_reads), 'long read ' + read_name + ' is not present in long reads'
-
-				#if bubble.pred_haplo == None or read_name not in phased_long_reads:
-				#	# either the bubble or the read_name is not phased
-				#	continue
 
 				bubble = bubbles[bubble_id]
 				long_read = phased_long_reads[read_name]
@@ -312,7 +509,7 @@ def set_alignments(kmers_files_list, bubbles, phased_long_reads):
 
 				assert (bubble_allele != None), 'bubble ' + str(bubble_id) + ' allele ' + str(bubble_al) + ' is None'
 				
-				aln = Alignment(long_read, bubble_allele, edit_dist)
+				aln = Alignment(long_read, bubble_allele, bubble_kmer, long_read_kmer, edit_dist)
 
 	print('elapsed time =', time.time()-start_time)	
 
@@ -623,7 +820,34 @@ def output_long_reads_haplo_dist(long_reads, output_file):
 						long_read.actual_type, '\t', long_read.pred_type, file=out)
 
 	print('elapsed time =', time.time()-start_time)
+	
 
+def output_sampled_long_reads(num_sample, edit_dist_fraction_range, file_name):
+	n = 0
+	
+	with open(file_name, 'w') as out:
+		print("bubbleName\tbubbleAllele\tPBname\tbubbleKmer\tPBkmer\tkmersEditDistance\tbubble_alle_pred_haplo\tlong_read_pred_haplo", file=out)
+		
+		for read_name, long_read in long_reads.items():
+			if n > num_sample:
+					break
+					
+			d0, d1 = long_read.haplo0_edit_dist, long_read.haplo1_edit_dist
+			if d0+d1 == 0:
+				continue
+			
+			dist_frac = min(d0, d1)/(d0+d1)
+		
+			if edit_dist_fraction_range[0] < dist_frac < edit_dist_fraction_range[1]:
+				n += 1
+				
+				for aln in long_read.alignments:
+						print(aln.output_print(), file=out)
+						
+				print('h_dist0 =', d0, file=out)
+				print('h_dist1 =', d1, '\n', file=out)
+						
+			
 
 if __name__ == "__main__":
 	parser = ArgumentParser(description=__doc__)
@@ -635,9 +859,15 @@ if __name__ == "__main__":
 	parser.add_argument("--long_read_haplotagged_bam_files", nargs='*', help="The set of long reads haplotagged bam files", required=True)
 	parser.add_argument("--long_read_phase_files", nargs='*', help="The set of long reads haplo clustering files", required=True)
 	parser.add_argument("--bubbles_clusering_evaluation_file", type=str, help="The output bubbles clustring evaluation file", required=True)
-	parser.add_argument("--bubbles_haplo_edit_dist_file", type=str, help="The output bubbles' haplo edit dist file", required=True)
+	parser.add_argument("--bubbles_haplo_edit_dist_file", type=str, help="The output bubbles haplo edit dist file", required=True)
 	parser.add_argument("--long_read_phase_evaluation_file", type=str, help="The output long reads phasing evaluation file", required=True)
-	parser.add_argument("--long_reads_haplo_edit_dist_file", type=str, help="The output bubbles' haplo edit dist file", required=True)
+	parser.add_argument("--long_reads_haplo_edit_dist_file", type=str, help="The output long reads haplo edit dist file", required=True)
+
+	# testing output files for observation 
+	parser.add_argument("--long_reads_with_small_frac_haplo_edit_dist", type=str, help="The output sample long reads with small fraction of haplo_edit_dist", required=True)
+	parser.add_argument("--long_reads_with_peak_frac_haplo_edit_dist", type=str, help="The output sample long reads with peak fraction of haplo_edit_dist", required=True)
+	######################################
+	
 	parser.add_argument("--with_km", action='store_true', help="True if bubbles have km information in their name")
 	args = parser.parse_args()
 
@@ -656,4 +886,8 @@ if __name__ == "__main__":
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_read_phase_evaluation_file)
 	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
+	
+	# sampling long reads:
+	output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_small_frac_haplo_edit_dist)
+	output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_peak_frac_haplo_edit_dist)
 

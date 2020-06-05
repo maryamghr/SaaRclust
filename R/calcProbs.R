@@ -21,7 +21,11 @@ countProb <- function(minusCounts, plusCounts, alpha=0.1, log=FALSE) {
     
   #calculate that given PB read is WC
   prob.mix <- stats::dbinom(minusCounts, size = sumCounts, prob = 0.5, log = log)
-    
+  
+#  assert_that(all(!is.na(prob.ww)),
+#	      all(!is.na(prob.cc)),
+#	      all(!is.na(prob.mix))) %>% invisible
+
   prob.m <- cbind(prob.ww, prob.cc, prob.mix)
     
   return(prob.m)

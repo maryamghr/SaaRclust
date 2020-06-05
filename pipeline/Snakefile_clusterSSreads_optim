@@ -39,6 +39,7 @@ upperQ          = config["upperQ"]
 logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale  	= config["log_scale"]
+filter_soft_clust_input = config["filter_soft_clust_input"]
 numAlignments   = config["numAlignments"]
 
 
@@ -92,12 +93,8 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_clust_cov.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		#expand("bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
-		#expand("bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", x=libs, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
 
 
 ###############################################################################
@@ -349,7 +346,7 @@ rule HARD_clustering:
 		(time Rscript utils/SaaRclust_hardclust_pipeline.R \
 		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z} \
 		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
-		{numClustersHard} \
+		{wildcards.numClustersHard} \
 		{alpha} \
 		{numAlignments} \
 		{log_scale} \
@@ -374,6 +371,7 @@ rule SOFT_clustering:
     
 	output:
 		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData"
+	resources: mem_mb=20000
 	log:
 		"log/SOFT_clustering_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
 	shell:
@@ -389,6 +387,7 @@ rule SOFT_clustering:
 		{logLth} \
 		{input.HCclustFile} \
 		{log_scale} \
+		{filter_soft_clust_input} \
 		$(pwd)/utils/R-packages/) \
 		> {log} 2>&1
 		"""
@@ -505,7 +504,7 @@ rule count_SS_clust_cov:
 
 rule cluster_SS_reads:
 	input:
-		clust_cov=temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_ss_clust_cov.data", chunks=chunkID)),
+		clust_cov=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{{sample}}_chunk{chunks}_ss_clust_cov.data", chunks=chunkID),
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data"
 	log: "log/cluster_SS_reads_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/cluster_short_reads.snakemake.py"
@@ -513,7 +512,7 @@ rule cluster_SS_reads:
 
 rule count_bubble_clust_cov:
 	input:
-		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz",
+		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz",
 		soft_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData",
 		clust_partners="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
 	output: temp("bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data")
@@ -523,7 +522,7 @@ rule count_bubble_clust_cov:
 
 rule cluster_bubbles:
 	input:
-		clust_cov=temp(expand("bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", chunks=chunkID)),
+		clust_cov=expand("bubbles/snv_bubbles_clust_cov_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", chunks=chunkID),
 	output: "bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	log: "log/cluster_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	script: "utils/cluster_short_reads.snakemake.py"
@@ -667,7 +666,7 @@ rule strandphaser:
 	output:
 		phased_strand_states="phased_strand_states/haplo_strand_states_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		phased_bubbles="bubbles/strandphaser_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	log: "log/strandphaser_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	log: "log/strandphaser_kminimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
 	script: "utils/strandphaser.snakemake.R"
 
 
@@ -685,7 +684,7 @@ rule minimap_align_bubbles_to_PB_reads:
 		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",  #"bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa",
 		pb_reads=PBbamDir+"/{sample}.{chunks}.fasta"
 	output:
-		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz"
+		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz"
 	threads: 8
 	log: "log/minimap_align_bubbles_to_PB_reads_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_{chunks}.log"
 	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.bubbles} | gzip -c > {output}) > {log} 2>&1"
@@ -695,14 +694,13 @@ rule export_bubble_pb_het_kmers:
 	input:
 		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
 		bubbles_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}_{sample}_{chunks}.paf.gz",
-		#SS_haplo_strand_states=expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", lib=libs), # TODO: to be replaced by strandphaser output
-		#bubble_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz",
 		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta",
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
 	params:
-		het_kmer_len=config["het_kmer_len"]
-	log: "log/export_bubble_pb_het_kmers_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+		het_kmer_len=config["het_kmer_len"],
+		bubble_info=config["bubble_info"]
+	log: "log/export_bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/export_bubble_PB_het_kmers.snakemake.py"
 
 

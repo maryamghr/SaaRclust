@@ -113,8 +113,30 @@ class LongRead:
 		
 
 class Alignment:
-
+	
 	def __init__(self, long_read, bubble_allele, edit_dist):
 		self.long_read, self.bubble_allele, self.edit_dist = long_read, bubble_allele, edit_dist
 		self.long_read.alignments.append(self)
 		self.bubble_allele.alignments.append(self)
+
+	def __init__(self, long_read, bubble_allele, bubble_kmer, long_read_kmer, edit_dist):
+		self.long_read, self.bubble_allele = long_read, bubble_allele
+		self.long_read.alignments.append(self)
+		self.bubble_allele.alignments.append(self)
+		self.bubble_kmer = bubble_kmer
+		self.long_read_kmer = long_read_kmer
+		self.edit_dist = edit_dist
+		
+	def output_print(self):
+		# bubbleName	bubbleAllele	PBname	bubbleKmer	PBkmer	kmersEditDistance bubble_alle_pred_haplo	long_read_pred_haplo
+		print_str = str(self.bubble_allele.bubble.id)
+		print_str += '\t' + str(self.bubble_allele.id)
+		print_str += '\t' + str(self.long_read.name)
+		print_str += '\t' + str(self.bubble_kmer)
+		print_str += '\t' + str(self.long_read_kmer)
+		print_str += '\t' + str(self.edit_dist)
+		print_str += '\t' + str(self.bubble_allele.pred_haplo)
+		print_str += '\t' + str(self.long_read.pred_haplo)
+		
+		return print_str
+		

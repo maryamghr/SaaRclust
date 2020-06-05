@@ -2,6 +2,8 @@ args=commandArgs(TRUE)
 
 .libPaths( c( .libPaths(), args[3]))
 
+print(args)
+
 suppressPackageStartupMessages(library(SaaRclust))
 suppressPackageStartupMessages(library(lpSolve))
 suppressPackageStartupMessages(library(data.table))
@@ -70,5 +72,5 @@ hard.clust.to.chromflag <- numFoundClusters(hard.clust$ord, hard.clust$pb.chr, h
 hard.clust.to.chromflag <- merge(hard.clust.to.chromflag, clust.partners, by="clust")
 
 hard.clust.to.chromflag[, `:=`(original.chrom=paste0(chrom, '_', flag), clust.forward=paste0('V',clust), clust.backward=paste0('V',pair))]
-
+print(args[2])
 fwrite(hard.clust.to.chromflag[order(original.chrom), .(original.chrom, clust.forward, clust.backward)], args[2], sep="\t")
