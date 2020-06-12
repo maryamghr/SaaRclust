@@ -165,14 +165,14 @@ def output_bubbles_haplo_dist(bubbles, output_file, with_km=True):
 
 		for bubble_id, bubble in bubbles.items():
 
-			h0_edit_dist, h1_edit_dist = bubble.allele0.get_haplotypes_edit_dist() #bubble.get_haplotypes_edit_dist()			
-			h0_num_aln_reads, h1_num_aln_reads = bubble.get_haplo_num_aligned_reads()
+			h0_edit_dist, h1_edit_dist = bubble.allele0.get_haplotypes_edit_dist()		
+			#h0_num_aln_reads, h1_num_aln_reads = bubble.get_haplo_num_aligned_reads()
 
 			km = bubble.allele0.km+bubble.allele1.km if with_km else ""
 
 			print(str(bubble.actual_chrom), '\t', bubble_id, '\t', 
 						h0_edit_dist, '\t', h1_edit_dist, '\t', 
-						h0_num_aln_reads, '\t', h1_num_aln_reads, '\t', 
+						#h0_num_aln_reads, '\t', h1_num_aln_reads, '\t', 
 						bubble.actual_type, '\t', bubble.pred_type, '\t', km, file=out)
 
 	print('elapsed time =', time.time()-start_time)
@@ -180,7 +180,6 @@ def output_bubbles_haplo_dist(bubbles, output_file, with_km=True):
 
 def evaluate_long_read_clustering(long_reads, output_file):
 
-	pass
 	'''
 	'''
 
@@ -263,8 +262,6 @@ def evaluate_long_read_clustering(long_reads, output_file):
 	with open(output_file, 'w') as out:
 		print('*** Note: false positive haplotype clustered long_reads are also counted in haplotype clustering accuracy', file=out)
 		print('total number of long_reads =', num_long_reads, file=out)
-		#print('number of chrom clustered long_reads =', num_chr_clustered_long_reads, ', (', num_chr_clustered_bubbles*100/num_long_reads, ' % of #long_reads)', file=out)
-		#print('chrom clustering accuracy =', num_true_chr_clustered_long_reads*100/num_chr_clustered_long_reads, file=out)
 		print('number of haplo clustered long_reads = ', num_haplo_clustered_long_reads, ', (', num_haplo_clustered_long_reads*100/num_long_reads, '% of #long_reads)', file=out)
 		
 		print('haplo clustering accuracy =', num_true_haplo_clustered_long_reads*100/num_haplo_clustered_long_reads, file=out)
@@ -295,7 +292,7 @@ def evaluate_long_read_clustering(long_reads, output_file):
 
 def output_long_reads_haplo_dist(long_reads, output_file):
 
-# TODO: assert that alignments are present
+	# TODO: assert that alignments are present
 	'''
 	'''
 
@@ -344,7 +341,6 @@ def output_sampled_long_reads(num_sample, edit_dist_fraction_range, file_name):
 				print('h_dist0 =', d0, file=out)
 				print('h_dist1 =', d1, '\n', file=out)
 						
-			
 
 if __name__ == "__main__":
 	parser = ArgumentParser(description=__doc__)
@@ -372,19 +368,21 @@ if __name__ == "__main__":
 	with_km = True if "with_km" in args else False
 	print('with_km', 	with_km)
 
-	bubbles = get_bubbles(args.bubble_bam_file, with_km)
+	bubbles = get_bubbles_from_bam(args.bubble_bam_file, with_km)
 	clust_to_chrom = get_clust_to_chrom(args.clust_to_chrom_file)
 	add_bubble_clust(args.bubble_clust_file, bubbles)
 	add_bubble_allele_pred_haplo(args.bubble_phase_file, bubbles)
-	long_reads = get_long_reads(args.long_read_haplotagged_bam_files)
+	long_reads = get_long_reads_from_bam(args.long_read_haplotagged_bam_files)
 	add_long_reads_pred_haplotype(args.long_read_phase_files, long_reads)
-	set_alignments(args.het_kmers_files, bubbles, long_reads)
+	set_alignments_from_kmers_file(args.het_kmers_files, bubbles, long_reads)
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_clusering_evaluation_file)
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_read_phase_evaluation_file)
 	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
 	
 	# sampling long reads:
-	output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)
-	output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_small_frac_haplo_edit_dist)
+	#output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)
+	#output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_small_frac_haplo_edit_dist)
+
+
 

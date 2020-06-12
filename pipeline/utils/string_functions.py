@@ -1,5 +1,15 @@
+from whatshap.align import edit_distance
 
-
+def reversecomp(seq):
+	'''
+	returns the reverse complement of string seq
+	'''
+	
+	revcomp = {'a':'t', 'c':'g', 'g':'c', 't':'a', 'A':'T', 'C':'G', 'G':'C', 'T':'A'}
+	rc = ''
+	for i in range(len(seq)):
+		rc = revcomp[seq[i]] + rc
+	return rc
 
 def print_dict_head(dic, num):
 	for i in range(num):

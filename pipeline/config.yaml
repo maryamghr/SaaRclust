@@ -35,6 +35,7 @@ l: 23
 kmer_abundance: 3
 
 bubble_info: "TRUE"
+evaluation: "TRUE"
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: ../../ss_fastq
