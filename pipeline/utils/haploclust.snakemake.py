@@ -77,12 +77,13 @@ if __name__ == "__main__":
 	iterative_haplo_clust(args.bubble_first_itr_phase_file, bubbles, long_reads, q, itr)
 	
 	output_phasing(bubbles, long_reads, args.bubble_phase_file, args.long_read_phase_file)
-	
+
 #if evaluation mode:
 	add_bubbles_true_info(args.bubble_haplotagged_bam_file, bubbles)
 	clust_to_chrom = get_clust_to_chrom(args.clust_to_chrom_file)
 	add_bubble_clust(args.bubble_clust_file, bubbles)
 	add_long_reads_true_info(args.long_read_haplotagged_bam_files, long_reads)
+
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_haploclust_evaluation_file)
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_reads_haploclust_evaluation_file)

@@ -22,7 +22,7 @@ def get_bubbles(bubble_fasta_file, with_km=True):
 	'''
 
 	start_time = time.time()
-	print('getting bubbles...')
+	print('getting bubbles from', bubble_fasta_file)
 
 	bubbles = {}
 	
@@ -66,10 +66,8 @@ def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
 	'''
 
 	start_time = time.time()
-	print('getting bubbles...')
+	print('adding bubbles true info from', bubble_haplotagged_bam_file)
 
-	#bubbles = {}
-	
 	samfile = pysam.AlignmentFile(bubble_haplotagged_bam_file, 'rb')
 
 	for read in samfile.fetch(until_eof=True): # until_eof=True allows to read also unmapped reads in sam file
@@ -77,23 +75,13 @@ def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
 		bubble_name_sp = bubble_name.split('_')
 		bubble_id, bubble_allele_id = int(bubble_name_sp[1]), int(bubble_name_sp[3])-1
 
-		#if bubble_id in bubbles:
 		bubble = bubbles[bubble_id]
 
-		#else:
-		#	bubble = Bubble(bubble_id)
-		#	bubbles[bubble_id] = bubble
-
-		bubble_allele = BubbleAllele(bubble_allele_id, bubble)
-		bubble.add_allele(bubble_allele)
-
-		#if with_km:
-		#	bubble_allele.km = float(bubble_name_sp[7])
+		bubble_allele = bubble.allele0 if bubble_allele_id==0 else bubble.allele1
 		
 		if read.is_unmapped:
 			bubble.actual_type = 'unmapped'
 			continue
-
 
 		chrom = read.reference_name
 
@@ -124,6 +112,7 @@ def get_clust_to_chrom(clust_to_chrom_file):
 	'''
 
 	start_time = time.time()
+	print('getting cluster to chrom_dir mapping from', clust_to_chrom_file)
 	clust_to_chrom = {}
 	with open(clust_to_chrom_file) as f:
 		for line in f:
@@ -156,7 +145,7 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 	'''
 
 	start_time = time.time()
-	print('adding SaaRclust chrom clusters to bubbles')
+	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
 
 	bubble_id_to_clust = {}
 	with open(bubble_clust_file) as f:
@@ -195,7 +184,7 @@ def add_bubble_allele_pred_haplo(bubble_phase_file, bubbles):
 	'''
 
 	start_time = time.time()
-	print('adding haplotype clusers to bubble alleles')
+	print('adding haplotype clusers to bubble alleles from the file', bubble_phase_file)
 
 	with open(bubble_phase_file) as f:
 		# skip the header line
@@ -237,7 +226,7 @@ def get_long_reads(long_reads_fasta_files):
 	long_reads = {}	
 	
 	for f in long_reads_fasta_files:
-		print('processing', f, '...')
+		print('getting long reads from', f, '...')
 		
 		with pysam.FastxFile(f) as fastafile:
 			for read in fastafile:
@@ -266,10 +255,8 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 	'''
 
 	start_time = time.time()
-	print('getting long reads')
+	print('adding long reads true info from', long_reads_haplotagged_bam_files)
 
-	#long_reads = {}	
-	
 	for alignmentfile in long_reads_haplotagged_bam_files:
 		print('processing', alignmentfile, '...')
 		samfile = pysam.AlignmentFile(alignmentfile, 'rb')
@@ -278,21 +265,17 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 		
 			long_read = long_reads[read_name]
 			
-			#long_read = LongRead(read_name)
-			#long_reads[read_name] = long_read
-
 			if read.is_unmapped:
 				long_read.actual_type = 'unmapped'
 				continue
 
 			chrom = read.reference_name
+			long_read.actual_chrom = chrom
 			
 			if not chrom in valid_chroms:
 				# the chromosome name is not valid
 				long_read.actual_type = 'invalid_chrom'
-				continue		
-			
-			long_read.actual_chrom = chrom
+				continue
 
 			if not read.has_tag("HP"):
 				# the read is not haplotagged
@@ -318,9 +301,9 @@ def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
 	'''
 
 	start_time = time.time()
-	print('adding pred haplo to long reads')
 
 	for long_reads_phase_file in long_reads_phase_file_list:
+		print('adding pred haplo to long reads from', long_reads_phase_file)
 		with open(long_reads_phase_file) as f:
 			# skip the header line
 			next(f)
@@ -357,7 +340,6 @@ def set_alignments_from_minimap_file(minimap_files_list, bubbles, long_reads):
 	'''
 	
 	start_time = time.time()
-	print('getting alignments')
 
 	for minimap_file in minimap_files_list:
 		print('reading alignments from file', minimap_file)

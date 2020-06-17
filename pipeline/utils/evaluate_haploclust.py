@@ -128,7 +128,7 @@ def evaluate_bubble_clustering(bubbles, clust_to_chrom, output_file):
 		print('haplo clustering false negative rate =', num_haploclust_false_neg*100/num_bubbles, file=out)
 
 
-		print('chromosome wise clustering accuracy:')
+		print('chromosome wise clustering accuracy:', file=out)
 
 		print('chrom\t#bubbles\t\
 		#chr_clustered_bubbles\tfraction_chr_clustered_bubbles\tchr_clustering_accuracy\t\

@@ -172,6 +172,7 @@ def get_alignment_from_cigar(ref, query, aln_ref_start_pos, aln_query_start_pos,
 				aln_char = " "
 				
 			aln = aln + aln_char * length
+			length = ''
 
 	assert(len(ref_aln)==len(query_aln)), 'the lengths of the aligned sequences should be the same'
 	

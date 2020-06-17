@@ -304,7 +304,7 @@ def output_bubble_and_pb_kmers(minimap_file, bubble_info, bubble_het_positions, 
 				# remove flag_chrom_pos from the end of the name
 				#pb_name = '_'.join(pb_name.split("_")[:-3])
 
-				if strand=='-':
+				if strand=='-':					
 					bubble_start, bubble_end = bubble_len-1-bubble_end, bubble_len-1-bubble_start
 
 				if bubble_info:

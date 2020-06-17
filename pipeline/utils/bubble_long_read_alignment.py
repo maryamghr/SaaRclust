@@ -114,6 +114,15 @@ class LongRead:
 		self.num_haplo_bubbles = [0, 0] # num_haplo0_bubbles, num_haplo1_bubbles
 		self.actual_type, self.pred_type = None, None
 		self.alignments = {}
+		
+	def print(self):
+		print('name =', self.name)
+		print('actual_chrom=', self.actual_chrom)
+		print('clust =', self.clust)
+		print('actual_haplo =', self.actual_haplo)
+		print('pred_haplo =', self.pred_haplo)
+		print('actual_type=', self.actual_type)
+		print('alignments =', self.alignments)
 
 	def set_haplotypes_edit_dist(self):
 
@@ -174,8 +183,7 @@ class LongRead:
 			else:
 				self.num_haplo_bubbles[bubble_allele1_haplo] += 1
 				if self.pred_haplo != None:
-					bubble_allele1.num_haplo_long_reads[self.pred_haplo] += 1
-				
+					bubble_allele1.num_haplo_long_reads[self.pred_haplo] += 1				
 		
 	def phase(self):
 		self.set_num_haplo_bubbles()
@@ -207,15 +215,15 @@ class Alignment:
 			
 			bubble_allele_seq = self.bubble_allele.seq
 			if self.strand == "-":
-				bubble_allele.set_rc_seq()
-				bubble_allele_seq = bubble_allele.rc_seq
+				self.bubble_allele.set_rc_seq()
+				bubble_allele_seq = self.bubble_allele.rc_seq
 				
 			assert (q <= het_pos <= len(bubble_allele_seq)-q-1), 'het position should be at least ' + q + ' base pairs far from the start and end points of the bubble'
 			
-			bubble_allele_kmer = bubble_allele_seq[p-q:p+q+1]
+			bubble_allele_kmer = bubble_allele_seq[het_pos-q:het_pos+q+1]
 			self.bubble_allele_kmers.append(bubble_allele_kmer)
 			
-			if not bubble_start+q <= het_pos <= bubble_end-q:
+			if not self.bubble_start+q <= het_pos <= self.bubble_end-q:
 				# het pos is not fully covered in the alignment
 				continue
 				

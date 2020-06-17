@@ -24,6 +24,11 @@ import gzip
 #11	int	Number bases, including gaps, in the mapping
 #12	int	Mapping quality (0-255 with 255 for missing)
 
+
+def add_bubbles_het_positions(bubbles):
+	for bubble_id, bubble in bubbles.items():
+		bubble.add_het_positions()
+		
 def reset_num_haplo_long_reads(bubbles):
 	for bubble_id, bubble in bubbles.items():
 		bubble.allele0.num_haplo_long_reads = [0,0]
@@ -50,6 +55,7 @@ def iterative_haplo_clust(bubble_first_itr_phase_file, bubbles, long_reads, q, i
 	'''
 	
 	add_bubble_allele_pred_haplo(bubble_first_itr_phase_file, bubbles)
+	add_bubbles_het_positions(bubbles)
 	
 	print('haploclust long reads first iteration...')
 	for read_name, long_read in long_reads.items():
