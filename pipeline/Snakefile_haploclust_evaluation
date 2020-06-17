@@ -36,8 +36,9 @@ wildcard_constraints:
 rule all:
 	input: 
 		#expand("evaluation/strandphaser_bubble_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		expand("evaluation/{itr}bubble_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
-		expand("evaluation/{itr}long_read_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
+		#expand("evaluation/{itr}bubble_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
+		#expand("evaluation/{itr}long_read_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
+		expand(PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
 		
 
 ######################################################
@@ -101,21 +102,21 @@ rule bwa_map_PB_fasta:
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
 		pb=PBbamDir+"/raw_reads/{sample}.{chunks}.fasta"
-	output: PBbamDir+"/{sample}.{chunks}.bam"
+	output: PBbamDir+"/aln/{sample}.{chunks}.bam"
 	threads: 1
 	log: "log/bwa_map_PB_fasta_{sample}_{chunks}.log"
 	shell: "(time bwa mem -t {threads} -x pacbio {input.ref} {input.pb} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_pb_bam:
-	input: PBbamDir+"/{sample}.{chunks}.bam",
-	output: PBbamDir+"/{sample}.{chunks}.sorted.bam"
+	input: PBbamDir+"/aln/{sample}.{chunks}.bam",
+	output: PBbamDir+"/aln/{sample}.{chunks}.sorted.bam"
 	log: "log/{sample}_{chunks}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 
 rule index_PB_bam:
-	input:  PBbamDir+"/{sample}.{chunks}.sorted.bam"
-	output: PBbamDir+"/{sample}.{chunks}.sorted.bam.bai"
+	input:  PBbamDir+"/aln/{sample}.{chunks}.sorted.bam"
+	output: PBbamDir+"/aln/{sample}.{chunks}.sorted.bam.bai"
 	log: "log/index_PB_bam_{sample}_{chunks}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
@@ -131,16 +132,16 @@ rule haplotag_PB_reads:
 		fai=config["reference"] + ".fai",
 		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
 		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
-		bam=PBbamDir+"/{sample}.{chunks}.sorted.bam",
-		bai=PBbamDir+"/{sample}.{chunks}.sorted.bam.bai",
-	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
+		bam=PBbamDir+"/aln/{sample}.{chunks}.sorted.bam",
+		bai=PBbamDir+"/aln/{sample}.{chunks}.sorted.bam.bai",
+	output: PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam"
 	log: "log/haplotag_PB_reads_{sample}_{chunks}.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
 
 
 rule index_haplotagged_PB_bam:
-	input:  PBbamDir+"/{sample}.{chunks}.haplotagged.bam"
-	output: PBbamDir+"/{sample}.{chunks}.haplotagged.bam.bai"
+	input:  PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam"
+	output: PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam.bai"
 	log: "log/index_haplotagged_PB_bam_{sample}_{chunks}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 

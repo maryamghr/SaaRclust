@@ -698,7 +698,7 @@ rule haploclust_phasing:
 	input:
 		bubble_fasta_file="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
 		minimap_files_list=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/snv_bubbles_k{{k}}_a{{a}}_l{{l}}/{{sample}}_{chunks}.paf.gz", chunks=chunkID[0]),
-		long_reads_fasta_files=expand(PBbamDir+"/{{sample}}.{chunks}.fasta", chunks=chunkID[0]),
+		long_reads_fasta_files=expand(PBbamDir+"/raw_reads/{{sample}}.{chunks}.fasta", chunks=chunkID[0]),
 		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
 		bubble_haplotagged_bam_index="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai",
 		bubble_first_itr_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
