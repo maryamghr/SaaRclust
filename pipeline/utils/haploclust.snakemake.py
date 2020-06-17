@@ -52,6 +52,7 @@ if __name__ == "__main__":
 	parser.add_argument("--bubbles_haplo_edit_dist_file", type=str, help="The output bubbles haplo edit dist file", required=True)
 	parser.add_argument("--long_reads_haploclust_evaluation_file", type=str, help="The output long reads phasing evaluation file", required=True)
 	parser.add_argument("--long_reads_haplo_edit_dist_file", type=str, help="The output long reads haplo edit dist file", required=True)
+	parser.add_argument("--kmers_file", type=str, help="The output kmers file", required=True)
 	parser.add_argument("--itr", type=str, help="number of iterations for haplotype clustering", required=True)
 	parser.add_argument("--het_kmer_len", type=str, help="The length of heterozygous kmer for computing edit distance", required=True)
 	parser.add_argument("--with_km", action='store_true', help="True if bubbles have km information in their name")
@@ -87,7 +88,10 @@ if __name__ == "__main__":
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_haploclust_evaluation_file)
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_reads_haploclust_evaluation_file)
-	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)	
+	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
+	pdb.set_trace()
+	output_kmers(long_reads, args.kmers_file)
+	
 	#output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)
 	#output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_small_frac_haplo_edit_dist)
 	

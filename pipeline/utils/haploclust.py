@@ -42,6 +42,13 @@ def haploclust_bubbles(bubbles):
 	for bubble_id, bubble in bubbles.items():
 		bubble.phase()
 	
+def output_kmers(long_reads, kmers_file):
+	print('outputting the kmers')
+	with open(kmers_file, 'w') as out:
+		for read_name, long_read in long_reads.items():
+			for bubble_allele, aln in long_read.alignments.items():
+				print(aln.output_kmers(), file=out)
+	
 def iterative_haplo_clust(bubble_first_itr_phase_file, bubbles, long_reads, q, itr=2):
 	
 	'''

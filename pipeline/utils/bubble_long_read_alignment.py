@@ -195,19 +195,19 @@ class LongRead:
 		
 
 class Alignment:
-	
-	def __init__(self, long_read, bubble_allele, bubble_allele_kmers=[], long_read_kmers=[], edit_dist=0, \
-					long_read_start=None, long_read_end=None, bubble_start=None, bubble_end=None, strand = None, cigar=None):
+	def __init__(self, long_read, bubble_allele, edit_dist=0, long_read_start=None, long_read_end=None, bubble_start=None, bubble_end=None, strand = None, cigar=None):
 		self.long_read, self.bubble_allele = long_read, bubble_allele
 		self.long_read.alignments[bubble_allele] = self
 		self.bubble_allele.alignments[long_read] = self
-		self.bubble_allele_kmers, self.long_read_kmers, self.edit_dist = bubble_allele_kmers, long_read_kmers, edit_dist
+		self.edit_dist = edit_dist
 		self.long_read_start = long_read_start
 		self.long_read_end = long_read_end
 		self.bubble_start = bubble_start
 		self.bubble_end = bubble_end
 		self.strand=strand
 		self.cigar = cigar
+		self.bubble_allele_kmers=[]
+		self.long_read_kmers=[]
 				
 	def set_edit_dist(self, q):
 		for h in range(len(self.bubble_allele.bubble.het_positions)):
@@ -220,17 +220,32 @@ class Alignment:
 				
 			assert (q <= het_pos <= len(bubble_allele_seq)-q-1), 'het position should be at least ' + q + ' base pairs far from the start and end points of the bubble'
 			
-			bubble_allele_kmer = bubble_allele_seq[het_pos-q:het_pos+q+1]
-			self.bubble_allele_kmers.append(bubble_allele_kmer)
-			
 			if not self.bubble_start+q <= het_pos <= self.bubble_end-q:
 				# het pos is not fully covered in the alignment
 				continue
+			
+			bubble_allele_kmer = bubble_allele_seq[het_pos-q:het_pos+q+1]
+			self.bubble_allele_kmers.append(bubble_allele_kmer)
 				
 			long_read_kmer = get_reference_aln_substr(self.long_read.seq, bubble_allele_seq, self.long_read_start, self.bubble_start, self.cigar, het_pos-q, het_pos+q)
 			self.long_read_kmers.append(long_read_kmer)
 			
 			self.edit_dist += edit_distance(bubble_allele_kmer, long_read_kmer)
+			
+	def output_kmers(self):
+		output_str = ""
+		for i in range(len(self.bubble_allele_kmers)):
+			output_str += str(self.bubble_allele.bubble.id) + '\t' \
+							+ str(self.bubble_allele.id) + '\t' \
+							+ self.long_read.name + '\t' \
+							+ self.bubble_allele_kmers[i] + '\t' \
+							+ self.long_read_kmers[i] + '\t' \
+							+ str(self.edit_dist) + '\t' \
+							+ str(self.bubble_allele.km)
+			if i < len(self.bubble_allele_kmers)-1:
+				 output_str += '\n'
+							
+		return output_str
 		
 		
 	def output_print(self):
