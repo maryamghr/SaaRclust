@@ -203,7 +203,7 @@ def get_reference_aln_substr(ref, query, aln_ref_start_pos, aln_query_start_pos,
 	# computing the reference substr of interest
 	
 	ref_substr = ""
-	query_pos = 0
+	query_pos = aln_query_start_pos
 	for i in range(len(ref_aln)):
 		if query_start <= query_pos <= query_end and ref_aln[i] != "-":
 			ref_substr += ref_aln[i]
