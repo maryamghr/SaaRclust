@@ -47,6 +47,7 @@ if __name__ == "__main__":
 	parser.add_argument("--clust_to_chrom_file", type=str, help="Cluster to chrom mapping file", required=True)
 	parser.add_argument("--long_read_haplotagged_bam_files", nargs='*', help="The set of long reads haplotagged bam files", required=True)	
 	parser.add_argument("--bubble_phase_file", type=str, help="output bubble phase file", required=True)
+	parser.add_argument("--test_bubble_phase_file", type=str, help="output test bubble phase file", required=True)
 	parser.add_argument("--long_read_phase_file", type=str, help="output long reads phase file", required=True)
 	parser.add_argument("--bubbles_haploclust_evaluation_file", type=str, help="The output bubbles clustring evaluation file", required=True)
 	parser.add_argument("--bubbles_first_itr_haploclust_evaluation_file", type=str, help="The output first iteration bubbles clustring evaluation file", required=True)
@@ -86,12 +87,11 @@ if __name__ == "__main__":
 	
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_first_itr_haploclust_evaluation_file)
 	
-	iterative_haplo_clust(bubbles, long_reads, q, itr)
+	test_bubbles = iterative_haplo_clust(bubbles, long_reads, q, itr)
 	
-	output_phasing(bubbles, long_reads, args.bubble_phase_file, args.long_read_phase_file)
+	output_phasing(bubbles, long_reads, test_bubbles, args.bubble_phase_file, args.long_read_phase_file, args.test_bubble_phase_file)
 
 #if evaluation mode:
-
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_haploclust_evaluation_file)
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_reads_haploclust_evaluation_file)

@@ -29,17 +29,19 @@ def add_bubbles_het_positions(bubbles):
 	for bubble_id, bubble in bubbles.items():
 		bubble.add_het_positions()
 		
-def reset_num_haplo_long_reads(bubbles):
-	for bubble_id, bubble in bubbles.items():
-		bubble.allele0.num_haplo_long_reads = [0,0]
-		bubble.allele1.num_haplo_long_reads = [0,0]
+#def reset_num_haplo_long_reads(bubbles):
+#	for bubble_id, bubble in bubbles.items():
+#		bubble.allele0.num_haplo_long_reads = [0,0]
+#		bubble.allele1.num_haplo_long_reads = [0,0]
 
 def haploclust_long_reads(long_reads):
 	for read_name, long_read in long_reads.items():
 		long_read.phase()
 		
-def haploclust_bubbles(bubbles):
+def haploclust_bubbles(bubbles, test_bubbles):
 	for bubble_id, bubble in bubbles.items():
+		#if bubble_id in test_bubbles:
+		#	pdb.set_trace()
 		bubble.phase()
 	
 def output_kmers(long_reads, kmers_file):
@@ -60,6 +62,7 @@ def iterative_haplo_clust(bubbles, long_reads, q, itr=2):
 		bubbles			 				: A dictionary {bubble_id -> bubbles}
 		long_reads		 				: A dictionary {long_read_name -> long_read}
 	'''
+	test_bubbles = {}
 	
 	#add_bubble_allele_pred_haplo(bubble_first_itr_phase_file, bubbles)
 	add_bubbles_het_positions(bubbles)
@@ -68,14 +71,22 @@ def iterative_haplo_clust(bubbles, long_reads, q, itr=2):
 	for read_name, long_read in long_reads.items():
 		long_read.set_alignments_edit_dist(q)
 		long_read.phase()
+		
+		# testing:
+		if long_read.pred_haplo != None:
+			for bubble_allele, aln in long_read.alignments.items():
+				if bubble_allele.pred_haplo == None and bubble_allele.id == 0:
+					test_bubbles[bubble_allele.bubble.id] = bubble_allele.bubble
 	
 	for it in range(itr-1):
 		print('haploclust iteration', it+2)
-		haploclust_bubbles(bubbles)
-		reset_num_haplo_long_reads(bubbles)
+		haploclust_bubbles(bubbles, test_bubbles)
+		#reset_num_haplo_long_reads(bubbles)
 		haploclust_long_reads(long_reads)
+		
+	return test_bubbles
 
-def output_phasing(bubbles, long_reads, bubble_phasing_file, long_read_phasing_file):
+def output_phasing(bubbles, long_reads, test_bubbles, bubble_phasing_file, long_read_phasing_file, test_bubble_phasing_file):
 	with open(bubble_phasing_file, 'w') as out:
 		print("bubble_id\tallele0haplo", file=out)
 		for bubble_id, bubble in bubbles.items():
@@ -85,3 +96,8 @@ def output_phasing(bubbles, long_reads, bubble_phasing_file, long_read_phasing_f
 		print("long_read_name\thaplo0_edit_dist\thaplo1_edit_dist\thaplotype", file=out)
 		for read_name, long_read in long_reads.items():
 			print(read_name, "\t", long_read.haplo0_edit_dist, "\t", long_read.haplo1_edit_dist, "\t", long_read.pred_haplo, file=out)
+			
+	with open(test_bubble_phasing_file, 'w') as out:
+		print("bubble_id\tallele0haplo", file=out)
+		for bubble_id, bubble in test_bubbles.items():
+			print(bubble_id, "\t", bubble.allele0.pred_haplo, file=out)

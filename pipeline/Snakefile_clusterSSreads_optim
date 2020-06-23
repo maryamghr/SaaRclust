@@ -708,6 +708,7 @@ rule haploclust_phasing:
 		#long_read_phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/{{itr}}pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID[0]),
 	output:
 		bubbles_phase_file="bubbles/phased_snv_bubbles_iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		test_bubbles_phase_file="bubbles/test_phased_snv_bubbles_iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		long_reads_phase_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_iteration{itr}_k{k}_a{a}_l{l}_{sample}.data",
 		bubbles_first_itr_haploclust_evaluation_file="evaluation/bubble_first_itr_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		bubbles_haploclust_evaluation_file="evaluation/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
@@ -736,6 +737,7 @@ rule haploclust_phasing:
 		--clust_to_chrom_file {input.clust_to_chrom_file} \
 		--long_read_haplotagged_bam_files {input.long_read_haplotagged_bam_files} \
 		--bubble_phase_file {output.bubbles_phase_file} \
+		--test_bubble_phase_file {output.test_bubble_phase_file} \
 		--long_read_phase_file {output.long_reads_phase_file} \
 		--bubbles_first_itr_haploclust_evaluation_file {output.bubbles_first_itr_haploclust_evaluation_file} \
 		--bubbles_haploclust_evaluation_file {output.bubbles_haploclust_evaluation_file} \

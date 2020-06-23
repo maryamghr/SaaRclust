@@ -106,9 +106,10 @@ def evaluate_bubble_clustering(bubbles, clust_to_chrom, output_file):
 			# switch haplotypes in the chrom
 			chrom_switch_haplo[chrom]=True
 			true_haplo_clust, false_haplo_clust = false_haplo_clust, true_haplo_clust
-			num_true_haplo_clustered_bubbles+=true_haplo_clust
 			chrom_num_true_haplo_clustered_bubbles[chrom]=true_haplo_clust
 			chrom_num_false_haplo_clustered_bubbles[chrom]=false_haplo_clust
+			
+		num_true_haplo_clustered_bubbles+=true_haplo_clust
 
 	# revise the type of the bubble if the haplotype is switched in the chromosome
 	for bubble_id, bubble in bubbles.items():
@@ -249,9 +250,10 @@ def evaluate_long_read_clustering(long_reads, output_file):
 			# switch haplotypes in the chrom
 			chrom_switch_haplo[chrom]=True
 			true_haplo_clust, false_haplo_clust = false_haplo_clust, true_haplo_clust
-			num_true_haplo_clustered_long_reads+=true_haplo_clust
 			chrom_num_true_haplo_clustered_long_reads[chrom]=true_haplo_clust
 			chrom_num_false_haplo_clustered_long_reads[chrom]=false_haplo_clust
+			
+		num_true_haplo_clustered_long_reads+=true_haplo_clust
 
 	# revise the type of the long_read if the haplotype is switched in the chromosome
 	for read_name, long_read in long_reads.items():

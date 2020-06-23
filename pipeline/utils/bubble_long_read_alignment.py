@@ -46,6 +46,27 @@ class Bubble:
 			self.allele1 = bubble_allele
 
 	def phase(self):
+		self.allele0.num_haplo_long_reads = [0,0]
+		self.allele1.num_haplo_long_reads = [0,0]
+		
+		for long_read, aln in self.allele0.alignments.items():
+			if long_read.pred_haplo == None:
+				continue
+				
+			if self.allele1 not in long_read.alignments:
+				continue
+				
+			al0_edit_dist = aln.edit_dist
+			al1_edit_dist = long_read.alignments[self.allele1].edit_dist
+			
+			if al0_edit_dist < al1_edit_dist:
+				# long read is better aligned to allele0
+				self.allele0.num_haplo_long_reads[long_read.pred_haplo] += 1
+				
+			if al0_edit_dist > al1_edit_dist:
+				# long read is better aligned to allele1
+				self.allele1.num_haplo_long_reads[long_read.pred_haplo] += 1
+			
 		num_allele0_h0_supporting_reads = self.allele0.num_haplo_long_reads[0]+self.allele1.num_haplo_long_reads[1]
 		num_allele0_h1_supporting_reads = self.allele0.num_haplo_long_reads[1]+self.allele1.num_haplo_long_reads[0]
 		
@@ -180,12 +201,12 @@ class LongRead:
 				
 			if al0_edit_dist < al1_edit_dist:
 				self.num_haplo_bubbles[bubble_allele0_haplo] += 1
-				if self.pred_haplo != None:
-					bubble_allele.num_haplo_long_reads[self.pred_haplo] += 1
+				#if self.pred_haplo != None:
+				#	bubble_allele.num_haplo_long_reads[self.pred_haplo] += 1
 			else:
 				self.num_haplo_bubbles[bubble_allele1_haplo] += 1
-				if self.pred_haplo != None:
-					bubble_allele1.num_haplo_long_reads[self.pred_haplo] += 1				
+				#if self.pred_haplo != None:
+				#	bubble_allele1.num_haplo_long_reads[self.pred_haplo] += 1				
 		
 	def phase(self):
 		self.set_num_haplo_bubbles()
