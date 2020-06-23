@@ -1,5 +1,6 @@
 from whatshap.align import edit_distance
 from string_functions import *
+import pdb
 
 class Bubble:
 
@@ -55,6 +56,7 @@ class Bubble:
 		elif num_allele0_h0_supporting_reads < num_allele0_h1_supporting_reads:
 			self.allele0.pred_haplo = 1
 			self.allele1.pred_haplo = 0
+		
 
 
 
@@ -210,26 +212,35 @@ class Alignment:
 		self.long_read_kmers=[]
 				
 	def set_edit_dist(self, q):
+		
 		for h in range(len(self.bubble_allele.bubble.het_positions)):
 			het_pos = self.bubble_allele.bubble.het_positions[h]
 			
 			bubble_allele_seq = self.bubble_allele.seq
 			if self.strand == "-":
+				het_pos = len(self.bubble_allele.seq)-1-het_pos
 				self.bubble_allele.set_rc_seq()
 				bubble_allele_seq = self.bubble_allele.rc_seq
 				
 			assert (q <= het_pos <= len(bubble_allele_seq)-q-1), 'het position should be at least ' + q + ' base pairs far from the start and end points of the bubble'
 			
+			### Apparently the query_start and end pos in paf file are also in the original strand!
+			## look at bubble=1648373 ccs=m54329U_190827_173812/7079975/ccs in chunk 000
+			if self.strand == '-':
+				self.bubble_start, self.bubble_end = len(self.bubble_allele.seq)-1-self.bubble_end, len(self.bubble_allele.seq)-1-self.bubble_start
+			###			
+			
 			if not self.bubble_start+q <= het_pos <= self.bubble_end-q:
 				# het pos is not fully covered in the alignment
-				continue
-			
+				continue			
+					
 			bubble_allele_kmer = bubble_allele_seq[het_pos-q:het_pos+q+1]
 			self.bubble_allele_kmers.append(bubble_allele_kmer)
-				
+			
 			long_read_kmer = get_reference_aln_substr(self.long_read.seq, bubble_allele_seq, self.long_read_start, self.bubble_start, self.cigar, het_pos-q, het_pos+q)
 			self.long_read_kmers.append(long_read_kmer)
 			
+			# FIXME: some het kmers might have overlap with each other, and the edit distances will be computed wrongly (counting the overlapping mismatches twice)
 			self.edit_dist += edit_distance(bubble_allele_kmer, long_read_kmer)
 			
 	def output_kmers(self):

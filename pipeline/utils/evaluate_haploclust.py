@@ -123,6 +123,7 @@ def evaluate_bubble_clustering(bubbles, clust_to_chrom, output_file):
 		print('number of chrom clustered bubbles =', num_chr_clustered_bubbles, ', (', num_chr_clustered_bubbles*100/num_bubbles, ' % of #bubbles)', file=out)
 		print('chrom clustering accuracy =', num_true_chr_clustered_bubbles*100/num_chr_clustered_bubbles, file=out)
 		print('number of haplo clustered bubbles = ', num_haplo_clustered_bubbles, ', (', num_haplo_clustered_bubbles*100/num_bubbles, '% of #bubbles)', file=out)
+		print('number of true haplo clustered bubbles = ', num_true_haplo_clustered_bubbles, file=out)
 		print('haplo clustering accuracy =', num_true_haplo_clustered_bubbles*100/num_haplo_clustered_bubbles, file=out)
 		print('haplo clustering false positive rate =', num_haploclust_false_pos*100/num_bubbles, file=out)
 		print('haplo clustering false negative rate =', num_haploclust_false_neg*100/num_bubbles, file=out)
@@ -263,7 +264,7 @@ def evaluate_long_read_clustering(long_reads, output_file):
 		print('*** Note: false positive haplotype clustered long_reads are also counted in haplotype clustering accuracy', file=out)
 		print('total number of long_reads =', num_long_reads, file=out)
 		print('number of haplo clustered long_reads = ', num_haplo_clustered_long_reads, ', (', num_haplo_clustered_long_reads*100/num_long_reads, '% of #long_reads)', file=out)
-		
+		print('number of true haplo clustered =', num_true_haplo_clustered_long_reads, file=out)
 		print('haplo clustering accuracy =', num_true_haplo_clustered_long_reads*100/num_haplo_clustered_long_reads, file=out)
 		print('haplo clustering false positive rate =', num_haploclust_false_pos*100/num_long_reads, file=out)
 		print('haplo clustering false negative rate =', num_haploclust_false_neg*100/num_long_reads, file=out)

@@ -49,6 +49,7 @@ if __name__ == "__main__":
 	parser.add_argument("--bubble_phase_file", type=str, help="output bubble phase file", required=True)
 	parser.add_argument("--long_read_phase_file", type=str, help="output long reads phase file", required=True)
 	parser.add_argument("--bubbles_haploclust_evaluation_file", type=str, help="The output bubbles clustring evaluation file", required=True)
+	parser.add_argument("--bubbles_first_itr_haploclust_evaluation_file", type=str, help="The output first iteration bubbles clustring evaluation file", required=True)
 	parser.add_argument("--bubbles_haplo_edit_dist_file", type=str, help="The output bubbles haplo edit dist file", required=True)
 	parser.add_argument("--long_reads_haploclust_evaluation_file", type=str, help="The output long reads phasing evaluation file", required=True)
 	parser.add_argument("--long_reads_haplo_edit_dist_file", type=str, help="The output long reads haplo edit dist file", required=True)
@@ -75,21 +76,26 @@ if __name__ == "__main__":
 	long_reads = get_long_reads(args.long_reads_fasta_files)
 	set_alignments_from_minimap_file(args.minimap_files_list, bubbles, long_reads)
 	
-	iterative_haplo_clust(args.bubble_first_itr_phase_file, bubbles, long_reads, q, itr)
+	add_bubble_allele_pred_haplo(args.bubble_first_itr_phase_file, bubbles)
 	
-	output_phasing(bubbles, long_reads, args.bubble_phase_file, args.long_read_phase_file)
-
-#if evaluation mode:
+	#if evaluation mode:
 	add_bubbles_true_info(args.bubble_haplotagged_bam_file, bubbles)
 	clust_to_chrom = get_clust_to_chrom(args.clust_to_chrom_file)
 	add_bubble_clust(args.bubble_clust_file, bubbles)
 	add_long_reads_true_info(args.long_read_haplotagged_bam_files, long_reads)
+	
+	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_first_itr_haploclust_evaluation_file)
+	
+	iterative_haplo_clust(bubbles, long_reads, q, itr)
+	
+	output_phasing(bubbles, long_reads, args.bubble_phase_file, args.long_read_phase_file)
+
+#if evaluation mode:
 
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_haploclust_evaluation_file)
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_reads_haploclust_evaluation_file)
 	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
-	pdb.set_trace()
 	output_kmers(long_reads, args.kmers_file)
 	
 	#output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)

@@ -351,8 +351,8 @@ def set_alignments_from_minimap_file(minimap_files_list, bubbles, long_reads):
 					
 				bubble_name, bubble_len, bubble_start, bubble_end, strand, \
 				read_name, long_read_len, long_read_start, long_read_end = \
-				sp[0], int(sp[1]), int(sp[2]), int(sp[3]), sp[4], \
-				sp[5], int(sp[6]), int(sp[7]), int(sp[8])
+				sp[0], int(sp[1]), int(sp[2]), int(sp[3])-1, sp[4], \
+				sp[5], int(sp[6]), int(sp[7]), int(sp[8])-1
 				
 				bubble_name_sp = bubble_name.split('_')
 				

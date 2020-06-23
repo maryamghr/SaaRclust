@@ -709,6 +709,7 @@ rule haploclust_phasing:
 	output:
 		bubbles_phase_file="bubbles/phased_snv_bubbles_iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		long_reads_phase_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_iteration{itr}_k{k}_a{a}_l{l}_{sample}.data",
+		bubbles_first_itr_haploclust_evaluation_file="evaluation/bubble_first_itr_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		bubbles_haploclust_evaluation_file="evaluation/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		bubbles_haplo_edit_dist_file="evaluation/bubble_phase_evaluation/iteration{itr}_haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		long_reads_haploclust_evaluation_file="evaluation/long_read_phase_evaluation/iteration{itr}_k{k}_a{a}_{itr}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
@@ -736,6 +737,7 @@ rule haploclust_phasing:
 		--long_read_haplotagged_bam_files {input.long_read_haplotagged_bam_files} \
 		--bubble_phase_file {output.bubbles_phase_file} \
 		--long_read_phase_file {output.long_reads_phase_file} \
+		--bubbles_first_itr_haploclust_evaluation_file {output.bubbles_first_itr_haploclust_evaluation_file} \
 		--bubbles_haploclust_evaluation_file {output.bubbles_haploclust_evaluation_file} \
 		--bubbles_haplo_edit_dist_file {output.bubbles_haplo_edit_dist_file} \
 		--long_reads_haploclust_evaluation_file {output.long_reads_haploclust_evaluation_file} \

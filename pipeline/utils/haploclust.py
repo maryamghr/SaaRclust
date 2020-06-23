@@ -49,7 +49,7 @@ def output_kmers(long_reads, kmers_file):
 			for bubble_allele, aln in long_read.alignments.items():
 				print(aln.output_kmers(), file=out)
 	
-def iterative_haplo_clust(bubble_first_itr_phase_file, bubbles, long_reads, q, itr=2):
+def iterative_haplo_clust(bubbles, long_reads, q, itr=2):
 	
 	'''
 	Assign haplotypes to long reads and bubbles in {itr} iterations, starting from the first set of phased bubbles from the input file
@@ -61,7 +61,7 @@ def iterative_haplo_clust(bubble_first_itr_phase_file, bubbles, long_reads, q, i
 		long_reads		 				: A dictionary {long_read_name -> long_read}
 	'''
 	
-	add_bubble_allele_pred_haplo(bubble_first_itr_phase_file, bubbles)
+	#add_bubble_allele_pred_haplo(bubble_first_itr_phase_file, bubbles)
 	add_bubbles_het_positions(bubbles)
 	
 	print('haploclust long reads first iteration...')
