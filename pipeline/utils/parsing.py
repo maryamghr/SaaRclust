@@ -238,6 +238,8 @@ def get_long_reads(long_reads_fasta_files):
 			
 				long_read = LongRead(read_name, seq)
 				long_reads[read_name] = long_read
+				
+	print('elapsed time =', time.time()-start_time)
 			
 	return long_reads
 	
@@ -285,6 +287,8 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 			haplotype = read.get_tag("HP")-1
 			long_read.actual_haplo = haplotype
 			long_read.actual_type = 'tagged' + str(haplotype)
+			
+	print('elapsed time =', time.time()-start_time)
 
 
 def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
@@ -427,4 +431,4 @@ def set_alignments_from_kmers_file(kmers_files_list, bubbles, phased_long_reads)
 				
 				aln = Alignment(long_read=long_read, bubble_allele=bubble_allele, bubble_kmer=bubble_kmer, long_read_kmer=long_read_kmer, edit_dist=edit_dist)
 
-	print('elapsed time =', time.time()-start_time)	
+	print('elapsed time =', time.time()-start_time)

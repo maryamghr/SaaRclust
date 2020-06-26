@@ -30,7 +30,23 @@ from argparse import ArgumentParser
 	#output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_small_frac_haplo_edit_dist)
 
 
-
+def get_eval_file_names(bubbles_haploclust_evaluation_file, long_reads_haploclust_evaluation_file):	
+	bubble_eval_file_name_split = bubbles_haploclust_evaluation_file.split("iteration")
+	bubble_eval_file_prefix = bubble_eval_file_name_split[0]+"iteration"
+	bubble_eval_file_suffix = bubble_eval_file_name_split[1].split("_")
+	bubble_eval_file_suffix = "_" + "_".join(bubble_eval_file_suffix[1:])
+	
+	bubble_eval_file_name = {"prefix": bubble_eval_file_prefix, "suffix": bubble_eval_file_suffix}
+	
+	long_read_eval_file_name_split = long_reads_haploclust_evaluation_file.split("iteration")
+	long_read_eval_file_prefix = long_read_eval_file_name_split[0]+"iteration"
+	long_read_eval_file_suffix = long_read_eval_file_name_split[1].split("_")
+	long_read_eval_file_suffix = "_" + "_".join(long_read_eval_file_suffix[1:])
+	
+	long_read_eval_file_name = {"prefix": long_read_eval_file_prefix, "suffix": long_read_eval_file_suffix}
+	
+	return bubble_eval_file_name, long_read_eval_file_name
+	
 with_km=True
 q=10
 itr=2
@@ -87,9 +103,14 @@ if __name__ == "__main__":
 	
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_first_itr_haploclust_evaluation_file)
 	
-	test_bubbles = iterative_haplo_clust(bubbles, long_reads, q, itr)
+	bubble_eval_file_name, long_read_eval_file_name = get_eval_file_names(args.bubbles_haploclust_evaluation_file, args.long_reads_haploclust_evaluation_file)
+
+	print(bubble_eval_file_name, long_read_eval_file_name)	
 	
-	output_phasing(bubbles, long_reads, test_bubbles, args.bubble_phase_file, args.long_read_phase_file, args.test_bubble_phase_file)
+	test_bubbles = iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_file_name, long_read_eval_file_name, itr)
+	
+	output_phasing(bubbles, long_reads, args.bubble_phase_file, args.long_read_phase_file)
+	output_test_bubbles(test_bubbles, args.test_bubble_phase_file)
 
 #if evaluation mode:
 	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_haploclust_evaluation_file)

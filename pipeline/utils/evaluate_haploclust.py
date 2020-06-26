@@ -163,7 +163,7 @@ def output_bubbles_haplo_dist(bubbles, output_file, with_km=True):
 
 	with open(output_file, 'w') as out:
 		km = "km" if with_km else ""
-		print('chrom\tbubble_id\tdist_h1\tdist_h2\tnum_aln_reads_h1\tnum_aln_reads_h2\tactual_type\tpred_type\t'+str(km), file=out)
+		print('chrom\tbubble_id\tdist_h0\tdist_h1\tnum_al0_h0_long_reads\tnum_al0_h1_long_reads\tactual_type\tpred_type\t'+str(km), file=out)
 
 		for bubble_id, bubble in bubbles.items():
 
@@ -174,7 +174,7 @@ def output_bubbles_haplo_dist(bubbles, output_file, with_km=True):
 
 			print(str(bubble.actual_chrom), '\t', bubble_id, '\t', 
 						h0_edit_dist, '\t', h1_edit_dist, '\t', 
-						#h0_num_aln_reads, '\t', h1_num_aln_reads, '\t', 
+						bubble.num_al0_h0_reads, '\t', bubble.num_al0_h1_reads, '\t', 
 						bubble.actual_type, '\t', bubble.pred_type, '\t', km, file=out)
 
 	print('elapsed time =', time.time()-start_time)
@@ -303,16 +303,17 @@ def output_long_reads_haplo_dist(long_reads, output_file):
 	print('outputting the long reads haplo edit dist')
 
 	with open(output_file, 'w') as out:
-		print('chrom\tread_name\tdist_h1\tdist_h2\tnum_aln_bubbles\tactual_type\tpred_type', file=out)
+		print('chrom\tread_name\tdist_h0\tdist_h1\tnum_h0_bubbles\tnum_h1_bubbles\tnum_aln_bubbles\tactual_type\tpred_type', file=out)
 
 		for read_name, long_read in long_reads.items():
 
 			# TODO: check whether it is equal to the previous haplo_dist values ...
-			long_read.set_haplotypes_edit_dist() #bubble.get_haplotypes_edit_dist()			
+			long_read.set_haplotypes_edit_dist()
 			num_aln_reads = len(long_read.alignments)
 
 			print(str(long_read.actual_chrom), '\t', read_name, '\t', 
 						long_read.haplo0_edit_dist, '\t', long_read.haplo1_edit_dist, '\t', 
+						long_read.num_haplo_bubbles[0], '\t', long_read.num_haplo_bubbles[1], '\t',
 						num_aln_reads, '\t', 
 						long_read.actual_type, '\t', long_read.pred_type, file=out)
 

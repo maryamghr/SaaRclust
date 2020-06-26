@@ -12,6 +12,8 @@ class Bubble:
 		self.actual_type = None # in ["unmapped", "invalid_chrom", "untagged"]
 		self.pred_type = None # in ["true_haplo", "false_haplo", "haploclust_false_pos", "not_chrom_clust", "garbage_clust", "not_haplo_clust"]
 		self.het_positions = []
+		self.num_al0_h0_reads = 0
+		self.num_al0_h1_reads = 0
 
 	def print(self):
 		print('id =', self.id)
@@ -45,9 +47,12 @@ class Bubble:
 		else:
 			self.allele1 = bubble_allele
 
-	def phase(self):
+	def phase(self, ratio_h0_reads=(0.25, 0.75)):
 		self.allele0.num_haplo_long_reads = [0,0]
 		self.allele1.num_haplo_long_reads = [0,0]
+		
+		self.allele0.pred_haplo = None
+		self.allele1.pred_haplo = None
 		
 		for long_read, aln in self.allele0.alignments.items():
 			if long_read.pred_haplo == None:
@@ -67,19 +72,24 @@ class Bubble:
 				# long read is better aligned to allele1
 				self.allele1.num_haplo_long_reads[long_read.pred_haplo] += 1
 			
-		num_allele0_h0_supporting_reads = self.allele0.num_haplo_long_reads[0]+self.allele1.num_haplo_long_reads[1]
-		num_allele0_h1_supporting_reads = self.allele0.num_haplo_long_reads[1]+self.allele1.num_haplo_long_reads[0]
+		self.num_al0_h0_reads = self.allele0.num_haplo_long_reads[0]+self.allele1.num_haplo_long_reads[1]
+		self.num_al0_h1_reads = self.allele0.num_haplo_long_reads[1]+self.allele1.num_haplo_long_reads[0]
 		
-		if num_allele0_h0_supporting_reads > num_allele0_h1_supporting_reads:
+		# filter out the set of bubbles that don't pass the phasing criteria
+		if self.num_al0_h0_reads + self.num_al0_h1_reads == 0:
+			return
+			
+		if ratio_h0_reads[0] < self.num_al0_h0_reads / (self.num_al0_h0_reads + self.num_al0_h1_reads) < ratio_h0_reads[1]:
+			return
+		
+		if self.num_al0_h0_reads > self.num_al0_h1_reads:
 			self.allele0.pred_haplo = 0
 			self.allele1.pred_haplo = 1
 			
-		elif num_allele0_h0_supporting_reads < num_allele0_h1_supporting_reads:
+		elif self.num_al0_h0_reads < self.num_al0_h1_reads:
 			self.allele0.pred_haplo = 1
 			self.allele1.pred_haplo = 0
 		
-
-
 
 class BubbleAllele:
 
@@ -201,15 +211,21 @@ class LongRead:
 				
 			if al0_edit_dist < al1_edit_dist:
 				self.num_haplo_bubbles[bubble_allele0_haplo] += 1
-				#if self.pred_haplo != None:
-				#	bubble_allele.num_haplo_long_reads[self.pred_haplo] += 1
+				
 			else:
-				self.num_haplo_bubbles[bubble_allele1_haplo] += 1
-				#if self.pred_haplo != None:
-				#	bubble_allele1.num_haplo_long_reads[self.pred_haplo] += 1				
+				self.num_haplo_bubbles[bubble_allele1_haplo] += 1				
 		
-	def phase(self):
+	def phase(self, ratio_h0_bubbles=(0.25, 0.75)):
 		self.set_num_haplo_bubbles()
+		
+		self.pred_haplo = None
+		
+		# filter out if the long read doesn't pass the phasing criteria 
+		if self.num_haplo_bubbles[0] + self.num_haplo_bubbles[1] == 0: #< 2:
+			return
+			
+		if ratio_h0_bubbles[0] < self.num_haplo_bubbles[0] / (self.num_haplo_bubbles[0] + self.num_haplo_bubbles[1]) < ratio_h0_bubbles[1]:
+			return
 		
 		if self.num_haplo_bubbles[0] > self.num_haplo_bubbles[1]:
 			self.pred_haplo = 0
