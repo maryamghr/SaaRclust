@@ -41,7 +41,7 @@ def get_bubbles(bubble_fasta_file, with_km=True):
 				bubble = Bubble(bubble_id)
 				bubbles[bubble_id] = bubble
 
-			bubble_allele = BubbleAllele(bubble_allele_id, bubble, seq)
+			bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble, seq)
 			bubble.add_allele(bubble_allele)
 
 			if with_km:
@@ -147,7 +147,6 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 	start_time = time.time()
 	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
 
-	bubble_id_to_clust = {}
 	with open(bubble_clust_file) as f:
 		for line in f:
 			sp = line.split()
@@ -167,7 +166,7 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 			bubble = bubbles[bubble_id]
 			bubble.clust = bubble_clust
 
-	print('elapsed time =', time.time()-start_time)	
+	print('elapsed time =', time.time()-start_time)
 
 
 def add_bubble_allele_pred_haplo(bubble_phase_file, bubbles):
@@ -289,6 +288,38 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 			long_read.actual_type = 'tagged' + str(haplotype)
 			
 	print('elapsed time =', time.time()-start_time)
+	
+def add_long_reads_clust(long_reads_clust_file, long_reads):
+
+	'''
+	Adds SaaRclust (chrom+dir) clusters to LongRead objects
+
+	Parameters (str):
+		long_reads_clust_file (str): Path of long_reads clusters file
+
+		long_reads (dict(str): {long_read_name -> long_read}):
+		A dictionary that maps each read_name to its long_read object
+		
+	'''
+
+	start_time = time.time()
+	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
+
+	for clust_file in long_reads_clust_file:
+		print('reading clusters from', f)
+		with open(clust_file) as f:
+			for line in f:
+				sp = line.split()
+				read_name, clust = sp[0], sp[1]
+				read_name_sp = read_name.split('/ccs')
+				read_name = read_name_sp[0]+'/ccs'
+
+				assert (read_name in long_reads), read_name + ' is not present in the long_reads'
+
+				long_read[read_name].clust=clust
+				
+
+		print('elapsed time =', time.time()-start_time)
 
 
 def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
