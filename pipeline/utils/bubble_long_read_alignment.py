@@ -93,8 +93,9 @@ class Bubble:
 
 class BubbleAllele:
 
-	def __init__(self, id=None, bubble=None, seq=None):
+	def __init__(self, id=None, name=None, bubble=None, seq=None):
 		self.id = id
+		self.name = name
 		self.bubble = bubble
 		self.seq = seq
 		self.rc_seq = None # reverse complement sequence
@@ -215,13 +216,13 @@ class LongRead:
 			else:
 				self.num_haplo_bubbles[bubble_allele1_haplo] += 1				
 		
-	def phase(self, ratio_h0_bubbles=(0.25, 0.75)):
+	def phase(self, ratio_h0_bubbles=(0.25, 0.75), min_haplotagged_bubbles=1):
 		self.set_num_haplo_bubbles()
 		
 		self.pred_haplo = None
 		
 		# filter out if the long read doesn't pass the phasing criteria 
-		if self.num_haplo_bubbles[0] + self.num_haplo_bubbles[1] == 0: #< 2:
+		if self.num_haplo_bubbles[0] + self.num_haplo_bubbles[1] < min_haplotagged_bubbles:
 			return
 			
 		if ratio_h0_bubbles[0] < self.num_haplo_bubbles[0] / (self.num_haplo_bubbles[0] + self.num_haplo_bubbles[1]) < ratio_h0_bubbles[1]:

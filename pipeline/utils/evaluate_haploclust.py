@@ -254,6 +254,9 @@ def evaluate_long_read_clustering(long_reads, output_file):
 			chrom_num_false_haplo_clustered_long_reads[chrom]=false_haplo_clust
 			
 		num_true_haplo_clustered_long_reads+=true_haplo_clust
+		
+	print('switch haplotypes:')
+	print(chrom_switch_haplo)
 
 	# revise the type of the long_read if the haplotype is switched in the chromosome
 	for read_name, long_read in long_reads.items():
@@ -303,19 +306,17 @@ def output_long_reads_haplo_dist(long_reads, output_file):
 	print('outputting the long reads haplo edit dist')
 
 	with open(output_file, 'w') as out:
-		print('chrom\tread_name\tdist_h0\tdist_h1\tnum_h0_bubbles\tnum_h1_bubbles\tnum_aln_bubbles\tactual_type\tpred_type', file=out)
+		print('chrom\tread_name\tdist_h0\tdist_h1\tnum_h0_bubbles\tnum_h1_bubbles\tactual_type\tpred_type\tpred_haplo', file=out)
 
 		for read_name, long_read in long_reads.items():
 
-			# TODO: check whether it is equal to the previous haplo_dist values ...
 			long_read.set_haplotypes_edit_dist()
 			num_aln_reads = len(long_read.alignments)
 
 			print(str(long_read.actual_chrom), '\t', read_name, '\t', 
 						long_read.haplo0_edit_dist, '\t', long_read.haplo1_edit_dist, '\t', 
 						long_read.num_haplo_bubbles[0], '\t', long_read.num_haplo_bubbles[1], '\t',
-						num_aln_reads, '\t', 
-						long_read.actual_type, '\t', long_read.pred_type, file=out)
+						long_read.actual_type, '\t', long_read.pred_type, long_read.pred_haplo, file=out)
 
 	print('elapsed time =', time.time()-start_time)
 	
