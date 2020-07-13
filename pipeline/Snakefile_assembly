@@ -52,11 +52,40 @@ haplotypes = ['H1', 'H2']
 add_untagged = "--add-untagged" if config["whatshap_split_add_untagged"] else ""
 
 #####################################################################
+
+chrom_sizes = \
+    {"chr1":	"248m", \
+    "chr2":	"242m", \
+    "chr3":	"198m", \
+    "chr4":	"190m", \
+    "chr5":	"181m", \
+    "chr6":	"171m", \
+    "chr7":	"159m", \
+    "chr8":	"145m", \
+    "chr9":	"138m", \
+    "chr10":"133m", \
+    "chr11":"135m", \
+    "chr12":"133m", \
+    "chr13":"114m", \
+    "chr14":"107m", \
+    "chr15":"102m", \
+    "chr16":"90m", \
+    "chr17":"83m", \
+    "chr18":"80m", \
+    "chr19":"59m", \
+    "chr20":"64m", \
+    "chr21":"47m", \
+    "chr22":"51m", \
+    "chrX": "156m"}
+
 ###### getting clusters
 clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMinimap) + "_z" + str(z) + "/SaaRclust_results_" + sample + "/clust_partners.txt"
 rename_script = open("assembly/rename_fastq.sh", 'w')
 clusters = []
 clust_pairs = []
+
+clust_pair_sizes = {}
+
 with open(clust_pairs_file) as f:
 	next(f)
 	for line in f:
@@ -66,11 +95,15 @@ with open(clust_pairs_file) as f:
 		sp = line.split()
 		chr, clust1, clust2 = sp[0], sp[1], sp[2]
 		chr = chr.split('_')[0]
+		chrom_size = chrom_sizes[chr]
 		chr = chr.split('chr')[1]
+		
 		if chr=="X":
 			chr="23"
 		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
 		clust_pair = min_clust + '_' + max_clust
+		
+		clust_pair_sizes[clust_pair] = chrom_size
 		
 		clusters.append(clust1)
 		if clust1 == min_clust:
@@ -81,6 +114,9 @@ with open(clust_pairs_file) as f:
 print('clusters =', clusters)
 print('clust_pairs =', clust_pairs)
 print('len(clust_pairs) =', len(clust_pairs))
+print('clust_pair_sizes =', clust_pair_sizes)
+
+
 
 
 #####################################################################
@@ -91,8 +127,9 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("assembly/splitted_fastq/cluster{clust}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust=clusters, haplo=haplotypes),
-		expand("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clustpair=clust_pairs, haplo=haplotypes)
+		#expand("assembly/splitted_fastq/cluster{clust}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust=clusters, haplo=haplotypes),
+		#expand("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clustpair=clust_pairs, haplo=haplotypes)
+		expand("assembly/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}/flye_assembly/assembly.fasta", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clustpair=clust_pairs, haplo=haplotypes)
 
 rule output_soft_clust_in_long_reads:
 	input:
@@ -104,7 +141,7 @@ rule output_soft_clust_in_long_reads:
 
 rule split_phase_file_by_clust:
 	input:
-		phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
+		phase_files="aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_iteration"+str(config["haploclust_itr"])+"_k{k}_a{a}_l{l}_{sample}.data",
 		clust_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID)
 	output: expand("assembly/haplotype_lists/cluster{clust}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", clust=clusters)
 	log: "log/split_phase_file_by_clust_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
@@ -133,8 +170,20 @@ rule merge_clustpairs_fastq:
 		'''
 
 rule compress_clustpairs_fastq:
-	input: temp("assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq")
+	input: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq"
 	output: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz"
 	shell: "gzip {input}"
 
 
+rule flye_assembly:
+    input: "assembly/splitted_fastq_clust_pair/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.fastq.gz"
+    output:"assembly/{clustpair}_{haplo}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}/flye_assembly/assembly.fasta"
+    params:
+        output_dir = lambda wc: "assembly/{}_{}_iteration2_pb_phase_kMinimap{}_w{}_f{}_z{}_k{}_a{}_l{}_{}/flye_assembly".format(wc.clustpair, wc.haplo, wc.kMinimap, wc.w, wc.f, wc.z, wc.k, wc.a, wc.l, wc.sample),
+        chrom_size = lambda wc: clust_pair_sizes[wc.clustpair]
+    threads: 4
+    log: "log/{clustpair}_{haplo}_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_flye_assembly.log"
+    shell:
+        '''
+        (time flye --pacbio-hifi {input} --out-dir {params.output_dir} --genome-size {params.chrom_size} --threads {threads}) > {log} 2>&1
+        '''
