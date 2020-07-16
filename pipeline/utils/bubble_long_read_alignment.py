@@ -35,6 +35,9 @@ class Bubble:
 
 		print('****************************')
 		
+	def set_saarclust_consistency_ratio:
+		pass
+		
 	def add_het_positions(self):
 		assert (len(self.allele0.seq)==len(self.allele1.seq)), 'the lengths of the two bubble chains should be equal'
 		self.het_positions = [i for i in range(len(self.allele0.seq)) if self.allele0.seq[i]!=self.allele1.seq[i]]

@@ -38,9 +38,27 @@ rule all:
 		#expand("evaluation/strandphaser_bubble_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("evaluation/{itr}bubble_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
 		#expand("evaluation/{itr}long_read_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
-		expand(PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
+		#expand(PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_ccs_cov_in_ss.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample)
 		
 
+###########################################################
+########### get long read coverages in ss reads ###########
+###########################################################
+
+rule output_ss_read_names:
+    input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz"
+    output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_names.data"
+    log: "log/output_ss_names_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_chunk{chunks}.log"
+    shell: "(time zcat {input} | awk '{{print $1}}'  | sort -S 50% > {output}) > {log} 2>&1"
+
+rule count_ccs_cov_in_ss:
+    input: expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_ss_names.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
+    output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_ccs_cov_in_ss.data"
+    threads:38
+    log: "log/count_ccs_cov_in_ss_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+    shell:"(time sort -S 50% -m --parallel={threads} {input} | uniq -c > {output}) > {log} 2>&1"
+		
 ######################################################
 ########### merging and indexing vcf files ###########
 ######################################################
@@ -392,5 +410,16 @@ rule output_ss_haplo_strand_states:
 	script: "utils/compute_ss_haplo_strand_states.snakemake.py"
 
 
+########################################################################################
+#####################    assembly evaluation ###########################################
+########################################################################################
 
-
+# splitting bam files by haploclust groups
+#rule whatshap_split:
+#	input:
+#		fastq=PBbamDir+"/{sample}.fastq.gz",
+#		haplo_list="assembly/haplotype_lists/cluster{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.data"
+#	output:
+#		splitted=expand("assembly/splitted_fastq/cluster{{clust}}_{haplo}_iteration2_pb_phase_kMinimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.fastq.gz", haplo=haplotypes)
+#	log: "log/whatshap_split_{clust}_iteration2_pb_phase_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}.log"
+#	shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads {add_untagged} --pigz) > {log} 2>&1"

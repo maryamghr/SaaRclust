@@ -289,13 +289,13 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 			
 	print('elapsed time =', time.time()-start_time)
 	
-def add_long_reads_clust(long_reads_clust_file, long_reads):
+def add_long_reads_clust(long_reads_clust_files, long_reads):
 
 	'''
 	Adds SaaRclust (chrom+dir) clusters to LongRead objects
 
 	Parameters (str):
-		long_reads_clust_file (str): Path of long_reads clusters file
+		long_reads_clust_files (str): Path of long_reads clusters file
 
 		long_reads (dict(str): {long_read_name -> long_read}):
 		A dictionary that maps each read_name to its long_read object
@@ -305,7 +305,7 @@ def add_long_reads_clust(long_reads_clust_file, long_reads):
 	start_time = time.time()
 	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
 
-	for clust_file in long_reads_clust_file:
+	for clust_file in long_reads_clust_files:
 		print('reading clusters from', f)
 		with open(clust_file) as f:
 			for line in f:

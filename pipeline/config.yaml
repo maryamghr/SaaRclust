@@ -24,6 +24,9 @@ vcf_prefix: PR05
 
 # SS bams and phased vcf files
 SS_bam_dir: ../../ss_bams
+# Note the SS names filter is based on the ss reads with the top 5% coverage of long reads. The coverage is computed by the rules output_ss_read_names and count_ccs_cov_in_ss in Snakefile_haplocalust_evaluation
+# It is so slow. It might be faster by python implementation
+SS_names_filter: ss_cov/trim_ss_top0.05_cov.data
 
 # Kmer size of the graph
 # This should be very low to prevent fragmentation

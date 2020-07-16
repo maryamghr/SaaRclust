@@ -60,6 +60,7 @@ if __name__ == "__main__":
 	parser.add_argument("--bubble_haplotagged_bam_file", type=str, help="Bubble haplotagged bam file", required=True)
 	parser.add_argument("--bubble_first_itr_phase_file", type=str, help="Bubble first iteration phase file", required=True)
 	parser.add_argument("--bubble_clust_file", type=str, help="Bubbles cluster file", required=True)
+	parser.add_argument("--long_read_clust_files", nargs='*', help="The set of long reads chromosome clustered files", required=True)	
 	parser.add_argument("--clust_to_chrom_file", type=str, help="Cluster to chrom mapping file", required=True)
 	parser.add_argument("--long_read_haplotagged_bam_files", nargs='*', help="The set of long reads haplotagged bam files", required=True)	
 	parser.add_argument("--bubble_phase_file", type=str, help="output bubble phase file", required=True)
