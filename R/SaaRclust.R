@@ -16,7 +16,7 @@
 #' @author David Porubsky
 
 
-SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE) {
+SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
 
   print('hello world')
   #Get ID of a file to be processed
@@ -105,6 +105,12 @@ SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.c
     stopTimedMessage(ptm)
     #data.table::fwrite(upperQ.tab, destination)
     #gzip(destination)
+  }
+  
+  if (!is.null(filter.ss.file))
+  {
+    filter.ss.names <- fread(filter.ss.file, header=F)[, V1]
+    tab.filt <- tab.filt[!SSreadNames %in% filter.ss.names]
   }
   
   ### Sorting filtered data table by direction and chromosome ###

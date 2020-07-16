@@ -40,6 +40,7 @@ logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale  	= config["log_scale"]
 filter_soft_clust_input = config["filter_soft_clust_input"]
+ss_names_filter = config["SS_names_filter"]
 numAlignments   = config["numAlignments"]
 
 
@@ -94,8 +95,10 @@ wildcard_constraints:
 rule all:
 	input:
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/pb_phase_iteration2_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
-		expand("bubbles/phased_snv_bubbles_iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", itr=2, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample)
+		#expand("bubbles/phased_snv_bubbles_iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", itr=2, k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/{sample}_chunk{chunks}_clusters.RData", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, chunks=chunkID)
 
 
 ###############################################################################
@@ -389,6 +392,7 @@ rule SOFT_clustering:
 		{input.HCclustFile} \
 		{log_scale} \
 		{filter_soft_clust_input} \
+		{ss_names_filter} \
 		$(pwd)/utils/R-packages/) \
 		> {log} 2>&1
 		"""
@@ -704,6 +708,7 @@ rule haploclust_phasing:
 		bubble_first_itr_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
 		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+		long_reads_clust_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID),
 		long_read_haplotagged_bam_files=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
 		#long_read_phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/{{itr}}pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
 	output:
@@ -723,11 +728,11 @@ rule haploclust_phasing:
 		het_kmer_len=config["het_kmer_len"],
 		with_km="--with_km" if config["bubble_info"] else "",
 		itr=2
-	#log: "log/haploclust_phasing_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	log: "log/haploclust_phasing_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	#script: "utils/haploclust.snakemake.py"
 	shell:
 		'''
-		python3 utils/haploclust.snakemake.py \
+		(time python3 utils/haploclust.snakemake.py \
 		--bubble_fasta_file {input.bubble_fasta_file} \
 		--minimap_files_list {input.minimap_files_list} \
 		--long_reads_fasta_files {input.long_reads_fasta_files} \
@@ -747,46 +752,46 @@ rule haploclust_phasing:
 		--kmers_file {output.het_kmers} \
 		--itr {params.itr} \
 		--het_kmer_len {params.het_kmer_len} \
-		{params.with_km}
+		{params.with_km}) > {log} 2>&1
 		'''
 
 
-rule export_bubble_pb_het_kmers:
-	input:
-		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
-		bubbles_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz",
-		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta",
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-	params:
-		het_kmer_len=config["het_kmer_len"],
-		bubble_info=config["bubble_info"]
-	log: "log/export_bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/export_bubble_PB_het_kmers.snakemake.py"
+#rule export_bubble_pb_het_kmers:
+#	input:
+#		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
+#		bubbles_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+#		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz",
+#		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta",
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
+#	params:
+#		het_kmer_len=config["het_kmer_len"],
+#		bubble_info=config["bubble_info"]
+#	log: "log/export_bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+#	script: "utils/export_bubble_PB_het_kmers.snakemake.py"
 
 
-rule phase_long_reads:
-	input:
-		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
-		bubble_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-	script: "utils/phase_long_reads.snakemake.py"
+#rule phase_long_reads:
+#	input:
+#		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
+#		bubble_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
+#	script: "utils/phase_long_reads.snakemake.py"
 
 
-rule update_bubbles_phasing:
-	input:
-		het_kmers_edit_dist=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID),
-		long_reads_phase_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID)
-	output: "bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data"
-	script: "utils/update_bubbles_phasing.snakemake.py"
+#rule update_bubbles_phasing:
+#	input:
+#		het_kmers_edit_dist=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{{k}}_a{{a}}#_l{{l}}_{{sample}}.data", chunks=chunkID),
+#		long_reads_phase_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{{k}}#_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID)
+#	output: "bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data"
+#	script: "utils/update_bubbles_phasing.snakemake.py"
 
 
-rule update_long_reads_phasing:
-	input:
-		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
-		bubble_phase_file="bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-	script: "utils/phase_long_reads.snakemake.py"
+#rule update_long_reads_phasing:
+#	input:
+#		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
+#		bubble_phase_file="bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
+#	script: "utils/phase_long_reads.snakemake.py"
 
 
 
