@@ -35,8 +35,8 @@ class Bubble:
 
 		print('****************************')
 		
-	def set_saarclust_consistency_ratio:
-		pass
+	#def set_saarclust_consistency_ratio:
+	#	pass
 		
 	def add_het_positions(self):
 		assert (len(self.allele0.seq)==len(self.allele1.seq)), 'the lengths of the two bubble chains should be equal'
@@ -57,15 +57,16 @@ class Bubble:
 		self.allele0.pred_haplo = None
 		self.allele1.pred_haplo = None
 		
-		for long_read, aln in self.allele0.alignments.items():
+		for aln in self.allele0.alignments:
+			long_read = aln.long_read
 			if long_read.pred_haplo == None:
 				continue
 				
-			if self.allele1 not in long_read.alignments:
+			if aln.alt_bubble_allele_aln == None:
 				continue
 				
 			al0_edit_dist = aln.edit_dist
-			al1_edit_dist = long_read.alignments[self.allele1].edit_dist
+			al1_edit_dist = aln.alt_bubble_allele_aln.edit_dist
 			
 			if al0_edit_dist < al1_edit_dist:
 				# long read is better aligned to allele0
@@ -107,7 +108,7 @@ class BubbleAllele:
 		self.num_haplo_long_reads = [0,0] # number of haplo0 and haplo1 supporting long reads
 		#self.kmers = []
 		self.km = 0
-		self.alignments = {}
+		self.alignments = [] #{}
 
 	def print(self):
 		print('allele id =', self.id)
@@ -126,7 +127,7 @@ class BubbleAllele:
 
 		haplo_edit_dist = [0,0]
 
-		for long_read, aln in self.alignments.items():
+		for aln in self.alignments:
 			long_read_haplo = aln.long_read.pred_haplo
 
 			if long_read_haplo == None:
@@ -150,7 +151,7 @@ class LongRead:
 		self.haplo0_edit_dist, self.haplo1_edit_dist = 0, 0
 		self.num_haplo_bubbles = [0, 0] # num_haplo0_bubbles, num_haplo1_bubbles
 		self.actual_type, self.pred_type = None, None
-		self.alignments = {}
+		self.alignments = []
 		
 	def print(self):
 		print('name =', self.name)
@@ -160,12 +161,19 @@ class LongRead:
 		print('pred_haplo =', self.pred_haplo)
 		print('actual_type=', self.actual_type)
 		print('alignments =', self.alignments)
+		
+	def link_alt_alignments(self):
+		self.alignments.sort(key=lambda x: x.bubble_allele.bubble.id)
+		for i in range(len(self.alignments)-1):
+			if self.alignments[i].bubble_allele.bubble.id == self.alignments[i+1].bubble_allele.bubble.id and self.alignments[i].bubble_allele.id != self.alignments[i+1].bubble_allele.id:
+				self.alignments[i].alt_bubble_allele_aln = self.alignments[i+1]
+				self.alignments[i+1].alt_bubble_allele_aln = self.alignments[i]
 
 	def set_haplotypes_edit_dist(self):
 
 		haplo_edit_dist = [0, 0] # h0_dist, h1_dist, respectively
 
-		for bubble_allele, aln in self.alignments.items():
+		for aln in self.alignments:
 			bubble_allele_haplo = aln.bubble_allele.pred_haplo
 
 			if bubble_allele_haplo == None:
@@ -181,15 +189,15 @@ class LongRead:
 		self.haplo0_edit_dist, self.haplo1_edit_dist = haplo_edit_dist[0], haplo_edit_dist[1]
 		
 	def set_alignments_edit_dist(self, q):
-		for bubble_allele, aln in self.alignments.items():
+		for aln in self.alignments:
 			aln.set_edit_dist(q)
 		
-	def set_num_haplo_bubbles(self):
-		
+	# this function is not used apparently!
+	def set_num_haplo_bubbles(self):		
 		self.num_haplo_bubbles = [0, 0]
 		
-		for bubble_allele, aln in self.alignments.items():
-			
+		for aln in self.alignments:
+			bubble_allele = aln.bubble_allele
 			if bubble_allele.id != 0:
 				# we process the bothe alleles in one call of this function, so it suffices if we process only allele0
 				continue
@@ -198,7 +206,7 @@ class LongRead:
 			bubble_allele1 = bubble_allele.bubble.allele1
 			bubble_allele1_haplo = bubble_allele1.pred_haplo
 			
-			if bubble_allele1 not in self.alignments:
+			if aln.alt_bubble_allele_aln == None:
 				# this long read is only aligned to allele 0!
 				continue
 
@@ -208,7 +216,7 @@ class LongRead:
 			assert (bubble_allele1_haplo == 1-bubble_allele0_haplo), 'haplotypes of bubble' + str(bubble_allele.bubble.id) + 'should be 0 and 1'
 
 			al0_edit_dist = aln.edit_dist
-			al1_edit_dist = self.alignments[bubble_allele1].edit_dist
+			al1_edit_dist = aln.alt_bubble_allele_aln.edit_dist #self.alignments[bubble_allele1].edit_dist
 			
 			if al0_edit_dist == al1_edit_dist:
 				continue
@@ -240,8 +248,9 @@ class LongRead:
 class Alignment:
 	def __init__(self, long_read, bubble_allele, edit_dist=0, long_read_start=None, long_read_end=None, bubble_start=None, bubble_end=None, strand = None, cigar=None):
 		self.long_read, self.bubble_allele = long_read, bubble_allele
-		self.long_read.alignments[bubble_allele] = self
-		self.bubble_allele.alignments[long_read] = self
+		self.long_read.alignments.append(self)
+		self.bubble_allele.alignments.append(self)
+		self.alt_bubble_allele_aln = None
 		self.edit_dist = edit_dist
 		self.long_read_start = long_read_start
 		self.long_read_end = long_read_end

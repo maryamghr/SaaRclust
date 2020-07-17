@@ -118,6 +118,7 @@ if __name__ == "__main__":
 	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
 	evaluate_long_read_clustering(long_reads, args.long_reads_haploclust_evaluation_file)
 	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
+	# FIXME: It takes a super long time after 100% !!!
 	output_kmers(long_reads, args.kmers_file)
 	
 	#output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)

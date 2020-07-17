@@ -340,7 +340,7 @@ def output_sampled_long_reads(num_sample, edit_dist_fraction_range, file_name):
 			if edit_dist_fraction_range[0] < dist_frac < edit_dist_fraction_range[1]:
 				n += 1
 				
-				for bubble_allele, aln in long_read.alignments.items():
+				for aln in long_read.alignments:
 						print(aln.output_print(), file=out)
 						
 				print('h_dist0 =', d0, file=out)

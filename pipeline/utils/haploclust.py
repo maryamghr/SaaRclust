@@ -72,7 +72,7 @@ def output_kmers(long_reads, kmers_file):
 			if num*10 % total_reads == 0:
 				print(num*100/total_reads, '% of reads processed')
 			
-			for bubble_allele, aln in long_read.alignments.items():
+			for aln in long_read.alignments:
 				print(aln.output_kmers(), file=out)
 				
 def get_km_quantile(bubbles,p):
@@ -133,13 +133,15 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 			
 		if itr > 1:
 			min_haplotagged_bubbles = 3
-			
+		
+		long_read.link_alt_alignments()
 		long_read.set_alignments_edit_dist(q)
 		long_read.phase(min_haplotagged_bubbles = min_haplotagged_bubbles)
 		
 		# testing:
 		if long_read.pred_haplo != None:
-			for bubble_allele, aln in long_read.alignments.items():
+			for aln in long_read.alignments:
+				bubble_allele = aln.bubble_allele
 				if bubble_allele.pred_haplo == None and bubble_allele.id == 0:
 					test_bubbles[bubble_allele.bubble.id] = bubble_allele.bubble
 					

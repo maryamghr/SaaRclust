@@ -740,6 +740,7 @@ rule haploclust_phasing:
 		--bubble_first_itr_phase_file {input.bubble_first_itr_phase_file} \
 		--bubble_clust_file {input.bubble_clust_file} \
 		--clust_to_chrom_file {input.clust_to_chrom_file} \
+		--long_read_clust_files {input.long_reads_clust_file} \
 		--long_read_haplotagged_bam_files {input.long_read_haplotagged_bam_files} \
 		--bubble_phase_file {output.bubbles_phase_file} \
 		--test_bubble_phase_file {output.test_bubble_phase_file} \
