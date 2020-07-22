@@ -1,12 +1,29 @@
+configfile: "configgraph.yaml"
+BCALMPATH = config["bcalmpath"]
+CONVERTTOGFAPATH = config["bcalm_converttoGFApath"]
+ALIGNERBINPATH = config["graphalignerfolder"]
+SCRIPTPATH = config["graphalignerfolder"] + "scripts"
+READS = config["reads"]
+
 #################################################
 ####     De Bruijn graph building MIKKO      ####
 #################################################
+
+wildcard_constraints:
+	k = "\d+",
+	a = "\d+",
+	u = "\d+",
+
+rule all:
+    input:
+        expand("tmp/graph_k{k}_a{a}_u{u}.gfa", k=config["k"], a = config["kmer_abundance"], u = config["min_unitig_coverage"])
+
 
 rule format_input_files:
 	output:
 		temp("filelist")
 	shell:
-		"printf '%s\\n' {SHORTREADS}/*.fastq.gz > {output}"
+		"printf '%s\\n' {READS} > {output}"
 
 rule run_bcalm2:
 	input:
@@ -15,7 +32,7 @@ rule run_bcalm2:
 		"filelist_k{k}_a{a}.unitigs.fa"
 	log: "log/run_bcalm2_k{k}_a{a}.log"
 	shadow: "shallow"
-	threads: 46
+	threads: 18
 	shell:
 		"(time {BCALMPATH} -in {input} -out filelist_k{wildcards.k}_a{wildcards.a} -kmer-size {wildcards.k} -abundance-min {wildcards.a} -nb-cores {threads}) > {log} 2>&1"
 
@@ -71,7 +88,7 @@ rule remake_bcalm_from_contigs:
 		"contigs_k{k}_a{a}_u{u}.unitigs.fa"
 	log: "log/remake_bcalm_from_contigs_k{k}_a{a}_u{u}.log"
 	shadow: "shallow"
-	threads: 46
+	threads: 18
 	shell:
 		"(time {BCALMPATH} -in {input} -out contigs_k{wildcards.k}_a{wildcards.a}_u{wildcards.u} -abundance-min 1 -kmer-size {wildcards.k} -nb-cores {threads}) > {log} 2>&1"
 

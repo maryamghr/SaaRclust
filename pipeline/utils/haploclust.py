@@ -53,8 +53,6 @@ def haploclust_bubbles(bubbles, test_bubbles):
 	num = 0
 	total_bubbles = len(bubbles)-(len(bubbles)%10)
 	for bubble_id, bubble in bubbles.items():
-		#if bubble_id in test_bubbles:
-		#	pdb.set_trace()
 		num += 1
 		if num*10 % total_bubbles == 0:
 			print(num*100/total_bubbles, '% of bubbles processed')
@@ -101,7 +99,7 @@ def trim_top_km_bubbles(bubbles, trim):
 		del bubbles[bubble_id]
 		
 		
-def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_file_name, long_read_eval_file_name, itr=2, trim_km=0.05):
+def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_file_name, long_read_eval_file_name, itr=2, trim_km=0.05, min_haplotagged_bubbles = 1):
 	
 	'''
 	Assign haplotypes to long reads and bubbles in {itr} iterations, starting from the first set of phased bubbles from the input file
@@ -113,7 +111,6 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 		long_reads		 				: A dictionary {long_read_name -> long_read}
 	'''
 	
-	min_haplotagged_bubbles = 1
 	test_bubbles = {}
 	# trimming the set of bubbles with the highest km values
 	trim_top_km_bubbles(bubbles, trim_km)
@@ -131,8 +128,8 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 		if num*10 % total_reads == 0:
 			print(num*100/total_reads, '% of reads processed')
 			
-		if itr > 1:
-			min_haplotagged_bubbles = 3
+		if itr == 1:
+			min_haplotagged_bubbles = 1
 		
 		long_read.link_alt_alignments()
 		long_read.set_alignments_edit_dist(q)
@@ -156,8 +153,8 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 		evaluate_bubble_clustering(bubbles, clust_to_chrom, bubble_eval_file)
 		evaluate_long_read_clustering(long_reads, long_read_eval_file)
 		
-		if it < itr-1:
-			min_haplotagged_bubbles = 3
+		if it == itr-1:
+			min_haplotagged_bubbles = 1
 			
 		print('haploclust iteration', it+2)
 		haploclust_bubbles(bubbles, test_bubbles)		

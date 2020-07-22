@@ -49,7 +49,7 @@ def split_phase_files_by_clust(long_reads_phase_files, long_reads_clust_files, o
 		
 	for phase_file in long_reads_phase_files:
 		print('reading', phase_file)
-		with open(phase_file) as f:
+		with open(str(phase_file)) as f:
 			# skip header
 			next(f)
 

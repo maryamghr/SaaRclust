@@ -117,6 +117,7 @@ def evaluate_bubble_clustering(bubbles, clust_to_chrom, output_file):
 			if chrom_switch_haplo[bubble.actual_chrom]:
 				bubble.pred_type="true_haplo_clust" if bubble.pred_type=="false_haplo_clust" else "false_haplo_clust"
 
+	
 	# writing the performance statistics in the outout file
 	with open(output_file, 'w') as out:
 		print('*** Note: false positive haplotype clustered bubbles are also counted in haplotype clustering accuracy', file=out)
