@@ -121,14 +121,6 @@ rule pear_merge_mates:
 	shell: "(time pear -f {input.fq1} -r {input.fq2} -t 101 -o {SSfastqDir}/merged/{wildcards.lib}) > {log} 2>&1"
 	
 
-#rule concat_merged_with_first_unmerged:
-#	input:
-#		SSfastqDir+"/merged/{lib}.assembled.fastq",
-#		SSfastqDir+"/merged/{lib}.unassembled.forward.fastq",
-#	output: temp(SSfastqDir+"/merged/{lib}.combined.fastq")
-#	log: "log/concat_merged_with_first_unmerged_{lib}.log"
-#	shell: "(time cat {input} > {output}) > {log} 2>&1"
-
 rule concat_assembled_with_first_pair_of_unassembled:
 	input:
 		SSfastqDir+"/merged/{lib}.assembled.fastq",
@@ -193,14 +185,6 @@ rule concat_all_fasta:
 	output: temp(PBbamDir+"/{sample}.fasta")
 	log: "log/concat_all_fasta_{sample}.log"
 	shell: "(time cat {input} > {output}) > {log} 2>&1"
-
-#rule split_fasta_file:
-#	input: expand(PBbamDir+"/{sample}.fasta", sample=sample)
-#	output: expand(PBbamDir+"/{sample}.{chunks}.fasta", chunks=chunkID, sample=sample)
-#	log: "log/split_fasta_file.log"
-#	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
-	
-
 
 
 ###############################################################################
@@ -433,17 +417,6 @@ rule output_soft_clust_in_long_reads:
 	log: "log/output_soft_clust_in_long_reads_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_chunk{chunks}.log"
 	script: "utils/outputSoftProbs.R"
 
-#rule concat_long_reads_soft_clusters:
-#	input: temp(expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID))
-#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/soft_clusters_long_reads.data"
-#	log: "log/concat_long_reads_soft_clusters_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-#	shell:
-#		'''
-#		(time echo PBreadNames\\\tML_cluster_idx\\\tmax_cluster_prob > {output} &&
-#		cat {input} >> {output}) > {log} 2>&1
-#		'''
-
-
 
 rule map_clust_to_chrom_dir:
 	input:
@@ -458,38 +431,6 @@ rule map_clust_to_chrom_dir:
 		{output} \
 		$(pwd)/utils/R-packages/ ) > {log} 2>&1
 		'''
-
-
-#rule append_clusters_to_pb_read_names:
-#	input:
-#		minimap_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_withclust.maf.gz",
-#		pb=PBbamDir+"/{sample}.{chunks}.fasta"
-#	output: PBbamDir+"/{sample}.{chunks}_withclust_k{kMinimap}_w{w}_f{f}_z{z}.fasta"
-#	run:
-#		# mapping PacBio readNames to their clusters and soft probs
-#		pb_name_to_clust={}
-#		with zipfile.ZipFile(input["minimap_file"]) as z:
-#			with open(z) as clustpb:
-#				for line in clustpb:
-#					sp = line.strip().split()
-#					if sp[0] != "PBreadNames":
-#						pb_name_to_clust[sp[0]]=(sp[19], sp[20])
-#		
-#		# writing PacBio reads clusters in the PacBio fasta file
-#		with open(input["pb"]) as f:
-#			with open(output[0], 'w') as out:
-#				for line in f:
-#					if line[0]==">":
-#						sp = line.split()[0].split("_")
-#						if len(sp) > 3:
-#							pb_name = "_".join(sp[:-3])[1:]		# remove the '>' char and the extra info (4 last elements in the '_' splitted list) added to the pb read name
-#						if len(sp) > 3 and pb_name in pb_name_to_clust:
-#							pbclust = pb_name_to_clust[pb_name]
-#							print(line.split()[0] + "\t" + pbclust[0] + "\t" + pbclust[1], file=out)
-#						else:
-#							print(line.split()[0] + "\tNone\t1", file=out)
-#					else:
-#						print("sequence" + line.strip(), file=out)
 
 
 ###########################################################################
@@ -551,38 +492,6 @@ rule cluster_bubbles:
 #	script: "utils/cluster_snv_bubbles2.snakemake.R"
 
 
-
-# TODO: correct later: ss names in the input fasta file shouldn't have lib name
-#rule append_clusters_to_SS_read_names:
-#	input:
-#		clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
-#		ss_reads=SSfastqDir+"/merged/{x}.combined.withmapinfo.fasta"
-#	output: SSfastqDir+"/merged/{x}.combined.withmapinfo_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.fasta"
-#	log: "log/append_clusters_to_SS_read_names_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{x}.log"
-#	run:
-#		# mapping PacBio readNames to their clusters and soft probs
-#		name_to_clust_len={}
-#		with open(input["clustering"]) as clust:
-#			for line in clust:
-#				sp = line.strip().split()
-#				if sp[0] != "clust.forward":
-#					ss_parts=sp[1].split("_len:")
-#					name_to_clust_len[ss_parts[0]]=(sp[0], ss_parts[1])
-#		
-#		# writing PacBio reads clusters in the PacBio fasta file
-#		with open(input["ss_reads"]) as f:
-#			with open(output[0], 'w') as out:
-#				for line in f:
-#					if line[0]==">":
-#						name=line.strip()[1:]
-#						if name in name_to_clust_len:
-#							print(">" + name + "_clust:" + name_to_clust_len[name][0] + "_len:" + name_to_clust_len[name][1], file=out)
-#						else:
-#							print(">" + name + "_clust:None", file=out)
-#					else:
-#						print(line.strip(), file=out)
-#
-
 ###########################################################################
 ##########		mapping SS reads to bubbles		###########
 ###########################################################################
@@ -613,42 +522,6 @@ rule output_valid_maps:
 ##########		clustering bubbles		###########
 ###################################################################
 
-
-
-
-#rule append_clusters_to_bubble_names:
-#	input:
-#		bubbles_clust="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-#		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}_withlen_and_refmap_info.fa"
-#	output: "bubbles/snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.fa"
-#	run:
-#		# mapping bubble names to their clusters
-#		bubble_id_to_clust={}
-#		with open(input["bubbles_clust"]) as clustbubble:
-#			for line in clustbubble:
-#				sp = line.strip().split()
-#				if sp[0] != "clust.forward": # skip the header line
-#					bubble_id_to_clust[sp[1]]=sp[0]
-#		
-#		# writing bubbles clusters in bubbles fasta file
-#		with open(input["bubbles"]) as f:
-#			with open(output[0], 'w') as out:
-#				for line in f:
-#					if line[0]==">":
-#						name=line.strip()[1:]
-#						bubble_id = name.split("_")[1]
-#						if bubble_id in bubble_id_to_clust:
-#							clust = bubble_id_to_clust[bubble_id]
-#							print(line.strip() + "\t" + clust, file=out)
-#						else:
-#							print(line.split()[0] + "\tNone", file=out)
-#					else:
-#						print(line.strip(), file=out)
-#
-
-###################################################################################
-##########		realignment of SS reads to PB reads		###########
-###################################################################################
 
 rule output_bubble_SSlib_coverage_matrix:
 	input:
@@ -755,46 +628,6 @@ rule haploclust_phasing:
 		--het_kmer_len {params.het_kmer_len} \
 		{params.with_km}) > {log} 2>&1
 		'''
-
-
-#rule export_bubble_pb_het_kmers:
-#	input:
-#		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
-#		bubbles_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-#		bubble_PB_minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/snv_bubbles_k{k}_a{a}_l{l}/{sample}_{chunks}.paf.gz",
-#		PB_fasta=PBbamDir+"/{sample}.{chunks}.fasta",
-#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-#	params:
-#		het_kmer_len=config["het_kmer_len"],
-#		bubble_info=config["bubble_info"]
-#	log: "log/export_bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-#	script: "utils/export_bubble_PB_het_kmers.snakemake.py"
-
-
-#rule phase_long_reads:
-#	input:
-#		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
-#		bubble_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
-#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-#	script: "utils/phase_long_reads.snakemake.py"
-
-
-#rule update_bubbles_phasing:
-#	input:
-#		het_kmers_edit_dist=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{{k}}_a{{a}}#_l{{l}}_{{sample}}.data", chunks=chunkID),
-#		long_reads_phase_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/iteration1_pb_phase_chunk{chunks}_k{{k}}#_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID)
-#	output: "bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data"
-#	script: "utils/update_bubbles_phasing.snakemake.py"
-
-
-#rule update_long_reads_phasing:
-#	input:
-#		het_kmers_edit_dist="aligns_k{kMinimap}_w{w}_f{f}_z{z}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data",
-#		bubble_phase_file="bubbles/iteration2_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
-#	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/phased_long_reads/iteration2_pb_phase_chunk{chunks}_k{k}_a{a}_l{l}_{sample}.data"
-#	script: "utils/phase_long_reads.snakemake.py"
-
-
 
 
 ######################################
