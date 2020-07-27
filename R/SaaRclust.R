@@ -16,8 +16,9 @@
 #' @author David Porubsky
 
 
-SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE) {
+SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
 
+  print('hello world')
   #Get ID of a file to be processed
   fileID <- basename(minimap.file)
   fileID <- strsplit(fileID, "\\.")[[1]][1]
@@ -84,22 +85,33 @@ SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.c
   save(file = destination, data.qual.measures)
   
   ### Filter imported data ###
-  tab.filt.l <- filterInput(inputData=tab.in, quantileSSreads = c(0, upperQ), minSSlibs = c(minLib,Inf))
-  tab.filt <- tab.filt.l$tab.filt
+  tab.filt <- tab.in
+  if (filter.soft.clust.input)
+  {
+    tab.filt.l <- filterInput(inputData=tab.in, quantileSSreads = c(0, upperQ), minSSlibs = c(minLib,Inf))
+    tab.filt <- tab.filt.l$tab.filt
   
-  ### Store upperQ reads in a trashBin ###
-  upperQ.tab <- tab.in[tab.in$PBreadNames %in% tab.filt.l$upperQ.reads,]
-  #upperQ.tab$PBreadNames <- factor(upperQ.tab$PBreadNames, levels=unique(upperQ.tab$PBreadNames))
-  #tab.upperQ.l <- split(upperQ.tab, upperQ.tab$SSlibNames)
-  #counts.upperQ.l <- countDirectionalReads(tab.upperQ.l)
-  ptm <- startTimedMessage("Writing upperQ reads into a file")
-  destination <- file.path(trashbin.store, paste0(fileID, "_upperQreads.gz"))
-  gzf = gzfile(destination, 'w')
-  utils::write.table(x = upperQ.tab, file = gzf, quote = F, row.names = F)
-  close(gzf)
-  stopTimedMessage(ptm)
-  #data.table::fwrite(upperQ.tab, destination)
-  #gzip(destination)
+    ### Store upperQ reads in a trashBin ###
+    upperQ.tab <- tab.in[tab.in$PBreadNames %in% tab.filt.l$upperQ.reads,]
+    #upperQ.tab$PBreadNames <- factor(upperQ.tab$PBreadNames, levels=unique(upperQ.tab$PBreadNames))
+    #tab.upperQ.l <- split(upperQ.tab, upperQ.tab$SSlibNames)
+    #counts.upperQ.l <- countDirectionalReads(tab.upperQ.l)
+
+    ptm <- startTimedMessage("Writing upperQ reads into a file")
+    destination <- file.path(trashbin.store, paste0(fileID, "_upperQreads.gz"))
+    gzf = gzfile(destination, 'w')
+    utils::write.table(x = upperQ.tab, file = gzf, quote = F, row.names = F)
+    close(gzf)
+    stopTimedMessage(ptm)
+    #data.table::fwrite(upperQ.tab, destination)
+    #gzip(destination)
+  }
+  
+  if (!is.null(filter.ss.file))
+  {
+    filter.ss.names <- fread(filter.ss.file, header=F)[, V1]
+    tab.filt <- tab.filt[!SSreadNames %in% filter.ss.names]
+  }
   
   ### Sorting filtered data table by direction and chromosome ###
   ptm <- startTimedMessage("Sorting data")

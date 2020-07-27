@@ -62,3 +62,4 @@ logLth: 1
 theta_constrain: "FALSE"
 log_scale: "TRUE"
 numAlignments: 150000
+haploclust_itr: 2

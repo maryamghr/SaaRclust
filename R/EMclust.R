@@ -17,6 +17,7 @@
 EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alpha=0.1, logL.th=1, log.scale=FALSE) {
 
   cell.names <- names(theta.param)
+  print(paste('cell.names =', cell.names))
 
   if (num.iter>1) {
     message("Running EM") 
@@ -45,11 +46,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     num.removed.reads <- 0
     ## Loop over all Strand-seq cells
     for (j in 1:length(counts.l)) {
-      #lib.name <- names(tab.l[j])
-      #message("\tWorking on ",lib.name)
-      #lib.aligns <- tab.l[[j]]
-      #aligns.per.read <- split(lib.aligns$strand, lib.aligns$PBreadNames)
-      
+      print(paste('single cell', j))
       ## Get theta estimates for a given cell
       #TODO: rename params to cell.params
       params <- theta.param[[j]]
@@ -59,8 +56,10 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
   
       ## Calculate BN probabilities
       if (i == 1) {
+	#print(paste('i=', i, ',j=', j, ',countProb ...'))
         BN.probs <- countProb(minusCounts = counts[,1], plusCounts = counts[,2], alpha=alpha, log=log.scale)
         BN.probs.l[[j]] <- BN.probs
+	#print('countProb is done.')
       } else {
         BN.probs <- BN.probs.l[[j]]
       }  
@@ -138,10 +137,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
         theta.update <- clust.gammas.colsums / rowSums(clust.gammas.colsums)
       }  
       
-      #counts.l[[j]] <- counts  #store raw SS reads counts per PB read per SS library
-      #clust.gammas.colsums.l[[j]] <- clust.gammas$gammas.colsums
       clust.gammas.colsums.l[[j]] <- clust.gammas.colsums
-      #clust.gammas.rowsums.l[[j]] <- clust.gammas$gammas.rowsums
       theta.update.l[[j]] <- theta.update
     } #end of the loop over all Strand-seq cells
     
@@ -157,8 +153,6 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     ## Update pi parameter ##
     ## Take sum over all cell types
     if (log.scale) {
-      #strand.states.sums <- sapply(clust.gammas.colsums.l, function(x) apply(x, 1, logSumExp)) #sums over all strand states per single cell. Results in matrix with rows=clusters, cols=cells
-      #pi.update <- apply(strand.states.sums, 1, logSumExp)
       pi.update <- rowLogSumExps(sapply(clust.gammas.colsums.l, rowLogSumExps)) #sums over all strand states per single cell. Results in matrix with rows=clusters, cols=cells
       
       ## Normalize pi parameter to 1 and update pi
@@ -177,10 +171,6 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     ## Assign upated theta param as a current theta parameter
     theta.param <- theta.update.l
     
-    ## Adjust theta according to contraints
-    #theta.Expected <- nrow(theta.l[[1]]) * c(0.25,0.25,0.5)
-    #theta.l <- thetaRescale(theta.l = theta.l, theta.Expected = theta.Expected)
-
     ## Preprocess data in order to perform soft clustering and calculate likelihood function ##
     #clust.prod <- list()
     soft.probs <- list()
@@ -208,10 +198,6 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       cluts.tab.sums <- rowSums(cluts.tab.update)
       log.like <- sum(log(cluts.tab.sums))*(-1)
     }  
-    #cluts.tab.sums[cluts.tab.sums == 0] <- min(cluts.tab.sums[cluts.tab.sums != 0]) #set zero sums to the lowest sums!!! (to approximate likelihood function)
-    #log.like <- sum(log(cluts.tab.sums))*(-1)
-    #cluts.tab.update <- cluts.tab.update * pi.param
-    #log.like <- kahansum(log(apply(cluts.tab.update, 1, kahansum)))*(-1)
     
     ## Check the difference between previous and last results of likelihood function
     if (length(log.like.l) > 0) {
@@ -222,7 +208,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
           stopTimedMessage(ptm)
           message("CONVERGENCE!!!")
           break
-        }  
+        }
       }
     }  
     
@@ -237,11 +223,8 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
   
   
   ## Perform soft clustering
-  #soft.probs.tab.norm <- NULL
-  #if (num.iter==1) {
   ## Scaling soft probabilities to 1
   if (log.scale) {
-    #soft.probs.tab.norm <- cluts.tab.update - apply(cluts.tab.update, 1, logSumExp)
     soft.probs.tab.norm <- cluts.tab.update - rowLogSumExps(cluts.tab.update)
     soft.probs.tab.norm <- exp(soft.probs.tab.norm) #get non-log scale probabilities
     #convert theta.param and pi.param back to non-log scale probabilities
@@ -251,12 +234,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     soft.probs.tab.norm <- cluts.tab.update / rowSums(cluts.tab.update)
   }
   rownames(soft.probs.tab.norm) <- rownames(counts.l[[1]])
-    #cluts.tab <- do.call(cbind, clust.prod)
-    #cluts.tab.logL <- cluts.tab/rowSums(cluts.tab)
-    #cluts.tab <- Reduce("*", clust.gammas.rowsums.l)
-    #cluts.tab.norm <- cluts.tab/rowSums(cluts.tab)
-  #}
-  
+
   names(theta.param) <- cell.names
 
   message("DONE!!!")  

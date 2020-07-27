@@ -47,5 +47,5 @@ rule concat_all_fasta:
 #	output: expand(PBbamDir+"/{sample}.{chunks}.fasta", chunks=chunkID, sample=sample)
 #	log: "log/split_fasta_file.log"
 #	shell: "(time pyfasta split -n {N} {input}) > {log} 2>&1"
-	
+
 

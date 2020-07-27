@@ -19,6 +19,7 @@ clust.partners <- fread(snakemake@input[['clust_partners']])
 bubble.clust.cov <- getClustCovInShortReads(minimap, soft.clust, clust.partners)
 # get bubble ids from the full bubble names
 bubble.clust.cov <- bubble.clust.cov[, bubble.id:=sapply(short.read.names, function(x) strsplit(x, '_')[[1]][2])]
+#bubble.clust.cov <- bubble.clust.cov[, bubble.id:=short.read.names]
 
 fwrite(bubble.clust.cov[, .(bubble.id, clust.forward, clust.cov)], file=snakemake@output[[1]], sep='\t', row.names=F)
 

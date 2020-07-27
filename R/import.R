@@ -124,6 +124,9 @@ filterInput <- function(inputData=NULL, quantileSSreads=c(0,0.9), minSSlibs=c(20
   #remove SS reads mapped with huge gaps (eg. summed gaps 100bp)
   gaps.perSS.mean <- round(mean(inputData$MatchedBasesWithGaps))
   inputData.filt <- inputData[inputData$MatchedBasesWithGaps <= gaps.perSS.mean,]
+
+  print('summary(inputData.filt):')
+  print(summary(inputData.filt))
   
   #remove SS reads mapped to multiple PB reads
   #rle.SSreads <- rle(inputData.filt$SSreadNames)
@@ -183,10 +186,12 @@ getRepresentativeAlignments <- function(inputfolder=NULL, numAlignments=30000, q
   countAligns <- 0
   for (file in file.list) {
     filename <- basename(file)
+    print(paste('processing file', filename))
     ptm <- proc.time()
     
     suppressMessages( suppressWarnings( tab.in <- importData(infile=file) ) )
     #suppressMessages( suppressWarnings( tab.in <- importTestData(infile=file, removeDuplicates=TRUE) ) )
+    print('filtering input...')
     suppressMessages( tab.filt.l <- filterInput(inputData=tab.in, quantileSSreads=quantileSSreads, minSSlibs=minSSlibs) )
     tab.filt <- tab.filt.l$tab.filt
     

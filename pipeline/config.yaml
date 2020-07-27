@@ -24,6 +24,9 @@ vcf_prefix: PR05
 
 # SS bams and phased vcf files
 SS_bam_dir: ../../ss_bams
+# Note the SS names filter is based on the ss reads with the top 5% coverage of long reads. The coverage is computed by the rules output_ss_read_names and count_ccs_cov_in_ss in Snakefile_haplocalust_evaluation
+# It is so slow. It might be faster by python implementation
+SS_names_filter: ss_cov/trim_ss_top0.05_cov.data
 
 # Kmer size of the graph
 # This should be very low to prevent fragmentation
@@ -34,6 +37,8 @@ l: 23
 # This should be very low
 kmer_abundance: 3
 
+bubble_info: "TRUE"
+evaluation: "TRUE"
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: ../../ss_fastq
@@ -48,14 +53,15 @@ f: 0.1 #0.0002
 z: 500
 
 # saarclust parameters
-testNumClustersHard: 70
-numClustersHard: 70
+testNumClustersHard: [50,60,80,90,100,200]
+numClustersHard: 80 #[50,60,70,80,90,100,200]
 numClustersSoft: 47
-EMiter: 10
+EMiter: 2
 alpha: 0.01
 minLib: 1
-upperQ: 0.95
+upperQ: 1 #0.95
 logLth: 1
 theta_constrain: "FALSE"
 log_scale: "TRUE"
-numAlignments: 150000
+filter_soft_clust_input: "FALSE"
+numAlignments: 30000 #150000
