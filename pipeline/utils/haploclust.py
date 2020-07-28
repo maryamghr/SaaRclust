@@ -31,10 +31,6 @@ def add_bubbles_het_positions(bubbles):
 	for bubble_id, bubble in bubbles.items():
 		bubble.add_het_positions()
 		
-#def reset_num_haplo_long_reads(bubbles):
-#	for bubble_id, bubble in bubbles.items():
-#		bubble.allele0.num_haplo_long_reads = [0,0]
-#		bubble.allele1.num_haplo_long_reads = [0,0]
 
 def haploclust_long_reads(long_reads, min_haplotagged_bubbles=1):
 	start_time = time.time()
@@ -47,8 +43,9 @@ def haploclust_long_reads(long_reads, min_haplotagged_bubbles=1):
 		long_read.phase(min_haplotagged_bubbles=min_haplotagged_bubbles)
 		
 	print('elapsed time =', time.time()-start_time, 's')
-		
-def haploclust_bubbles(bubbles, test_bubbles):
+
+	
+def haploclust_bubbles(bubbles):
 	start_time = time.time()
 	num = 0
 	total_bubbles = len(bubbles)-(len(bubbles)%10)
@@ -59,7 +56,8 @@ def haploclust_bubbles(bubbles, test_bubbles):
 		bubble.phase()
 		
 	print('elapsed time =', time.time()-start_time, 's')
-	
+
+
 def output_kmers(long_reads, kmers_file):
 	print('outputting the kmers')
 	num = 0
@@ -72,6 +70,7 @@ def output_kmers(long_reads, kmers_file):
 			
 			for aln in long_read.alignments:
 				print(aln.output_kmers(), file=out)
+
 				
 def get_km_quantile(bubbles,p):
 	km = []
@@ -99,7 +98,7 @@ def trim_top_km_bubbles(bubbles, trim):
 		del bubbles[bubble_id]
 		
 		
-def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_file_name, long_read_eval_file_name, itr=2, trim_km=0.05, min_haplotagged_bubbles = 1):
+def iterative_haplo_clust(bubbles, long_reads, q, itr=2, trim_km=0.05, min_haplotagged_bubbles = 1):
 	
 	'''
 	Assign haplotypes to long reads and bubbles in {itr} iterations, starting from the first set of phased bubbles from the input file
@@ -111,7 +110,6 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 		long_reads		 				: A dictionary {long_read_name -> long_read}
 	'''
 	
-	test_bubbles = {}
 	# trimming the set of bubbles with the highest km values
 	trim_top_km_bubbles(bubbles, trim_km)
 	
@@ -136,31 +134,25 @@ def iterative_haplo_clust(bubbles, long_reads, q, clust_to_chrom, bubble_eval_fi
 		long_read.phase(min_haplotagged_bubbles = min_haplotagged_bubbles)
 		
 		# testing:
-		if long_read.pred_haplo != None:
-			for aln in long_read.alignments:
-				bubble_allele = aln.bubble_allele
-				if bubble_allele.pred_haplo == None and bubble_allele.id == 0:
-					test_bubbles[bubble_allele.bubble.id] = bubble_allele.bubble
+		#if long_read.pred_haplo != None:
+		#	for aln in long_read.alignments:
+		#		bubble_allele = aln.bubble_allele
+		#		if bubble_allele.pred_haplo == None and bubble_allele.id == 0:
+		#			test_bubbles[bubble_allele.bubble.id] = bubble_allele.bubble
 					
 	print('elapsed time =', time.time()-start_time)
 	
 	for it in range(itr-1):
 		#TODO: the bubble phase eval here is different from first_itr dir output. They should be the same!!!
 		print('outputting haploclust iteration', it+1)
-		bubble_eval_file = bubble_eval_file_name["prefix"] + str(it+1) + bubble_eval_file_name["suffix"]
-		long_read_eval_file = long_read_eval_file_name["prefix"] + str(it+1) + long_read_eval_file_name["suffix"]
-		
-		evaluate_bubble_clustering(bubbles, clust_to_chrom, bubble_eval_file)
-		evaluate_long_read_clustering(long_reads, long_read_eval_file)
 		
 		if it == itr-1:
 			min_haplotagged_bubbles = 1
 			
 		print('haploclust iteration', it+2)
-		haploclust_bubbles(bubbles, test_bubbles)		
+		haploclust_bubbles(bubbles)		
 		haploclust_long_reads(long_reads, min_haplotagged_bubbles)
-		
-	return test_bubbles
+
 
 def output_phasing(bubbles, long_reads, bubble_phasing_file, long_read_phasing_file):
 	print('outputting bubbles phasing')
@@ -175,12 +167,4 @@ def output_phasing(bubbles, long_reads, bubble_phasing_file, long_read_phasing_f
 		for read_name, long_read in long_reads.items():
 			print(read_name, "\t", long_read.pred_haplo, file=out)
 
-
-def output_test_bubbles(test_bubbles, test_bubble_phasing_file):
-	print('outputting test bubbles phasing')
-	with open(test_bubble_phasing_file, 'w') as out:
-		print("bubble_id\tallele0haplo", file=out)
-		for bubble_id, bubble in test_bubbles.items():
-			print(bubble_id, "\t", bubble.allele0.pred_haplo, file=out)
-			
 

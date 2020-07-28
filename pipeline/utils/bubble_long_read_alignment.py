@@ -271,8 +271,9 @@ class Alignment:
 				het_pos = len(self.bubble_allele.seq)-1-het_pos
 				self.bubble_allele.set_rc_seq()
 				bubble_allele_seq = self.bubble_allele.rc_seq
-				
-			assert (q <= het_pos <= len(bubble_allele_seq)-q-1), 'het position should be at least ' + q + ' base pairs far from the start and end points of the bubble'
+			
+			assert (q <= het_pos <= len(bubble_allele_seq)-q-1), 'het position should be at least ' + str(q) + ' base pairs far from the start and end points of the bubble, ' \
+				+ str(self.bubble_allele.bubble.id) + ', het_pos: ' + str(het_pos) + ', allele0: ' + str(self.bubble_allele.bubble.allele0.seq) + ', allele1: ' + str(self.bubble_allele.bubble.allele1.seq)
 			
 			### Apparently the query_start and end pos in paf file are also in the original strand!
 			## look at bubble=1648373 ccs=m54329U_190827_173812/7079975/ccs in chunk 000

@@ -65,3 +65,6 @@ theta_constrain: "FALSE"
 log_scale: "TRUE"
 filter_soft_clust_input: "FALSE"
 numAlignments: 30000 #150000
+
+# phasing params
+num_iterations: 2

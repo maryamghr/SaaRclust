@@ -10,6 +10,9 @@ bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
 
 # whatshap
 whatshap: ../../whatshap-env/bin/whatshap
+BubbleGun: /home/mgharegh/.local/bin/BubbleGun
+
+overlap_graph: "FLASE"
 
 # whatshap split command
 whatshap_split_add_untagged: True
@@ -62,4 +65,4 @@ logLth: 1
 theta_constrain: "FALSE"
 log_scale: "TRUE"
 numAlignments: 150000
-haploclust_itr: 2
+haploclust_itr: 10

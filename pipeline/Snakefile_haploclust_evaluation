@@ -33,15 +33,46 @@ wildcard_constraints:
 	sample=sample,
 
 
+
+		
+#####################################################################
+
+###### getting clusters
+clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMinimap) + "_z" + str(z) + "/SaaRclust_results_" + sample + "/clust_partners.txt"
+
+clusters = []
+clust_pairs = []
+
+with open(clust_pairs_file) as f:
+	next(f)
+	for line in f:
+		if line=="":
+			continue
+
+		sp = line.split()
+		chr, clust1, clust2 = sp[0], sp[1], sp[2]
+		chr = chr.split('_')[0]
+		chr = chr.split('chr')[1]
+		
+		if chr=="X":
+			chr="23"
+		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
+		clust_pair = min_clust + '_' + max_clust
+		
+		clusters.append(clust1)
+		if clust1 == min_clust:
+			clust_pairs.append(clust_pair)
+
+print('clusters =', clusters)
+print('clust_pairs =', clust_pairs)
+print('len(clust_pairs) =', len(clust_pairs))
+
+
 rule all:
 	input: 
-		#expand("evaluation/strandphaser_bubble_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		#expand("evaluation/{itr}bubble_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
-		#expand("evaluation/{itr}long_read_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, itr=["iteration1_", "iteration2_"]),
-		#expand(PBbamDir+"/aln/{sample}.{chunks}.haplotagged.bam.bai", sample=sample, chunks=chunkID),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_ccs_cov_in_ss.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample)
-		
+		expand("evaluation_iteration{itr}/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, k=config["k"], a = config["kmer_abundance"], l = config["l"], clust_pair=clust_pairs, itr=2)
 
+#####################################################################
 ###########################################################
 ########### get long read coverages in ss reads ###########
 ###########################################################
@@ -306,48 +337,39 @@ rule cluster_snv_bubbles:
 #########	long read phasing evaluation	#########
 #########################################################
 
-rule evaluate_phasing:
+rule evaluate_haploclust:
 	input:
 		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
 		bubble_haplotagged_bam_index="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam.bai",
-		bubble_phase_file="bubbles/{itr}phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
+		#bubble_first_itr_phase_file="bubbles/iteration1_phased_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_withclsut.data",
 		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-		het_kmers=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/het_kmers/bubble_pb_het_kmers_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID[0]),
-		long_read_haplotagged_bam_files=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID[0]),
-		long_read_phase_files=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/phased_long_reads/{{itr}}pb_phase_chunk{chunks}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", chunks=chunkID[0]),
-
-	output: 
-		bubbles_clusering_evaluation="evaluation/{itr}bubble_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		bubbles_haplo_edit_dist="evaluation/{itr}bubble_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		long_read_phase_evaluation="evaluation/{itr}long_read_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		long_reads_haplo_edit_dist="evaluation/{itr}long_read_phase_evaluation/haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		# testing outputs for observation
-		long_reads_with_small_frac_haplo_edit_dist="evaluation/{itr}long_read_phase_evaluation/with_small_frac_haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		long_reads_with_peak_frac_haplo_edit_dist="evaluation/{itr}long_read_phase_evaluation/with_peak_frac_haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-	
-	params:
-		bubbles_have_km="--with_km" if config["bubble_info"] else ""
-
-	#script: "utils/evaluate_bubbles_phase.snakemake.py"
+		long_reads_clust_file=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/soft_clusters_long_reads_chunk{chunks}.data", chunks=chunkID),
+		long_read_haplotagged_bam_files=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
+		bubbles_phase_files=expand("haploclust_iteration{{itr}}/phased_snv_bubbles_cluster{clust_pair}_iteration{{itr}}_k{{k}}_a{{a}}_l{{l}}_kminimap{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_{{sample}}.data", clust_pair=clust_pairs),
+		long_reads_phase_files=expand("haploclust_iteration{{itr}}/pb_phase_cluster{clust_pair}_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}_k{{k}}_a{{a}}_l{{l}}_{{sample}}.data", clust_pair=clust_pairs)
+	output:
+		bubbles_haploclust_evaluation_file="evaluation_iteration{itr}/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		bubbles_haplo_edit_dist_file="evaluation_iteration{itr}/bubble_phase_evaluation/iteration{itr}_haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		long_reads_haploclust_evaluation_file="evaluation_iteration{itr}/long_read_phase_evaluation/iteration{itr}_k{k}_a{a}_{itr}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+		long_reads_haplo_edit_dist_file="evaluation_iteration{itr}/long_read_phase_evaluation/iteration{itr}_haplo_edit_dist_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
+	log: "log/haploclust_phasing_bubbles_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	shell:
 		'''
-		python3 utils/evaluate_haploclust.py \
-		--bubble_bam_file {input.bubble_haplotagged_bam_file} \
-		--bubble_phase_file {input.bubble_phase_file} \
+		time python3 utils/evaluate_haploclust.snakemake.py \
+		--bubble_haplotagged_bam_file {input.bubble_haplotagged_bam_file} \
 		--bubble_clust_file {input.bubble_clust_file} \
 		--clust_to_chrom_file {input.clust_to_chrom_file} \
-		--het_kmers_files {input.het_kmers} \
+		--long_read_clust_files {input.long_reads_clust_file} \
 		--long_read_haplotagged_bam_files {input.long_read_haplotagged_bam_files} \
-		--long_read_phase_files {input.long_read_phase_files} \
-		--bubbles_clusering_evaluation_file {output.bubbles_clusering_evaluation} \
-		--bubbles_haplo_edit_dist_file {output.bubbles_haplo_edit_dist} \
-		--long_read_phase_evaluation_file {output.long_read_phase_evaluation} \
-		--long_reads_haplo_edit_dist_file {output.long_reads_haplo_edit_dist} \
-		--long_reads_with_small_frac_haplo_edit_dist {output.long_reads_with_small_frac_haplo_edit_dist} \
-		--long_reads_with_peak_frac_haplo_edit_dist {output.long_reads_with_peak_frac_haplo_edit_dist} \
-		{params.bubbles_have_km}
+		--bubble_phase_files {input.bubbles_phase_files} \
+		--long_read_phase_files {input.long_reads_phase_files} \
+		--bubbles_haploclust_evaluation_file {output.bubbles_haploclust_evaluation_file} \
+		--bubbles_haplo_edit_dist_file {output.bubbles_haplo_edit_dist_file} \
+		--long_reads_haploclust_evaluation_file {output.long_reads_haploclust_evaluation_file} \
+		--long_reads_haplo_edit_dist_file {output.long_reads_haplo_edit_dist_file}
 		'''
+
 
 rule evaluate_strandphaser_bubble_phasing:
 	input:

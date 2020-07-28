@@ -52,7 +52,7 @@ def get_bubbles(bubble_fasta_file, with_km=True):
 	return bubbles
 	
 
-def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
+def get_bubbles_from_bam(bubble_haplotagged_bam_file):
 
 	'''
 	Reads bubbles happlotagged bam file, creates bubble and bubbleAllele objects, and returns the list of bubbles
@@ -68,6 +68,8 @@ def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
 	start_time = time.time()
 	print('adding bubbles true info from', bubble_haplotagged_bam_file)
 
+	bubbles = {}
+
 	samfile = pysam.AlignmentFile(bubble_haplotagged_bam_file, 'rb')
 
 	for read in samfile.fetch(until_eof=True): # until_eof=True allows to read also unmapped reads in sam file
@@ -75,9 +77,18 @@ def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
 		bubble_name_sp = bubble_name.split('_')
 		bubble_id, bubble_allele_id = int(bubble_name_sp[1]), int(bubble_name_sp[3])-1
 
-		bubble = bubbles[bubble_id]
+		if bubble_id in bubbles:
+			bubble = bubbles[bubble_id]
 
-		bubble_allele = bubble.allele0 if bubble_allele_id==0 else bubble.allele1
+		else:
+			bubble = Bubble(bubble_id)
+			bubbles[bubble_id] = bubble
+
+		bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble, seq)
+		bubble.add_allele(bubble_allele)
+
+		if with_km:
+			bubble_allele.km = float(bubble_name_sp[7])
 		
 		if read.is_unmapped:
 			bubble.actual_type = 'unmapped'
@@ -104,6 +115,8 @@ def add_bubbles_true_info(bubble_haplotagged_bam_file, bubbles):
 	print('after the for loop', bubbles[bubble_id])
 
 	print('elapsed time =', time.time()-start_time)
+
+	return bubbles
 
 
 def get_clust_to_chrom(clust_to_chrom_file):
@@ -140,8 +153,7 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 		bubble_clust_file (str): Path of bubbles clusters file
 
 		bubbles (dict(int): {bubble_id -> bubble}):
-		A dictionary that maps each bubble_id to its bubble object
-		
+		A dictionary that maps each bubble_id to its bubble object		
 	'''
 
 	start_time = time.time()
@@ -169,7 +181,7 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 	print('elapsed time =', time.time()-start_time)
 
 
-def add_bubble_allele_pred_haplo(bubble_phase_file, bubbles):
+def add_bubble_allele_pred_haplo(bubble_phase_files, bubbles):
 
 	'''
 	Adds Haploclust predicted haploypes to bubble allele objects
@@ -185,29 +197,28 @@ def add_bubble_allele_pred_haplo(bubble_phase_file, bubbles):
 	start_time = time.time()
 	print('adding haplotype clusers to bubble alleles from the file', bubble_phase_file)
 
-	with open(bubble_phase_file) as f:
-		# skip the header line
-		next(f)
+	for phase_file in bubble_phase_files:
+		with open(bubble_phase_file) as f:
+			# skip the header line
+			next(f)
 
-		for line in f:
-			sp = line.split()
-			bubble_id, al0_haplo = int(sp[0]), int(sp[1])
+			for line in f:
+				sp = line.split()
+				bubble_id, al0_haplo = int(sp[0]), int(sp[1])
 
-			assert (bubble_id in bubbles), 'bubble ' + str(bubble_id) + ' is not present in the bubbles'
+				if bubble_id not in bubbles:
+					# the bubble is not in this cluster being]
+					continue
 
-			#if bubble_id not in bubbles:
-				# bubble is not present in the bubbles (not mapped to a valid chromosome)
-			#	continue
+				bubble = bubbles[bubble_id]
 
-			bubble = bubbles[bubble_id]
-
-			bubble.allele0.pred_haplo = al0_haplo
-			bubble.allele1.pred_haplo = 1-al0_haplo
+				bubble.allele0.pred_haplo = al0_haplo
+				bubble.allele1.pred_haplo = 1-al0_haplo
 
 	print('elapsed time =', time.time()-start_time)
 
 
-def get_long_reads(long_reads_fasta_files):
+def get_long_reads(long_reads_fasta_file):
 
 	'''
 	Reads long reads from fasta files and creates LongRead objects
@@ -224,26 +235,26 @@ def get_long_reads(long_reads_fasta_files):
 
 	long_reads = {}	
 	
-	for f in long_reads_fasta_files:
-		print('getting long reads from', f, '...')
-		
-		with pysam.FastxFile(f) as fastafile:
-			for read in fastafile:
-				read_name = read.name
-				seq = read.sequence
-				
-				read_name_sp = read_name.split('/ccs')
-				read_name = read_name_sp[0]+'/ccs'
+	#for f in long_reads_fasta_files:
+	print('getting long reads from', long_reads_fasta_file, '...')
+	
+	with pysam.FastxFile(long_reads_fasta_file) as fastafile:
+		for read in fastafile:
+			read_name = read.name
+			seq = read.sequence
 			
-				long_read = LongRead(read_name, seq)
-				long_reads[read_name] = long_read
+			read_name_sp = read_name.split('/ccs')
+			read_name = read_name_sp[0]+'/ccs'
+			
+			long_read = LongRead(read_name, seq)
+			long_reads[read_name] = long_read
 				
 	print('elapsed time =', time.time()-start_time)
 			
 	return long_reads
 	
 
-def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
+def get_long_reads_from_bam(long_reads_haplotagged_bam_files):
 
 	'''
 	Reads long reads from haplotagged bam files and creates LongRead objects
@@ -258,13 +269,16 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 	start_time = time.time()
 	print('adding long reads true info from', long_reads_haplotagged_bam_files)
 
+	long_reads = {}
+
 	for alignmentfile in long_reads_haplotagged_bam_files:
 		print('processing', alignmentfile, '...')
 		samfile = pysam.AlignmentFile(alignmentfile, 'rb')
 		for read in samfile.fetch(until_eof=True):
 			read_name = read.query_name
 		
-			long_read = long_reads[read_name]
+			long_read = LongRead(read_name, seq)
+			long_reads[read_name] = long_read
 			
 			if read.is_unmapped:
 				long_read.actual_type = 'unmapped'
@@ -288,7 +302,10 @@ def add_long_reads_true_info(long_reads_haplotagged_bam_files, long_reads):
 			long_read.actual_type = 'tagged' + str(haplotype)
 			
 	print('elapsed time =', time.time()-start_time)
+
+	return long_reads
 	
+
 def add_long_reads_clust(long_reads_clust_files, long_reads):
 
 	'''
@@ -363,7 +380,7 @@ def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
 
 
 	
-def set_alignments_from_minimap_file(minimap_files_list, bubbles, long_reads):
+def set_alignments_from_minimap_file(minimap_file, bubbles, long_reads):
 
 	'''
 	Given a list of minimap alignment files, and bubbles and long_reads, creates alignment objects
@@ -376,45 +393,53 @@ def set_alignments_from_minimap_file(minimap_files_list, bubbles, long_reads):
 	
 	start_time = time.time()
 
-	for minimap_file in minimap_files_list:
-		print('reading alignments from file', minimap_file)
-		with gzip.open(minimap_file) as minimap:
+	#for minimap_file in minimap_files_list:
+	print('reading alignments from file', minimap_file)
+	with gzip.open(minimap_file) as minimap:
 			
-			for line in minimap:
-				line = line.decode("utf-8")
-				sp = line.split()
-					
-				bubble_name, bubble_len, bubble_start, bubble_end, strand, \
-				read_name, long_read_len, long_read_start, long_read_end = \
-				sp[0], int(sp[1]), int(sp[2]), int(sp[3])-1, sp[4], \
-				sp[5], int(sp[6]), int(sp[7]), int(sp[8])-1
+		for line in minimap:
+			line = line.decode("utf-8")
+			sp = line.split()
 				
-				bubble_name_sp = bubble_name.split('_')
-				
-				bubble_id, bubble_allele_id = int(bubble_name_sp[1]), int(bubble_name_sp[3])-1
-				
-				assert(bubble_allele_id == 0 or bubble_allele_id == 1), 'bubble ' + str(bubble_id) + ': allele should be 0 or 1'
+			bubble_name, bubble_len, bubble_start, bubble_end, strand, \
+			read_name, long_read_len, long_read_start, long_read_end = \
+			sp[0], int(sp[1]), int(sp[2]), int(sp[3])-1, sp[4], \
+			sp[5], int(sp[6]), int(sp[7]), int(sp[8])-1
+			
+			bubble_name_sp = bubble_name.split('_')
+			
+			bubble_id, bubble_allele_id = int(bubble_name_sp[1]), int(bubble_name_sp[3])-1
+			
+			assert(bubble_allele_id == 0 or bubble_allele_id == 1), 'bubble ' + str(bubble_id) + ': allele should be 0 or 1'
+			# remove the beginning part of the cigar string
+			cigar = sp[-1] # assuming that always the last tag is cigar
+			cigar = cigar.split('cg:Z:')[1]
+			
+			read_name_sp = read_name.split('/ccs')
+			read_name = read_name_sp[0]+'/ccs'
 
-				# remove the beginning part of the cigar string
-				cigar = sp[-1] # assuming that always the last tag is cigar
-				cigar = cigar.split('cg:Z:')[1]
-				
-				read_name_sp = read_name.split('/ccs')
-				read_name = read_name_sp[0]+'/ccs'
+			if bubble_id not in bubbles:
+				# the bubble is not from the same clust_pair (chromosome) as the long read
+				continue
 
-				assert (bubble_id in bubbles), 'bubble ' + str(bubble_id) + ' is not present in the bubbles'
-				assert (read_name in long_reads), 'long read ' + read_name + ' is not present in long reads'
+			assert (read_name in long_reads), 'long read ' + read_name + ' is not present in long reads'
+			
+			bubble = bubbles[bubble_id]
 
-				bubble = bubbles[bubble_id]
-				long_read = long_reads[read_name]
-								
-				bubble_allele = bubble.allele0 if bubble_allele_id == 0 else bubble.allele1
-				
-				bubble_allele_seq = bubble_allele.seq
-				
-				assert (bubble_allele != None), 'bubble ' + str(bubble_id) + ' allele ' + str(bubble_al) + ' is None'
-				
-				aln = Alignment(long_read=long_read, bubble_allele=bubble_allele, long_read_start=long_read_start, long_read_end=long_read_end, \
+			if bubble.allele0==None or bubble.allele1==None:
+				# Not both alleles exist or not both clustered in the same chromosome
+				del bubbles[bubble_id]
+				continue
+
+			long_read = long_reads[read_name]
+							
+			bubble_allele = bubble.allele0 if bubble_allele_id == 0 else bubble.allele1
+			
+			bubble_allele_seq = bubble_allele.seq
+			
+			assert (bubble_allele != None), 'bubble ' + str(bubble_id) + ' allele ' + str(bubble_al) + ' is None'
+			
+			aln = Alignment(long_read=long_read, bubble_allele=bubble_allele, long_read_start=long_read_start, long_read_end=long_read_end, \
 									bubble_start=bubble_start, bubble_end=bubble_end, strand=strand, cigar=cigar)
 
 	print('elapsed time =', time.time()-start_time)

@@ -346,49 +346,4 @@ def output_sampled_long_reads(num_sample, edit_dist_fraction_range, file_name):
 						
 				print('h_dist0 =', d0, file=out)
 				print('h_dist1 =', d1, '\n', file=out)
-						
-
-if __name__ == "__main__":
-	parser = ArgumentParser(description=__doc__)
-	parser.add_argument("--bubble_bam_file", type=str, help="Bubble haplotagged bam file", required=True)
-	parser.add_argument("--bubble_phase_file", type=str, help="Bubbles haplo clustering file", required=True)
-	parser.add_argument("--bubble_clust_file", type=str, help="Bubbles cluster file", required=True)
-	parser.add_argument("--clust_to_chrom_file", type=str, help="Cluster to chrom mapping file", required=True)
-	parser.add_argument("--het_kmers_files", nargs='*', help="The set of bubble/long reads het kmers files", required=True)
-	parser.add_argument("--long_read_haplotagged_bam_files", nargs='*', help="The set of long reads haplotagged bam files", required=True)
-	parser.add_argument("--long_read_phase_files", nargs='*', help="The set of long reads haplo clustering files", required=True)
-	parser.add_argument("--bubbles_clusering_evaluation_file", type=str, help="The output bubbles clustring evaluation file", required=True)
-	parser.add_argument("--bubbles_haplo_edit_dist_file", type=str, help="The output bubbles haplo edit dist file", required=True)
-	parser.add_argument("--long_read_phase_evaluation_file", type=str, help="The output long reads phasing evaluation file", required=True)
-	parser.add_argument("--long_reads_haplo_edit_dist_file", type=str, help="The output long reads haplo edit dist file", required=True)
-
-	# testing output files for observation 
-	parser.add_argument("--long_reads_with_small_frac_haplo_edit_dist", type=str, help="The output sample long reads with small fraction of haplo_edit_dist", required=True)
-	parser.add_argument("--long_reads_with_peak_frac_haplo_edit_dist", type=str, help="The output sample long reads with peak fraction of haplo_edit_dist", required=True)
-	######################################
-	
-	parser.add_argument("--with_km", action='store_true', help="True if bubbles have km information in their name")
-	args = parser.parse_args()
-
-	#counts(args.sample, args.input_bam, args.input_bed, args.counts_output)
-	with_km = True if "with_km" in args else False
-	print('with_km', 	with_km)
-
-	bubbles = get_bubbles_from_bam(args.bubble_bam_file, with_km)
-	clust_to_chrom = get_clust_to_chrom(args.clust_to_chrom_file)
-	add_bubble_clust(args.bubble_clust_file, bubbles)
-	add_bubble_allele_pred_haplo(args.bubble_phase_file, bubbles)
-	long_reads = get_long_reads_from_bam(args.long_read_haplotagged_bam_files)
-	add_long_reads_pred_haplotype(args.long_read_phase_files, long_reads)
-	set_alignments_from_kmers_file(args.het_kmers_files, bubbles, long_reads)
-	evaluate_bubble_clustering(bubbles, clust_to_chrom, args.bubbles_clusering_evaluation_file)
-	output_bubbles_haplo_dist(bubbles, args.bubbles_haplo_edit_dist_file, with_km)
-	evaluate_long_read_clustering(long_reads, args.long_read_phase_evaluation_file)
-	output_long_reads_haplo_dist(long_reads, args.long_reads_haplo_edit_dist_file)
-	
-	# sampling long reads:
-	#output_sampled_long_reads(100, (0.35, 0.4), args.long_reads_with_peak_frac_haplo_edit_dist)
-	#output_sampled_long_reads(10, (0, 0.1), args.long_reads_with_small_frac_haplo_edit_dist)
-
-
 

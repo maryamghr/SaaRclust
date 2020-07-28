@@ -22,6 +22,10 @@ all.maps <- lapply(snakemake@input[["valid_maps"]], fread)
 map <- Reduce(rbind, all.maps)
 
 bubbles.clust <- fread(snakemake@input[["bubbles_clust"]])
+# add bubble id...
+bubbles.clust[, bubble.id:=sapply(name, function(x) as.integer(strsplit(x, '_')[[1]][2]))]
+bubbles.clust <- bubbles.clust[, head(.SD, 1), by=bubble.id]
+bubbles.clust <- bubbles.clust[, .(clust.forward, bubble.id)]
 colnames(bubbles.clust) <- c("bubbleClust", "bubbleName")
 
 ss.clust <- fread(snakemake@input[["ss_clust"]])
