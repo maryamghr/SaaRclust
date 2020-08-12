@@ -308,18 +308,4 @@ class Alignment:
 				 output_str += '\n'
 							
 		return output_str
-		
-		
-	def output_print(self):
-		# bubbleName	bubbleAllele	PBname	bubbleKmer	PBkmer	kmersEditDistance bubble_alle_pred_haplo	long_read_pred_haplo
-		for i in range(len(self.long_read_kmers)):
-			print_str = str(self.bubble_allele.bubble.id)
-			print_str += '\t' + str(self.bubble_allele.id)
-			print_str += '\t' + str(self.long_read.name)
-			print_str += '\t' + str(self.bubble_allele_kmers[i])
-			print_str += '\t' + str(self.long_read_kmers[i])
-			print_str += '\t' + str(self.edit_dist)
-			print_str += '\t' + str(self.bubble_allele.pred_haplo)
-			print_str += '\t' + str(self.long_read.pred_haplo)
-		
-		return print_str
+

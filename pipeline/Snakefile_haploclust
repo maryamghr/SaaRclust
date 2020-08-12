@@ -14,6 +14,7 @@ SSbamDir = config["SS_bam_dir"]
 chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
 phasedSSvcfDir = config["phased_vcf_dir"]
 whatshap = config["whatshap"]
+hifiasm = config["hifiasm"]
 PBbamDir = config["pb_bam_dir"]
 minPBlen = config["min_pb_len"]
 N = config["Nchunks"]
@@ -154,9 +155,9 @@ rule minimap_align_bubbles_to_PB_reads:
 		pb_reads="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fasta"
 	output:
 		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/aln_snv_bubbles_k{k}_a{a}_l{l}/cluster{clust_pair}.paf.gz"
-	threads: 14
+	threads: 2
 	log: "log/minimap_align_bubbles_to_PB_reads_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
-	shell: "(time minimap2 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.bubbles} | gzip -c > {output}) > {log} 2>&1"
+	shell: "(time minimap2 -N 100 -c -t{threads} -k{wildcards.kMinimap} -w{wildcards.w} -f{wildcards.f} -z{wildcards.z} {input.pb_reads} {input.bubbles} | gzip -c > {output}) > {log} 2>&1"
 
 
 rule count_bubble_clust_cov:
@@ -271,15 +272,16 @@ rule phase_snv_bubbles:
 #if config["overlap_graph"]:
 
 #    rule hifiasm:
-#        input:
-#        output:
-#        log:
-#        shell:"./hifiasm -o assembly/V16_V47 -t24 ../aligns_k15_w1_f0.1_z500/SaaRclust_results_HG00733/Clusters/split/HG00733.V16_V47.fastq.gz"
+#        input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fastq.gz"
+#        output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_utg.gfa"
+#	threads: 24
+#        log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
+#        shell:"(time {hifiasm} -o aligns_k{wc.kMinimap}_w{wc.w}_f{wc.f}_z{wc.z}/{outputfolder}_{sample}/Clusters/split/hifiasm/{wc.clust_pair} -t {threads} {input}) > {log} 2<&1"
         
 #    rule detect_bubbles_overlap_graph:
-#        input:
-#        output:
-#        log:
+#        input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_utg.gfa"
+#        output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.bubbles.fasta"
+#        log: "log/detect_bubbles_overlap_graph_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
 #        shell: "(time {BubbleGun} -g {input} bchains --fasta {output})> {log} 2>&1"
 
 
@@ -302,7 +304,7 @@ rule haploclust_phasing:
 		with_km="--with_km" if config["bubble_info"] else "",
 		itr=2,
 		min_bubbles=2
-	log: "log/haploclust_phasing_bubbles_cluster{clust_pair}_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	log: "log/haploclust_cluster{clust_pair}_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	shell:
 		'''
 		(time python3 utils/haploclust.snakemake.py \

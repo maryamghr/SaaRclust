@@ -49,12 +49,12 @@ het_kmer_len: 10
 #minimap parameters
 w: 1
 k_minimap: 15
-f: 0.1 #0.0002
+f: 0.1
 z: 500
 
 # saarclust parameters
 testNumClustersHard: [50,60,80,90,100,200]
-numClustersHard: 80 #[50,60,70,80,90,100,200]
+numClustersHard: 80
 numClustersSoft: 47
 EMiter: 2
 alpha: 0.01
@@ -68,3 +68,5 @@ numAlignments: 30000 #150000
 
 # phasing params
 num_iterations: 2
+
+hifiasm: hifiasm/hifiasm

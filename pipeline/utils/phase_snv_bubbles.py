@@ -115,12 +115,12 @@ def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_p
 
 			haplo_allele_count = bubble_haplo_allele_count[bubble_id]
 			h0_a0 = haplo_allele_count[0]+haplo_allele_count[3] # count(h=0,a=0) + count(h=1,a=1)
-			h0_a1 = haplo_allele_count[1]+haplo_allele_count[2]	# count(h=0,a=1) + count(h=1,a=0)
+			h0_a1 = haplo_allele_count[1]+haplo_allele_count[2] # count(h=0,a=1) + count(h=1,a=0)
 
 			if h0_a0 == h0_a1:
 				continue
 
-			h0_allele = '0' if h0_a0 > h0_a1 else '1'
+			h0_allele = 'H1' if h0_a0 > h0_a1 else 'H2'
 
 			print(bubble_id + "\t" + h0_allele, file=out)
 

@@ -66,7 +66,7 @@ def get_bubbles_from_bam(bubble_haplotagged_bam_file):
 	'''
 
 	start_time = time.time()
-	print('adding bubbles true info from', bubble_haplotagged_bam_file)
+	print('getting bubbles from', bubble_haplotagged_bam_file)
 
 	bubbles = {}
 
@@ -84,12 +84,9 @@ def get_bubbles_from_bam(bubble_haplotagged_bam_file):
 			bubble = Bubble(bubble_id)
 			bubbles[bubble_id] = bubble
 
-		bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble, seq)
+		bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble)
 		bubble.add_allele(bubble_allele)
 
-		if with_km:
-			bubble_allele.km = float(bubble_name_sp[7])
-		
 		if read.is_unmapped:
 			bubble.actual_type = 'unmapped'
 			continue
@@ -160,20 +157,15 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
 
 	with open(bubble_clust_file) as f:
+		# skip the header line
+		next(f)
+
 		for line in f:
 			sp = line.split()
 
-			if not sp[0].startswith('V'):
-				# it is a header line
-				continue
-
-			bubble_id, bubble_clust = int(sp[1]), sp[0]
+			bubble_id, bubble_clust = int(sp[1].split('_')[1]), sp[0]
 
 			assert (bubble_id in bubbles), 'bubble ' + str(bubble_id) + ' is not present in the bubbles'
-
-			#if bubble_id not in bubbles:
-				# bubble is not present in the bubbles (not mapped to a valid chromosome)
-			#	continue
 
 			bubble = bubbles[bubble_id]
 			bubble.clust = bubble_clust
@@ -181,7 +173,7 @@ def add_bubble_clust(bubble_clust_file, bubbles):
 	print('elapsed time =', time.time()-start_time)
 
 
-def add_bubble_allele_pred_haplo(bubble_phase_files, bubbles):
+def add_bubble_allele_pred_haplo(bubble_phase_file, bubbles):
 
 	'''
 	Adds Haploclust predicted haploypes to bubble allele objects
@@ -197,23 +189,28 @@ def add_bubble_allele_pred_haplo(bubble_phase_files, bubbles):
 	start_time = time.time()
 	print('adding haplotype clusers to bubble alleles from the file', bubble_phase_file)
 
-	for phase_file in bubble_phase_files:
-		with open(bubble_phase_file) as f:
-			# skip the header line
-			next(f)
+	#for phase_file in bubble_phase_file:
+	with open(bubble_phase_file) as f:
+		# skip the header line
+		next(f)
 
-			for line in f:
-				sp = line.split()
-				bubble_id, al0_haplo = int(sp[0]), int(sp[1])
+		for line in f:
+			sp = line.split()
 
-				if bubble_id not in bubbles:
-					# the bubble is not in this cluster being]
-					continue
+			if sp[1]=="none":
+				# the bubble is not phased
+				continue
 
-				bubble = bubbles[bubble_id]
+			bubble_id, al0_haplo = int(sp[0]), sp[1]
+			al0_haplo = 0 if al0_haplo=="H1" else 1
 
-				bubble.allele0.pred_haplo = al0_haplo
-				bubble.allele1.pred_haplo = 1-al0_haplo
+			if bubble_id not in bubbles:
+				# the bubble is not in this cluster being]
+				continue
+
+			bubble = bubbles[bubble_id]
+			bubble.allele0.pred_haplo = al0_haplo
+			bubble.allele1.pred_haplo = 1-al0_haplo
 
 	print('elapsed time =', time.time()-start_time)
 
@@ -267,7 +264,7 @@ def get_long_reads_from_bam(long_reads_haplotagged_bam_files):
 	'''
 
 	start_time = time.time()
-	print('adding long reads true info from', long_reads_haplotagged_bam_files)
+	print('getting long reads from', long_reads_haplotagged_bam_files)
 
 	long_reads = {}
 
@@ -277,7 +274,7 @@ def get_long_reads_from_bam(long_reads_haplotagged_bam_files):
 		for read in samfile.fetch(until_eof=True):
 			read_name = read.query_name
 		
-			long_read = LongRead(read_name, seq)
+			long_read = LongRead(read_name)
 			long_reads[read_name] = long_read
 			
 			if read.is_unmapped:
@@ -320,10 +317,8 @@ def add_long_reads_clust(long_reads_clust_files, long_reads):
 	'''
 
 	start_time = time.time()
-	print('adding SaaRclust chromosome clusters to bubbles from the file', bubble_clust_file)
-
 	for clust_file in long_reads_clust_files:
-		print('reading clusters from', f)
+		print('reading clusters from', clust_file)
 		with open(clust_file) as f:
 			for line in f:
 				sp = line.split()
@@ -332,8 +327,11 @@ def add_long_reads_clust(long_reads_clust_files, long_reads):
 				read_name = read_name_sp[0]+'/ccs'
 
 				assert (read_name in long_reads), read_name + ' is not present in the long_reads'
+				# to be removed
+				#if read_name not in long_reads:
+				#	continue
 
-				long_read[read_name].clust=clust
+				long_reads[read_name].clust=clust
 				
 
 		print('elapsed time =', time.time()-start_time)
@@ -366,14 +364,14 @@ def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
 				read_name = read_name_sp[0]+'/ccs'
 
 				assert (read_name in long_reads), 'read ' + read_name + ' should be present in long_reads'
+				# to be removed
+				#if read_name not in long_reads:
+				#	continue
 
 				long_read = long_reads[read_name]
 
-				if haplo!="?":
-					long_read.pred_haplo = int(haplo)
-
-				long_read.haplo0_edit_dist, long_read.haplo1_edit_dist = (int(sp[3]), int(sp[4]))
-
+				if haplo!="none":
+					long_read.pred_haplo = 0 if haplo=="H1" else 1
 
 	print('elapsed time =', time.time()-start_time)
 

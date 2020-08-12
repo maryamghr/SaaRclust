@@ -26,6 +26,8 @@ import math
 #11	int	Number bases, including gaps, in the mapping
 #12	int	Mapping quality (0-255 with 255 for missing)
 
+global convert_haplo
+convert_haplo = {0:"H1", 1:"H2", None:"none"}
 
 def add_bubbles_het_positions(bubbles):
 	for bubble_id, bubble in bubbles.items():
@@ -133,17 +135,10 @@ def iterative_haplo_clust(bubbles, long_reads, q, itr=2, trim_km=0.05, min_haplo
 		long_read.set_alignments_edit_dist(q)
 		long_read.phase(min_haplotagged_bubbles = min_haplotagged_bubbles)
 		
-		# testing:
-		#if long_read.pred_haplo != None:
-		#	for aln in long_read.alignments:
-		#		bubble_allele = aln.bubble_allele
-		#		if bubble_allele.pred_haplo == None and bubble_allele.id == 0:
-		#			test_bubbles[bubble_allele.bubble.id] = bubble_allele.bubble
 					
 	print('elapsed time =', time.time()-start_time)
 	
 	for it in range(itr-1):
-		#TODO: the bubble phase eval here is different from first_itr dir output. They should be the same!!!
 		print('outputting haploclust iteration', it+1)
 		
 		if it == itr-1:
@@ -159,12 +154,12 @@ def output_phasing(bubbles, long_reads, bubble_phasing_file, long_read_phasing_f
 	with open(bubble_phasing_file, 'w') as out:
 		print("bubble_id\tallele0haplo", file=out)
 		for bubble_id, bubble in bubbles.items():
-			print(bubble_id, "\t", bubble.allele0.pred_haplo, file=out)
+			print(str(bubble_id) + "\t" + convert_haplo[bubble.allele0.pred_haplo], file=out)
 
 	print('outputting long reads phasing')
 	with open(long_read_phasing_file, 'w') as out:
 		print("long_read_name\thaplotype", file=out)
 		for read_name, long_read in long_reads.items():
-			print(read_name, "\t", long_read.pred_haplo, file=out)
+			print(read_name + "\t" + convert_haplo[long_read.pred_haplo], file=out)
 
 

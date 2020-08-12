@@ -27,7 +27,7 @@ if __name__ == "__main__":
 	bubbles = get_bubbles(args.bubble_fasta_file, with_km)
 	long_reads = get_long_reads(args.long_reads_fasta_file)
 	set_alignments_from_minimap_file(args.minimap_file, bubbles, long_reads)
-	
+
 	add_bubble_allele_pred_haplo(args.bubble_first_itr_phase_file, bubbles)
 	
 	iterative_haplo_clust(bubbles=bubbles, long_reads=long_reads, q=args.het_kmer_len, itr=args.itr, min_haplotagged_bubbles=args.min_bubbles)

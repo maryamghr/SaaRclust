@@ -66,3 +66,5 @@ theta_constrain: "FALSE"
 log_scale: "TRUE"
 numAlignments: 150000
 haploclust_itr: 10
+
+hifiasm: hifiasm/hifiasm
