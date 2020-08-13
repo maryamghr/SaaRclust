@@ -130,6 +130,7 @@ rule all:
 	input:
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.fasta", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes)
 
 
 
@@ -165,14 +166,28 @@ rule get_hifiasm_contigs:
 
 
 rule flye_assembly:
-    input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz"
-    output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/flye_assembly/{sample}.{clust_pair}.{haplo}.fasta"
-    params:
-        output_dir = lambda wc: ("aligns_k{}_w{}_f{}_z{}/"+outputfolder+"_{}/Clusters/split/haplo_split_min_2_bubbles_k{}_a{}_l{}/flye_assembly").format(wc.kMinimap, wc.w, wc.f, wc.z, wc.sample, wc.k, wc.a, wc.l),
-        chrom_size = lambda wc: clust_pair_sizes[wc.clust_pair]
-    threads: 14
-    log: "log/{clust_pair}_{haplo}_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_flye_assembly.log"
-    shell:
-        '''
-        (time flye --pacbio-hifi {input} --out-dir {params.output_dir} --genome-size {params.chrom_size} --threads {threads}) > {log} 2>&1
-        '''
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/flye_assembly/{sample}.{clust_pair}.{haplo}.fasta"
+	params:
+		output_dir = lambda wc: ("aligns_k{}_w{}_f{}_z{}/"+outputfolder+"_{}/Clusters/split/haplo_split_min_2_bubbles_k{}_a{}_l{}/flye_assembly").format(wc.kMinimap, wc.w, wc.f, wc.z, wc.sample, wc.k, wc.a, wc.l),
+		chrom_size = lambda wc: clust_pair_sizes[wc.clust_pair]
+	threads: 14
+	log: "log/{clust_pair}_{haplo}_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_flye_assembly.log"
+	shell:
+		'''
+		(time flye --pacbio-hifi {input} --out-dir {params.output_dir} --genome-size {params.chrom_size} --threads {threads}) > {log} 2>&1
+		'''
+
+rule canu_assembly:
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.fasta"
+	params:
+		chrom_size = lambda wc: clust_pair_sizes[wc.clust_pair]
+	threads: 46
+	log: "log/{clust_pair}_{haplo}_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_canu_assembly.log"
+	shell:
+		'''
+		DIR=$(dirname {output}) &&
+		(time canu -d $DIR/{wildcards.clust_pair}.{wildcards.haplo} -p asm genomeSize={params.chrom_size} maxThreads={threads} -pacbio-hifi {input}) > {log} 2<&1
+		'''
+
