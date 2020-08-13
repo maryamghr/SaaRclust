@@ -26,7 +26,7 @@ logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale  	= config["log_scale"]
 numAlignments   = config["numAlignments"]
-
+haplotypes = ['H1', 'H2']
 
 wildcard_constraints:
 	chunks = "[0-9]+",
@@ -42,6 +42,7 @@ clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMini
 
 clusters = []
 clust_pairs = []
+clust_pair_to_chrom = {}
 
 with open(clust_pairs_file) as f:
 	next(f)
@@ -52,16 +53,14 @@ with open(clust_pairs_file) as f:
 		sp = line.split()
 		chr, clust1, clust2 = sp[0], sp[1], sp[2]
 		chr = chr.split('_')[0]
-		chr = chr.split('chr')[1]
-		
-		if chr=="X":
-			chr="23"
+
 		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
 		clust_pair = min_clust + '_' + max_clust
-		
+
 		clusters.append(clust1)
 		if clust1 == min_clust:
 			clust_pairs.append(clust_pair)
+			clust_pair_to_chrom[clust_pair] = chr
 
 print('clusters =', clusters)
 print('clust_pairs =', clust_pairs)
@@ -70,8 +69,7 @@ print('len(clust_pairs) =', len(clust_pairs))
 
 rule all:
 	input:
-		expand("phased_references/{chrom}_{haplo}.fasta", chrom="chr8", haplo=["haplotype1", "haplotype2"]),
-		#expand("evaluation_iteration{itr}/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, k=config["k"], a = config["kmer_abundance"], l = config["l"], clust_pair=clust_pairs, itr=2)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes)
 
 #####################################################################
 ###########################################################
@@ -136,13 +134,6 @@ rule create_phased_references:
 		      bcftools consensus --sample {sample} -H 2 -f <(bioawk -c fastx '{{if($name=={wildcards.chrom}) print \">\"$name; print $seq}}' {input.fasta}) {input.vcf} > {output.h2}
 		) > {log} 2>&1
 		'''
-
-# TODO: the fasta file looks strange; ask Peter later!
-#rule split_phased_ref_by_chrom:
-#	input: "phased_references/HG00733.{haplo}.polish.fasta"
-#	output: "phased_references/HG00733.{chrom}.{haplo}.polish.fasta"
-#	log: "log/split_phased_ref_by_chrom_{chrom}_{haplo}.log"
-#	shell: "(time bioawk -c fastx '{{if($name=={wildcards.chrom}) print \">\"$name; print $seq}}' {input} > {output}) > {log} 2>&1"
 
 ###########################################
 ######### haplotagging PB reads ###########
@@ -354,7 +345,7 @@ rule evaluate_haploclust:
 	output:
 		bubbles_haploclust_evaluation_file="evaluation_iteration{itr}/bubble_phase_evaluation/iteration{itr}_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
 		long_reads_haploclust_evaluation_file="evaluation_iteration{itr}/long_read_phase_evaluation/iteration{itr}_k{k}_a{a}_{itr}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-	log: "log/haploclust_phasing_bubbles_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	log: "log/evaluate_haploclust_{itr}iterations_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	shell:
 		'''
 		time python3 utils/evaluate_haploclust.snakemake.py \
@@ -369,18 +360,28 @@ rule evaluate_haploclust:
 		--long_reads_haploclust_evaluation_file {output.long_reads_haploclust_evaluation_file}
 		'''
 
+#########################################################
+##############	assembly evaluation	#################
+#########################################################
 
-rule evaluate_strandphaser_bubble_phasing:
+rule quast_evaluate_assembly:
 	input:
-		bubble_haplotagged_bam_file="bubbles/mapped_contigs_k{k}_a{a}_l{l}.snv.bubbles.unitigs.haplotagged.bam",
-		bubble_phase_file="bubbles/strandphaser_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		bubble_clust_file="bubbles/snv_bubbles_clusters_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+		ref_h0=lambda wc: ("phased_references/{}.{}.h0.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
+		ref_h1=lambda wc: ("phased_references/{}.{}.h1.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
+		assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa"
 	output: 
-		evaluation="evaluation/strandphaser_bubble_phase_evaluation/k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data",
-		false_phased_bubbles_file="evaluation/strandphaser_false_phased_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
-	script: "utils/evaluate_bubbles_phase.snakemake.py"
-
+		H0="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf",
+		H1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/quast_results/ref_H1_{clust_pair}_{haplo}.p_ctg/report.pdf"
+	threads: 1
+	log:
+		h0="log/quast_evaluate_assembly_h0_k{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_{clust_pair}_{haplo}.log",
+		h1="log/quast_evaluate_assembly_h1_k{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_{clust_pair}_{haplo}.log"
+	shell:
+		'''
+		DIR=$(dirname {input.assembly}) &&
+		(time quast -r {input.ref_h0} -t {threads} -o $DIR/quast_results/ref_H0_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
+		(time quast -r {input.ref_h1} -t {threads} -o $DIR/quast_results/ref_H1_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
+		'''
 
 #################################################
 #########	SS haplo strand states	#########
