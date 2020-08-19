@@ -511,11 +511,13 @@ rule output_valid_maps:
 	input:
 		map="bubble_ss_map/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data",
 		ss_reads=SSfastqDir+"/merged/{x}.combined.fasta",
-		bubbles="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
+		unitigs="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa",
 		#clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
 	output: "bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
+	params:
+		input_type="bubble"
 	log: "log/output_valid_maps_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-	script: "utils/output_valid_maps.py"
+	script: "utils/output_valid_maps.snakemake.py"
 
 
 ###################################################################

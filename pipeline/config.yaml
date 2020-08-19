@@ -70,3 +70,5 @@ numAlignments: 30000 #150000
 num_iterations: 2
 
 hifiasm: hifiasm/hifiasm
+overlap_graph: TRUE
+BubbleGun: ~/.local/bin/BubbleGun

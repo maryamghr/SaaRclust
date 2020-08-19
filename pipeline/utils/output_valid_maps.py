@@ -12,9 +12,6 @@ def is_valid(s1, l1, s2, l2, aln_len):
 
 	return (False)
 
-ss_name = ""
-bubble_cov = {}
-libs = set()
 
 def print_dict_head(dic, num):
 	for i in range(num):
@@ -38,49 +35,84 @@ def get_seq_len(fasta_file):
 
 	return (seq_to_len)
 
+def map_unitig_to_bubble_allele(bubble_file):
+	unitig_to_bubble_allele = {}
+	with open(bubble_file) as bubbles:
+		for line in bubbles:
+			if line == "":
+				break
+
+			sp = line.strip().split("_")
+			bubble_id, bubble_allele, unitig = sp[1], str(int(sp[3])-1), sp[-1]
+
+			unitig_to_bubble_allele[unitig] = (bubble_id, bubble_allele)
+
+	return unitig_to_bubble_allele
+
 
 # Mapping ss read names to their lengths
-with open(snakemake.log[0], 'w') as log:
-	start_time = time.time()
-	print('reading the ss fastq file and mapping names to len ...', file=log)
+def output_valid_maps(ss_fasta, bubble_fasta, mummer_file, out_files, log_file, lib_name, input_type="bubble", unitig_to_bubble_allele=None):
+	'''
+	input_type \in {"bubble, unitig"}
+	unitig_to_bubble_allele: should be provided id input_type = "unitig"
+	'''
+	with open(log_file, 'w') as log:
+		start_time = time.time()
+		print('reading the ss fastq file and mapping names to len ...', file=log)
 
-	ss_to_len = get_seq_len(snakemake.input['ss_reads'])
-	bubbles_to_len = get_seq_len(snakemake.input['bubbles'])
+		ss_to_len = get_seq_len(ss_fasta)
+		bubbles_to_len = get_seq_len(bubble_fasta)
 
-	print('number of processed ss reads =', len(ss_to_len), file=log)
-	print('elapsed time:', time.time()-start_time, 's', file=log)
+		print('number of processed ss reads =', len(ss_to_len), file=log)
+		print('elapsed time:', time.time()-start_time, 's', file=log)
 
-	start_time = time.time()
-	print('processing the map file and outputting the valid maps ...', file=log)
+		start_time = time.time()
+		print('processing the map file and outputting the valid maps ...', file=log)
 
-	with open(snakemake.output[0], 'w') as valid_map:
-		with open(snakemake.input['map']) as f:
-			print("SSname\tSSlib\tbubbleName\tbubbleAllele\tisReverseMapped\tbubbleStart\tSSstart\talnLen", file=valid_map)
-			rev = False
-			for line in f:
-				sp = line.split()
-				if len(sp) == 0:
-					break
-				if sp[0] == ">":
-					ss_name =  sp[1]
-					if len(sp)==3 and sp[2]=="Reverse":
-						rev=True
-					else:
-						rev=False
+		if class(out_files) != list:
+			out_files = list(out_files)
 
-				else: # reading snv bubble information: there is an exact match with a bubble
-					unitig_start = int(sp[1])
-					ss_start = int(sp[2])
-					aln_len = int(sp[3])
-					unitig_len = bubbles_to_len[sp[0]]
-					ss_read_name = ss_name
 
-					ss_lib_name = snakemake.wildcards['x']
-					ss_len = ss_to_len[ss_name]
+		for out_file in out_files:
+			with open(out_file, 'w') as valid_map:
+				with open(mummer_file) as f:
+					print("SSname\tSSlib\tbubbleName\tbubbleAllele\tisReverseMapped\tbubbleStart\tSSstart\talnLen", file=valid_map)
+					rev = False
+					for line in f:
+						sp = line.split()
+						if len(sp) == 0:
+							break
+						if sp[0] == ">":
+							ss_name =  sp[1]
+							if len(sp)==3 and sp[2]=="Reverse":
+								rev=True
+							else:
+								rev=False
 
-					if is_valid(unitig_start, unitig_len, ss_start, ss_len, aln_len):
-						bubble_sp = sp[0].split("_")
-						bubble_num = bubble_sp[1]
-						allele_num = str(int(bubble_sp[3])-1)
-						print(ss_read_name + "\t" + ss_lib_name + "\t" + bubble_num + "\t" + allele_num + "\t" + str(rev) + "\t" + str(unitig_start) + "\t" + str(ss_start) + "\t" + str(aln_len), file=valid_map)
+						else: # reading snv bubble information: there is an exact match with a bubble
+							unitig_start = int(sp[1])
+							ss_start = int(sp[2])
+							aln_len = int(sp[3])
+							unitig_len = bubbles_to_len[sp[0]]
+							ss_read_name = ss_name
+
+							ss_lib_name = lib_name
+							ss_len = ss_to_len[ss_name]
+
+							if not is_valid(unitig_start, unitig_len, ss_start, ss_len, aln_len):
+								continue
+
+							if input_type=="bubble":
+								bubble_sp = sp[0].split("_")
+								bubble_num = bubble_sp[1]
+								allele_num = str(int(bubble_sp[3])-1)
+
+							else:
+								bubble_num, allele_num = sp[0], 'None'
+								if sp[0] in unitig_to_bubble_allele:
+									# the unitig is a bubble
+									bubble_num, allele_num = unitig_to_bubble_allele[sp[0]]
+
+							
+							print(ss_read_name + "\t" + ss_lib_name + "\t" + bubble_num + "\t" + allele_num + "\t" + str(rev) + "\t" + str(unitig_start) + "\t" + str(ss_start) + "\t" + str(aln_len), file=valid_map)
 						
