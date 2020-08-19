@@ -130,7 +130,8 @@ rule all:
 	input:
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.fasta", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_ctg.fa", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.contigs.fasta", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes)
 
 
 
@@ -144,25 +145,42 @@ rule whatshap_split:
 	shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads {add_untagged} --pigz) > {log} 2>&1"
 
 
+rule hifiasm_per_chrom:
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fastq.gz"
+	output:
+		gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_ctg.gfa",
+		fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_ctg.fa",
+	threads: 2
+	log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
+	shell:
+		'''
+		DIR=$(dirname {output.gfa}) &&
+		(time {hifiasm} -o $DIR/{wildcards.clust_pair} -t {threads} {input} &&
+		time grep S {output.gfa} | awk '{{print \">\"$2\"\\n\"$3}}' > {output.fa}) > {log} 2<&1
+		'''
+
 rule hifiasm:
 	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.gfa"
+	output:
+		gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.gfa",
+		fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa"
 	threads: 1
 	log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_k{k}_a{a}_l{l}_{clust_pair}.{haplo}.log"
 	shell:
 		'''
-		DIR=$(dirname {output}) &&
-		(time {hifiasm} -o $DIR/{wildcards.clust_pair}.{wildcards.haplo} -t {threads} {input}) > {log} 2<&1
+		DIR=$(dirname {output.gfa}) &&
+		(time {hifiasm} -o $DIR/{wildcards.clust_pair}.{wildcards.haplo} -t {threads} {input} &&
+		time grep S {output.gfa} | awk '{{print \">\"$2\"\\n\"$3}}' > {output.fa}) > {log} 2<&1
 		'''
 
-rule get_hifiasm_contigs:
-	input:
-		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.gfa"
-	output:
-		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa"
-	log: "log/get_hifiasm_contigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_k{k}_a{a}_l{l}_{clust_pair}.{haplo}.log"
-	shell:
-		"(time grep S {input} | awk '{{print \">\"$2\"\\n\"$3}}' > {output}) > {log} 2>&1"
+#rule get_hifiasm_contigs:
+#	input:
+#		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.gfa"
+#	output:
+#		"aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa"
+#	log: "log/get_hifiasm_contigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_k{k}_a{a}_l{l}_{clust_pair}.{haplo}.log"
+#	shell:
+#		"(time grep S {input} | awk '{{print \">\"$2\"\\n\"$3}}' > {output}) > {log} 2>&1"
 
 
 rule flye_assembly:
@@ -180,14 +198,14 @@ rule flye_assembly:
 
 rule canu_assembly:
 	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/{sample}.{clust_pair}.{haplo}.fastq.gz"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.fasta"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/canu/{clust_pair}.{haplo}/asm.contigs.fasta"
 	params:
 		chrom_size = lambda wc: clust_pair_sizes[wc.clust_pair]
-	threads: 46
+	#threads: 2
 	log: "log/{clust_pair}_{haplo}_kMinimap{kMinimap}_w{w}_f{f}_z{z}_k{k}_a{a}_l{l}_{sample}_canu_assembly.log"
 	shell:
 		'''
 		DIR=$(dirname {output}) &&
-		(time canu -d $DIR/{wildcards.clust_pair}.{wildcards.haplo} -p asm genomeSize={params.chrom_size} maxThreads={threads} -pacbio-hifi {input}) > {log} 2<&1
+		(time canu -d $DIR -p asm genomeSize={params.chrom_size} -pacbio-hifi {input}) > {log} 2<&1 #maxThreads={threads}
 		'''
 
