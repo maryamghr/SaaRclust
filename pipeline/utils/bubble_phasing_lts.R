@@ -7,6 +7,17 @@ library(data.table)
 ## FUNCTIONS ##
 ###############
 
+#output_phased_strand_states <- function(bubble.cov.files, clust_pair, select.libs, output.phased.strand.states.file, output.phased.bubbles.file){
+strandphaser <- function(cluster1.file, cluster2.file, clust_pair, select.libs, output.phased.strand.states.file){
+	clusters <- strsplit(clust_pair, "_")[[1]]
+	phased.data = phase_strand_states_and_bubbles(cluster1.file, cluster2.file, clusters[1], clusters[2], select.libs)
+	phased.strand.states = phased.data[[1]]
+	phased.bubbles = phased.data[[2]]
+
+	fwrite(phased.strand.states, file=output.phased.strand.states.file, row.names=F, sep='\t')
+	#fwrite(phased.bubbles, file=output.phased.bubbles.file, row.names=F, sep='\t')
+}
+
 output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.libs, output.phased.strand.states.file, output.phased.bubbles.file){
 	phased.strand.states = data.table()
 	phased.bubbles = data.table()

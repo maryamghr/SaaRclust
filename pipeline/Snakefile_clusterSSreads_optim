@@ -515,6 +515,7 @@ rule output_valid_maps:
 		#clustering="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/SS_clusters.data",
 	output: "bubble_ss_map/valid_exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.data"
 	params:
+		libs=libs,
 		input_type="bubble"
 	log: "log/output_valid_maps_{x}_snv_bubbles_k{k}_a{a}_l{l}_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
 	script: "utils/output_valid_maps.snakemake.py"
