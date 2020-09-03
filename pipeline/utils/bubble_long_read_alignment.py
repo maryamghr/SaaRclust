@@ -35,9 +35,7 @@ class Bubble:
 
 		print('****************************')
 		
-	#def set_saarclust_consistency_ratio:
-	#	pass
-		
+	
 	def add_het_positions(self):
 		assert (len(self.allele0.seq)==len(self.allele1.seq)), 'the lengths of the two bubble chains should be equal'
 		self.het_positions = [i for i in range(len(self.allele0.seq)) if self.allele0.seq[i]!=self.allele1.seq[i]]
@@ -51,8 +49,8 @@ class Bubble:
 			self.allele1 = bubble_allele
 
 	def phase(self, ratio_h0_reads=(0.25, 0.75)):
-		self.allele0.num_haplo_long_reads = [0,0]
-		self.allele1.num_haplo_long_reads = [0,0]
+		self.allele0.haplo_coverage = [0,0]
+		self.allele1.haplo_coverage = [0,0]
 		
 		self.allele0.pred_haplo = None
 		self.allele1.pred_haplo = None
@@ -70,14 +68,14 @@ class Bubble:
 			
 			if al0_edit_dist < al1_edit_dist:
 				# long read is better aligned to allele0
-				self.allele0.num_haplo_long_reads[long_read.pred_haplo] += 1
+				self.allele0.haplo_coverage[long_read.pred_haplo] += 1
 				
 			if al0_edit_dist > al1_edit_dist:
 				# long read is better aligned to allele1
-				self.allele1.num_haplo_long_reads[long_read.pred_haplo] += 1
+				self.allele1.haplo_coverage[long_read.pred_haplo] += 1
 			
-		self.num_al0_h0_reads = self.allele0.num_haplo_long_reads[0]+self.allele1.num_haplo_long_reads[1]
-		self.num_al0_h1_reads = self.allele0.num_haplo_long_reads[1]+self.allele1.num_haplo_long_reads[0]
+		self.num_al0_h0_reads = self.allele0.haplo_coverage[0]+self.allele1.haplo_coverage[1]
+		self.num_al0_h1_reads = self.allele0.haplo_coverage[1]+self.allele1.haplo_coverage[0]
 		
 		# filter out the set of bubbles that don't pass the phasing criteria
 		if self.num_al0_h0_reads + self.num_al0_h1_reads == 0:
@@ -97,16 +95,15 @@ class Bubble:
 
 class BubbleAllele:
 
-	def __init__(self, id=None, name=None, bubble=None, seq=None):
+	def __init__(self, id=None, name=None, bubble=None, seq=None, unitig_name=None):
 		self.id = id
 		self.name = name
 		self.bubble = bubble
 		self.seq = seq
+		self.unitig_name = unitig_name
 		self.rc_seq = None # reverse complement sequence
 		self.actual_haplo, self.pred_haplo = None, None
-		#self.num_haplo0_long_reads, self.num_haplo1_long_reads = 0, 0
-		self.num_haplo_long_reads = [0,0] # number of haplo0 and haplo1 supporting long reads
-		#self.kmers = []
+		self.haplo_coverage = [0,0] # number of supporting (strand-seq or long) reads from haplo0 and haplo1
 		self.km = 0
 		self.alignments = [] #{}
 

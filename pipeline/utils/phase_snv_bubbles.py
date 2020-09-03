@@ -1,62 +1,9 @@
-def read_strand_states(strand_state_files):
-	'''
-	Reads phased strand states from the input file
-	
-	Args:
-		strand_state_file: the file containing phased strand states 
-	'''
-	
-	lib_clust_to_haplo = {}
+import pdb
 
-	for f in strand_state_files:
-		file_name = f.split("/")[-1]
-		lib_name=file_name.split("_haplo_strand_states")[0]
-		with open(f) as states:
-			for line in states:
-				# process the line if it is not empty nor the header line
-				if line!="" and line[0]!="V":
-					sp = line.split()
-					lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])
-					
-	return lib_clust_to_haplo
+from parsing import *
 
 
-def read_strandphaser_strand_states(strand_states_file):
-	'''
-	Reads phased strand states from the input file
-	
-	Args:
-		strand_states_file: the file containing phased strand states 
-	'''
-	
-	lib_clust_to_haplo = {}
-
-	with open(strand_states_file) as states:
-		#skip the header line
-		next(states)
-		for line in states:
-			if line!="":
-				sp = line.split()
-				lib_clust_to_haplo[(sp[0], sp[1])]=int(sp[2])
-	return lib_clust_to_haplo
-
-def get_ss_clust(ss_clust_file):
-	ss_to_clust = {}
-	with open(ss_clust_file) as f:
-		#skip the header line
-		next(f)
-
-		for line in f:
-			if line == "":
-				continue
-
-			ss_clust, ss_name = line.split()
-			ss_to_clust[ss_name] = ss_clust
-
-	return ss_to_clust
-
-
-def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_phase_file):
+def phase_bubbles(ss_bubble_map_files, bubbles, ss_to_clust, lib_clust_to_haplo, bubble_phase_file, min_h0_frac=0.25, max_h0_frac=0.75):
 	'''
 	Computes the bubble allele corresponding to the first haplotype (h0) and writes it in the output file
 	
@@ -66,9 +13,16 @@ def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_p
 		bubble_phase_file: The output file containing two columns for the bubble name and the bubble allele corresponding to the first haplotype, respectively
 	'''
 	
-	bubble_haplo_allele_count = {}
-	bubbles_with_invalid_alleles = {}
+	#bubble_haplo_allele_count = {}
+	#bubbles_with_invalid_alleles = {}
+	#bubble_allele_to_unitig_name = {}
+	
+	unitig_haplo_cov = {}
+	# for testing
+	bubble_unitig_haplo_cov = {}
 
+	if type(ss_bubble_map_files)==str:
+		ss_bubble_map_files=[ss_bubble_map_files]
 
 	for input_file in ss_bubble_map_files:
 		with open(input_file) as f:
@@ -82,8 +36,8 @@ def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_p
 					
 				sp = line.split()
 				
-				ss_name, ss_lib, bubble_id, bubble_allele, is_reverse = sp[0], sp[1], sp[2], sp[3], sp[4]
-				
+				ss_name, ss_lib, unitig_name, bubble_id, bubble_allele_id, is_reverse = sp[0], sp[1], sp[2], sp[3], sp[4], sp[5]
+
 				if ss_name not in ss_to_clust:
 					continue
 
@@ -92,35 +46,77 @@ def phase_bubbles(ss_bubble_map_files, ss_to_clust, lib_clust_to_haplo, bubble_p
 				if (ss_lib, ss_clust) not in lib_clust_to_haplo:
 					continue
 
-				if bubble_allele!='0' and bubble_allele!='1':
-					print('Warning: bubble', bubble_id, 'has non binary allele!')
-					bubbles_with_invalid_alleles[bubble_id] = True
-					continue
-
 				haplo = lib_clust_to_haplo[(ss_lib, ss_clust)]
-
-				haplo_allele = str(haplo) + bubble_allele
 				
-				if bubble_id not in bubble_haplo_allele_count:
-					bubble_haplo_allele_count[bubble_id] = [0]*4
-
-				bubble_haplo_allele_count[bubble_id][int(haplo_allele, 2)] += 1
+				#if unitig_name=="utg000518l":
+				#	pdb.set_trace()
 				
+				if bubble_id=="None":
+					# it's a non-bubble unitig
+				#	if unitig_name=="utg000518l":
+				#		print('hello in if')
+					if unitig_name not in unitig_haplo_cov:
+						unitig_haplo_cov[unitig_name]=[0,0]
+						
+					unitig_haplo_cov[unitig_name][haplo] +=1
+					continue
+					
+				#if unitig_name=="utg000518l":
+				#	print('hello')
+				#	pdb.set_trace()
+					
+				# just for testing:
+				if unitig_name not in bubble_unitig_haplo_cov:
+					bubble_unitig_haplo_cov[unitig_name]=[0,0]
+						
+					bubble_unitig_haplo_cov[unitig_name][haplo] +=1
+
+				# check invalid alleles...
+				#if ss_name == "ERR1295715.948":
+				#	pdb.set_trace()
+				
+				print('line =', line)
+				assert(bubble_allele_id=='0' or bubble_allele_id=='1'), 'error in bubble '+bubble_id+': bubble allele is not binary'
+				
+				bubble = bubbles[int(bubble_id)]
+				bubble_allele = bubble.allele0 if bubble_allele_id=='0' else bubble.allele1
+				
+				bubble_allele.haplo_coverage[haplo] += 1
+
 
 	with open(bubble_phase_file, 'w') as out:
-		print("bubbleName\thaplotype0Allele", file=out)
-		for bubble_id in bubble_haplo_allele_count:
-			if bubble_id in bubbles_with_invalid_alleles:
+		print("unitigName\tbubbleName\tbubbleAllele\thaplotype", file=out)
+		# printing bubble phase info
+		for bubble_id, bubble in bubbles.items():
+			
+			h0_al0 = bubble.allele0.haplo_coverage[0]+bubble.allele1.haplo_coverage[1]
+			h0_al1 = bubble.allele0.haplo_coverage[1]+bubble.allele1.haplo_coverage[0]
+
+			#if h0_al0 == h0_al1:
+			#	continue
+				
+			if h0_al0+h0_al1==0 or min_h0_frac < h0_al0/(h0_al0+h0_al1) < max_h0_frac:
 				continue
 
-			haplo_allele_count = bubble_haplo_allele_count[bubble_id]
-			h0_a0 = haplo_allele_count[0]+haplo_allele_count[3] # count(h=0,a=0) + count(h=1,a=1)
-			h0_a1 = haplo_allele_count[1]+haplo_allele_count[2] # count(h=0,a=1) + count(h=1,a=0)
+			#pdb.set_trace()
 
-			if h0_a0 == h0_a1:
+			al0_haplo = 'H1' if h0_al0 > h0_al1 else 'H2'
+			al1_haplo = 'H1' if h0_al0 < h0_al1 else 'H2'
+
+			print(bubble.allele0.unitig_name + "\t" + str(bubble.id) + "\t0\t" + al0_haplo, file=out)
+			print(bubble.allele1.unitig_name + "\t" + str(bubble.id) + "\t1\t" + al1_haplo, file=out)
+			
+		# printing unitig phase info
+		#pdb.set_trace()
+		
+		for unitig_name, haplo_cov in unitig_haplo_cov.items():
+			
+			#if unitig_name=="utg000144l" or untigi_name=="utg000005l" or unitig_name=="utg000429l" or unitig_name=="utg000116l":
+			#	pdb.set_trace()
+			
+			if sum(haplo_cov)==0 or min_h0_frac < haplo_cov[0]/sum(haplo_cov) < max_h0_frac:
 				continue
-
-			h0_allele = 'H1' if h0_a0 > h0_a1 else 'H2'
-
-			print(bubble_id + "\t" + h0_allele, file=out)
+			
+			haplo = 'H1' if haplo_cov[0] > haplo_cov[1] else 'H2'
+			print(unitig_name + "\tNone\tNone\t" + haplo, file=out)
 
