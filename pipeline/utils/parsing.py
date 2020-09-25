@@ -8,7 +8,132 @@ global valid_chroms
 valid_chroms = ['chr' + str(i) for i in range(1,23)] + ['chrX']
 
 
-def get_bubbles(bubble_fasta_file, with_km=True):
+def get_seq_len(fasta_files):
+	if type(fasta_files)==str:
+		fasta_files = [fasta_files]
+
+	seq_to_len = {}
+	
+	for fasta_file in fasta_files:		
+		with pysam.FastxFile(fasta_file) as fastafile:
+			for read in fastafile:
+				seq_to_len[read.name] = len(read.sequence)
+
+	return (seq_to_len)
+
+
+def map_unitig_to_bubble_allele(bubble_fasta_file):
+	unitig_to_bubble_allele = {}
+
+	with pysam.FastxFile(bubble_fasta_file) as fastafile:
+		for read in fastafile:
+			sp = read.name.split("_")
+			bubble_id, bubble_allele, unitig = sp[1], str(int(sp[3])-1), sp[-1]
+			unitig_to_bubble_allele[unitig] = (bubble_id, bubble_allele)
+	
+	return unitig_to_bubble_allele
+	
+
+def output_bwa_fastmap_matches(unitig_to_bubble_allele, fastmap_file, output_file):
+	with open(output_file, 'w') as out:
+		with open(fastmap_file) as f:
+			prev_record = ""
+			unique_match = True
+			print("SSname\tSSlib\tunitig_name\tbubbleName\tbubbleAllele\tisReverseMapped", file=out)
+			
+			for line in f:
+				sp = line.split()
+				
+				if len(sp)==0 or sp[0] not in ['SQ', 'EM']:
+					continue					
+
+				if sp[0]=="SQ": # SS read
+					if unique_match and prev_record=="EM":
+						# print the previous match
+						bubble_id, bubble_allele = "None", "None"
+
+						if unitig_name in unitig_to_bubble_allele:
+							bubble_id, bubble_allele = unitig_to_bubble_allele[unitig_name]					
+						
+						print(ss_name+"\t"+ss_lib+"\t"+unitig_name+"\t"+bubble_id+"\t"+bubble_allele+"\t"+is_reverse, file=out)
+						
+					ss_name, ss_lib = sp[1].split('_')
+					unique_match = True
+					num_EM_lines = 0
+					prev_record="SQ"
+				
+				else: # unitigs line
+					num_EM_lines += 1
+					
+					if num_EM_lines > 1 or len(sp) > 5 or sp[-1]=="*":
+						unique_match = False
+						continue
+						
+					unitig_name, map_info = sp[-1].split(":")
+					strand = map_info[0]
+					is_reverse = "True" if strand=="-" else "False"
+					prev_record="EM"
+		
+
+def read_strand_states(strand_state_files):
+	'''
+	Reads phased strand states from the input file
+	
+	Args:
+		strand_state_file: the file containing phased strand states 
+	'''
+	
+	lib_clust_to_haplo = {}
+
+	for f in strand_state_files:
+		file_name = f.split("/")[-1]
+		lib_name=file_name.split("_haplo_strand_states")[0]
+		with open(f) as states:
+			for line in states:
+				# process the line if it is not empty nor the header line
+				if line!="" and line[0]!="V":
+					sp = line.split()
+					lib_clust_to_haplo[(lib_name, sp[0])]=int(sp[1])
+					
+	return lib_clust_to_haplo
+
+
+def read_strandphaser_strand_states(strand_states_file):
+	'''
+	Reads phased strand states from the input file
+	
+	Args:
+		strand_states_file: the file containing phased strand states 
+	'''
+	
+	lib_clust_to_haplo = {}
+
+	with open(strand_states_file) as states:
+		#skip the header line
+		next(states)
+		for line in states:
+			if line!="":
+				sp = line.split()
+				lib_clust_to_haplo[(sp[0], sp[1])]=int(sp[2])
+	return lib_clust_to_haplo
+
+def get_ss_clust(ss_clust_file):
+	print('file', ss_clust_file)
+	ss_to_clust = {}
+	with open(ss_clust_file) as f:
+		
+		for line in f:
+			if line == "":
+				continue
+			
+			ss_name, ss_clust = line.split()
+			ss_name = ss_name.split('_')[0]
+			
+			ss_to_clust[ss_name] = ss_clust
+
+	return ss_to_clust
+
+def get_bubbles(bubble_fasta_file, with_km=True, with_unitig_name=False):
 
 	'''
 	Reads bubbles fasta file, creates bubble and bubbleAllele objects, and returns the list of bubbles
@@ -40,8 +165,11 @@ def get_bubbles(bubble_fasta_file, with_km=True):
 			else:
 				bubble = Bubble(bubble_id)
 				bubbles[bubble_id] = bubble
+				
+			
+			unitig_name = bubble_name_sp[-1] if with_unitig_name else None
 
-			bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble, seq)
+			bubble_allele = BubbleAllele(bubble_allele_id, bubble_name, bubble, seq, unitig_name)
 			bubble.add_allele(bubble_allele)
 
 			if with_km:
@@ -109,7 +237,6 @@ def get_bubbles_from_bam(bubble_haplotagged_bam_file):
 		bubble_allele.actual_haplo = read.get_tag("HP")-1
 
 	print('num bubbles =', len(bubbles))
-	print('after the for loop', bubbles[bubble_id])
 
 	print('elapsed time =', time.time()-start_time)
 

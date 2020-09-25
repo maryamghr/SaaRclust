@@ -7,10 +7,11 @@ library(data.table)
 ## FUNCTIONS ##
 ###############
 
-#output_phased_strand_states <- function(bubble.cov.files, clust_pair, select.libs, output.phased.strand.states.file, output.phased.bubbles.file){
-strandphaser <- function(cluster1.file, cluster2.file, clust_pair, select.libs, output.phased.strand.states.file){
+strandphaser <- function(cluster1.table, cluster2.table, clust_pair, select.libs, output.phased.strand.states.file){
 	clusters <- strsplit(clust_pair, "_")[[1]]
-	phased.data = phase_strand_states_and_bubbles(cluster1.file, cluster2.file, clusters[1], clusters[2], select.libs)
+	#cluster1 <- read.table(cluster1.file, stringsAsFactors = FALSE, header=TRUE)
+	#cluster2 <- read.table(cluster2.file, stringsAsFactors = FALSE, header=TRUE)
+	phased.data = phase_strand_states_and_bubbles(as.data.frame(cluster1.table), as.data.frame(cluster2.table), clusters[1], clusters[2], select.libs)
 	phased.strand.states = phased.data[[1]]
 	phased.bubbles = phased.data[[2]]
 
@@ -18,37 +19,11 @@ strandphaser <- function(cluster1.file, cluster2.file, clust_pair, select.libs, 
 	#fwrite(phased.bubbles, file=output.phased.bubbles.file, row.names=F, sep='\t')
 }
 
-output_phased_strand_states <- function(bubble.cov.files, clust.pairs, select.libs, output.phased.strand.states.file, output.phased.bubbles.file){
-	phased.strand.states = data.table()
-	phased.bubbles = data.table()
 
-	for (i in 1:nrow(clust.pairs)) {
-		cluster.pair <- clust.pairs[i,]
-		cluster1 <- as.character(cluster.pair$clust.forward)
-		cluster2 <- as.character(cluster.pair$clust.backward)
-		
-		clust1.file.idx <- grep(paste0("cluster", cluster1, "_"), bubble.cov.files)
-		clust2.file.idx <- grep(paste0("cluster", cluster2, "_"), bubble.cov.files)
-
-		cluster1.file <- bubble.cov.files[clust1.file.idx]
-		cluster2.file <- bubble.cov.files[clust2.file.idx]
-
-		phased.data = phase_strand_states_and_bubbles(cluster1.file, cluster2.file, cluster1, cluster2, select.libs)
-		haplo.strand.states = phased.data[[1]]
-		bubble.phase = phased.data[[2]]
-
-		phased.strand.states = rbind(phased.strand.states, haplo.strand.states)
-		phased.bubbles = rbind(phased.bubbles, bubble.phase)
-	}
-
-	fwrite(phased.strand.states, file=output.phased.strand.states.file, row.names=F, sep='\t')
-	fwrite(phased.bubbles, file=output.phased.bubbles.file, row.names=F, sep='\t')
-}
-
-phase_strand_states_and_bubbles <- function(cluster1.file, cluster2.file, cluster1, cluster2, select.libs) {
+phase_strand_states_and_bubbles <- function(cluster1, cluster2, cluster1.name, cluster2.name, select.libs) {
 	## Load bubbles into matrices
-	matrices <- loadClusterBubbles(cluster1.file = cluster1.file,
-		                 cluster2.file = cluster2.file)
+	matrices <- loadClusterBubbles(cluster1 = cluster1,
+		                 cluster2 = cluster2)
 
 	## Sort matrices
 	srt.matrices <- sortClusterBubbles(matrices = matrices, select.libs = select.libs)
@@ -57,12 +32,12 @@ phase_strand_states_and_bubbles <- function(cluster1.file, cluster2.file, cluste
 
 	haplo.strand.states <- data.table()
 
-	clust1.haplo.strand.states <- data.table(lib=srt.matrices$cluster1.libs, cluster=cluster1)
+	clust1.haplo.strand.states <- data.table(lib=srt.matrices$cluster1.libs, cluster=cluster1.name)
 	clust1.haplo.strand.states[,`:=`(lib=lapply(lib, function(x) strsplit(x, "__")[[1]][1]), haplotype=sapply(lib, function(x) as.integer(strsplit(x, "__C")[[1]][2])-1))]
 	haplo.strand.states <- rbind(haplo.strand.states, clust1.haplo.strand.states)
 
 	clust2.haplo.strand.states = clust1.haplo.strand.states
-	clust2.haplo.strand.states[, `:=`(cluster=cluster2, haplotype=1-haplotype)]
+	clust2.haplo.strand.states[, `:=`(cluster=cluster2.name, haplotype=1-haplotype)]
 	haplo.strand.states <- rbind(haplo.strand.states, clust2.haplo.strand.states)
 	
  
@@ -76,20 +51,16 @@ phase_strand_states_and_bubbles <- function(cluster1.file, cluster2.file, cluste
   return(list(haplo.strand.states, bubble.phase))
 }
 
-loadClusterBubbles <- function(cluster1.file = NULL, cluster2.file = NULL) {
+loadClusterBubbles <- function(cluster1 = NULL, cluster2 = NULL) {
     
-  cluster1 <- read.table(cluster1.file, stringsAsFactors = FALSE, header=TRUE)
   cluster1.libs <- colnames(cluster1)[-1]
-  #cluster1.libs <- gsub(cluster1.libs, pattern = "\\.|_", replacement = "-")
   cluster1.bubble.id <- cluster1[,1]
   cluster1 <- cluster1[,-1]
   # Switch missing values to 0 and reference alleles to 1 and alternative alleles to 2
   cluster1.m <- t(apply(cluster1, 2, function(x) recode(x, '-' = 0, '0' = 1, '1' = 2, '2' = 3, .default = 0)))
   attr(cluster1.m, 'dimnames') <- NULL
     
-  cluster2 <- read.table(cluster2.file, stringsAsFactors = FALSE, header=TRUE)
   cluster2.libs <- colnames(cluster2)[-1]
-  #cluster2.libs <- gsub(cluster2.libs, pattern = "\\.|_", replacement = "-")
   cluster2.bubble.id <- cluster2[,1]
   cluster2 <- cluster2[,-1]
   # Switch missing values to 0 and reference alleles to 1 and alternative alleles to 2

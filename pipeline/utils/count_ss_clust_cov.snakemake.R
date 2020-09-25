@@ -5,7 +5,9 @@ sink(file=log, type='output')
 library(data.table)
 source('utils/count_short_read_clust_cov.R')
 
-minimap <- fread(paste('zcat', snakemake@input[['minimap']]), select=c('SSreadNames', 'strand', 'PBreadNames'))
+minimap <- fread(paste('zcat', snakemake@input[['minimap']]), select=c('SSreadNames', 'SSlibNames', 'strand', 'PBreadNames'))
+minimap[, SSreadNames:=paste0(SSreadNames, '_', SSlibNames)]
+minimap[, SSlibNames:=NULL]
 soft.clust <- get(load(snakemake@input[['soft_clust']]))
 clust.partners <- fread(snakemake@input[['clust_partners']])
 

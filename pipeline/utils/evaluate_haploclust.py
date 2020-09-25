@@ -150,6 +150,108 @@ def evaluate_bubble_clustering(bubbles, clust_to_chrom, output_file):
 			chrom_num_haploclust_false_neg[chrom]*100/chrom_num_bubbles[chrom], '\t', 		
 			file=out)
 
+	print('elapsed time =', time.time()-start_time)
+	
+	
+def print_reference_mapping_stats(bubbles):
+	'''
+	'''
+	
+	num_mapped = 0
+	num_valid_chrom = 0
+	num_haplotagged = 0
+	num_phased = 0
+	
+	for bubble_id, bubble in bubbles.items():
+		#["unmapped", "invalid_chrom", "untagged"]
+		if bubble.actual_type != "unmapped":
+			num_mapped += 1
+			
+			if bubble.actual_type != "invalid_chrom":
+				num_valid_chrom += 1
+				
+				if bubble.actual_type != "untagged":
+					num_haplotagged += 1
+					
+		if bubble.actual_type.startswith("tagged"):
+					num_phased += 1
+	
+	print('total_num_bubbles =', len(bubbles))
+	print('num_mapped =', num_mapped)
+	print('num_valid_chrom = ', num_valid_chrom)
+	print('num_haplotagged = ', num_haplotagged)
+	print('num_haplotagged = ', num_phased)
+		
+
+def evaluate_phasing(bubbles):
+
+	'''
+	'''
+
+	start_time = time.time()
+	print('evaluating bubbles clustering')
+
+	num_bubbles=len(bubbles)
+	num_haplo_clustered_bubbles=0
+	num_true_haplo_clustered_bubbles=0
+	num_false_haplo_clustered_bubbles=0
+	num_haploclust_false_pos=0
+	num_haploclust_false_neg=0
+	
+	for bubble_id, bubble in bubbles.items():
+	
+		#bubble.print()
+		
+		if bubble.actual_chrom == None or bubble.actual_chrom not in valid_chroms:
+			# the bubble does not have a valid actual chrom
+			continue
+
+		chrom = bubble.actual_chrom
+
+
+		if bubble.allele0.pred_haplo == None:
+			bubble.pred_type="not_haplo_clust"
+
+			if bubble.allele0.actual_haplo != None:
+				bubble.pred_type="haplo_clust_false_neg"
+				num_haploclust_false_neg+=1
+
+			continue
+
+		num_haplo_clustered_bubbles+=1
+
+		if bubble.allele0.actual_haplo==None:
+			bubble.pred_type="haploclust_false_pos"
+			num_haploclust_false_pos+=1
+		#	chrom_num_haploclust_false_pos[chrom]+=1
+			continue
+
+		elif bubble.allele0.pred_haplo == bubble.allele0.actual_haplo:
+			bubble.pred_type="true_haplo_clust"
+			num_true_haplo_clustered_bubbles+=1
+			continue
+
+		else:
+			bubble.pred_type="false_haplo_clust"
+			num_false_haplo_clustered_bubbles+=1
+
+	
+		if num_true_haplo_clustered_bubbles < num_false_haplo_clustered_bubbles:
+			# switch haplotypes
+			num_true_haplo_clustered_bubbles, num_false_haplo_clustered_bubbles = num_false_haplo_clustered_bubbles, num_true_haplo_clustered_bubbles
+
+	
+	# writing the performance statistics in the outout file
+	#with open(output_file, 'w') as out:
+	print('*** Note: false positive haplotype clustered bubbles are also counted in haplotype clustering accuracy')
+	print('total number of bubbles =', num_bubbles)
+	print('number of haplo clustered bubbles = ', num_haplo_clustered_bubbles, ', (', num_haplo_clustered_bubbles*100/num_bubbles, '% of #bubbles)')
+	print('number of true haplo clustered bubbles = ', num_true_haplo_clustered_bubbles)
+	print('number of false haplo clustered bubbles = ', num_false_haplo_clustered_bubbles)
+	print('haplo clustering accuracy =', num_true_haplo_clustered_bubbles*100/num_haplo_clustered_bubbles)
+	print('haplo clustering false positive rate =', num_haploclust_false_pos*100/num_bubbles)
+	print('haplo clustering false negative rate =', num_haploclust_false_neg*100/num_bubbles)
+
 	print('elapsed time =', time.time()-start_time)	
 
 
@@ -255,9 +357,6 @@ def evaluate_long_read_clustering(long_reads, output_file):
 			chrom_num_false_haplo_clustered_long_reads[chrom]=false_haplo_clust
 			
 		num_true_haplo_clustered_long_reads+=true_haplo_clust
-		
-	print('switch haplotypes:')
-	print(chrom_switch_haplo)
 
 	# revise the type of the long_read if the haplotype is switched in the chromosome
 	for read_name, long_read in long_reads.items():
@@ -275,6 +374,8 @@ def evaluate_long_read_clustering(long_reads, output_file):
 		print('haplo clustering false positive rate =', num_haploclust_false_pos*100/num_long_reads, file=out)
 		print('haplo clustering false negative rate =', num_haploclust_false_neg*100/num_long_reads, file=out)
 
+		print('switch haplotypes:')
+		print(chrom_switch_haplo, file=out)
 
 		print('chromosome wise clustering accuracy:')
 

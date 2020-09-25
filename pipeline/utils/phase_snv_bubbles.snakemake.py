@@ -12,4 +12,4 @@ print('reading bubbles\' fasta file')
 bubbles = get_bubbles(bubble_fasta_file=snakemake.input["bubbles"], with_km=False, with_unitig_name=True)
 
 print("phasing the bubbles and writing the phase information in the output file ...")
-phase_bubbles(snakemake.input["SS_bubble_map"], bubbles, ss_to_clust, lib_clust_to_haplo, snakemake.output[0])
+phase_bubbles(snakemake.input["SS_unitigs_map"], bubbles, ss_to_clust, lib_clust_to_haplo, snakemake.output[0])

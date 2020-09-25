@@ -1,5 +1,6 @@
-from output_valid_maps import *
-import pdb
+#from output_valid_maps import *
+#import pdb
+from parsing import *
 
 #libs = snakemake.params['libs']
 #
@@ -13,7 +14,12 @@ import pdb
 #
 #print('libs_true_order:', libs_true_order)
 
-if snakemake.params['input_type']=='unitig':
-	unitig_to_bubble_allele = map_unitig_to_bubble_allele(snakemake.input['bubbles'])
+#if snakemake.params['input_type']=='unitig':
+#	unitig_to_bubble_allele = map_unitig_to_bubble_allele(snakemake.input['bubbles'])
 
-output_valid_maps(snakemake.input['ss_reads'], snakemake.input['unitigs'], snakemake.input['map'], snakemake.output[0], snakemake.log[0], snakemake.params['libs'], snakemake.params['input_type'], unitig_to_bubble_allele)
+#clust_pair = snakemake.wildcards["clust_pair"].split('_')
+
+#output_valid_maps(snakemake.input['ss_reads'], snakemake.input['ss_clust_file'], clust_pair, snakemake.input['unitigs'], snakemake.input['map'], snakemake.output[0], snakemake.log[0], snakemake.params['libs'], snakemake.params['input_type'], unitig_to_bubble_allele)
+
+unitig_to_bubble_allele = map_unitig_to_bubble_allele(snakemake.input['bubbles'])
+output_bwa_fastmap_matches(unitig_to_bubble_allele, snakemake.input['map'], snakemake.output[0])

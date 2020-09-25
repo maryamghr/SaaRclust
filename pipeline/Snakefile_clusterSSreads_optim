@@ -499,6 +499,7 @@ rule cluster_bubbles:
 # -c can be used to make the reverse complemented query positions be reported relative to the original strand (not the reverse strand)
 rule map_SS_reads_to_snv_bubbles:
 	input:
+		# TODO: replace it by all.combined.fasta
 		SSreads=SSfastqDir+"/merged/{x}.combined.fasta",
 		bubble="bubbles/snv_bubbles_k{k}_a{a}_l{l}.fa" #_withlen_and_refmap_info.fa"
 	output: "bubble_ss_map/exact_map_{x}_snv_bubbles_k{k}_a{a}_l{l}.data"

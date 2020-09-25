@@ -4,6 +4,7 @@ sink(file=log, type='output')
 
 library(data.table)
 library(reshape2)
+library(seqinr)
 
 print('snakemake@input[["clust_to_chrom"]]:')
 print(snakemake@input[["clust_to_chrom"]])

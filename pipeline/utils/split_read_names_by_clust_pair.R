@@ -17,7 +17,7 @@ soft.clust <- fread(soft.clust.filename)
 if (snakemake@params[["type"]] == "long_read"){
   colnames(soft.clust) = c('read_name', 'clust.forward', 'prob')
 }
-if (snakemake@params[["type"]] == "bubble"){
+if (snakemake@params[["type"]] %in% c("bubble", "SS")){
   colnames(soft.clust)[1:2] = c('clust.forward', 'read_name')
 }
 
