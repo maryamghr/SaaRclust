@@ -69,9 +69,11 @@ print('len(clust_pairs) =', len(clust_pairs))
 
 rule all:
 	input:
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_gr_haplo.csv", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=['h1', 'h2']),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}.p_ctg/report.pdf", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
 		#expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam.bai", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs)
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam.bai", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs)
 
 #####################################################################
 ###########################################################
@@ -283,24 +285,24 @@ rule bwa_map_bubbles_to_ref:
 		bwt=config["reference"] + ".bwt",
 		pac=config["reference"] + ".pac",
 		sa=config["reference"] + ".sa",
-		unitigs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}.bubbles.fasta"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.bubbles.bam"
-	log: "log/bwa_map_snv_bubble_unitigs_to_ref_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.bubbles.fasta"
-	threads: 2
+		unitigs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}_utg.fa"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.bam"
+	log: "log/bwa_map_unitigs_to_ref_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.fasta"
+	threads: 12
 	shell:
 		"(time bwa mem -t {threads} -c 1 {input.ref} {input.unitigs} | samtools view -Sb - > {output}) > {log} 2>&1"
 
 rule sort_bam_bubbles:
-	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.bubbles.bam"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bubbles.bam"
+	input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.bam"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bam"
 	log: "log/sort_bam_snv_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
 	shell: "(time samtools sort -o {output} {input}) > {log} 2>&1"
 
 
 rule index_bam_bubbles:
-	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bubbles.bam"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bubbles.bam.bai"
-	log: "log/index_bam_snv_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
+	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bam"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bam.bai"
+	log: "log/index_bam_unitigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
 
@@ -315,18 +317,36 @@ rule haplotag_bubbles:
 		fai=config["reference"] + ".fai",
 		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
 		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
-		bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bubbles.bam",
-		bai="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bubbles.bam.bai",
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam"
-	log: "log/haplotag_snv_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
+		bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bam",
+		bai="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.sorted.bam.bai",
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bam"
+	log: "log/haplotag_unitigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
 	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
 
 
 rule index_haplotagged_bam_bubbles:
-	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam.bai"
+	input:  "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bam"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bam.bai"
 	log: "log/index_haplotagged_bam_snv_bubbles_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
+
+
+rule create_bandage_coloring_csv:
+		input:
+			clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
+			unitigs_fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}_utg.fa",
+			unitigs_bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bam",
+			phased_unitigs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/iteration1_{clust_pair}_{prefix}.data",
+			valid_maps="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data",
+			ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/ss_reads/cluster{clust_pair}.data",
+			ss_phase="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_{prefix}.data",
+			ccs_bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.haplotagged.bam",
+			hifiasm_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.r_utg.gfa"
+		output:
+			gr_haplo="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_gr_haplo.csv",
+			ss_haplo_cov="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_haplo_ss_cov.csv",
+		log: "log/create_bandage_coloring_csv_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
+		script: "utils/output_bandage_labels.R"
 
 
 ###############################################################################
@@ -428,22 +448,19 @@ rule quast_evaluate_assembly:
 	input:
 		ref_h0=lambda wc: ("phased_references/{}.{}.h0.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
 		ref_h1=lambda wc: ("phased_references/{}.{}.h1.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
-		#assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/{clust_pair}.{haplo}.p_ctg.fa"
-		assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.p_ctg.fa"
+		assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/{haplo}.p_ctg.fa",
 	output: 
-		#H0="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf",
-		#H1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/haplo_split_min_2_bubbles_k{k}_a{a}_l{l}/hifiasm/quast_results/ref_H1_{clust_pair}_{haplo}.p_ctg/report.pdf"
-		H0="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}.p_ctg/report.pdf",
-		H1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H1_{clust_pair}.p_ctg/report.pdf"
-	threads: 18
+		H0="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf",
+		H1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H1_{clust_pair}_{haplo}.p_ctg/report.pdf"
+	threads: 2
 	log:
-		h0="log/quast_evaluate_assembly_h0_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log",
-		h1="log/quast_evaluate_assembly_h1_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
+		h0="log/quast_evaluate_assembly_h0_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{haplo}.log",
+		h1="log/quast_evaluate_assembly_h1_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{haplo}.log"
 	shell:
 		'''
-		DIR=$(dirname {input.assembly}) &&
-		(time quast -r {input.ref_h0} -t {threads} -o $DIR/quast_results/ref_H0_{wildcards.clust_pair}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
-		(time quast -r {input.ref_h1} -t {threads} -o $DIR/quast_results/ref_H1_{wildcards.clust_pair}.p_ctg {input.assembly}) > {log.h1} 2>&1
+		DIR=$(dirname {input.assembly}) && DIR=$(dirname $DIR) &&
+		(time quast -r {input.ref_h0} -t {threads} -o $DIR/quast_results/ref_H0_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
+		(time quast -r {input.ref_h1} -t {threads} -o $DIR/quast_results/ref_H1_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
 		'''
 
 #################################################
