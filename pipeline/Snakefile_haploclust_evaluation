@@ -444,6 +444,19 @@ rule evaluate_haploclust:
 ##############	assembly evaluation	#################
 #########################################################
 
+rule evaluate_phasing:
+    input:
+        bam=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
+        phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/ccs_phase.data", clust_pair=clust_pairs)
+    output:
+        "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/ccs_phase_eval.data"
+    log:
+        "log/evaluate_phasing_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+    shell:
+        '''
+        (time python3 utils/evaluate_phasing.py --haplotagged_bam_file {input.bam} --phase_file {input.phase} --output_file {output})> {log} 2>&1
+        '''
+
 rule quast_evaluate_assembly:
 	input:
 		ref_h0=lambda wc: ("phased_references/{}.{}.h0.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
@@ -462,6 +475,7 @@ rule quast_evaluate_assembly:
 		(time quast -r {input.ref_h0} -t {threads} -o $DIR/quast_results/ref_H0_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
 		(time quast -r {input.ref_h1} -t {threads} -o $DIR/quast_results/ref_H1_{wildcards.clust_pair}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
 		'''
+
 
 #################################################
 #########	SS haplo strand states	#########

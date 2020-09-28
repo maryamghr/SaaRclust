@@ -74,8 +74,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/{haplo}.p_ctg.fa", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=["h1", "h2"]),
-		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_{prefix}.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.{haplo}.p_ctg.fa", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=["h1", "h2"]),
 
 ########################################################################################################################
 ################################### splitting long reads into chromosomes ##############################################
@@ -304,21 +303,21 @@ if config["overlap_graph"]:
 	rule hifiasm_per_chrom:
 		input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fastq.gz"
 		output:
-			gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.r_utg.gfa",
-			fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.r_utg.fa",
+			gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.gfa",
+			fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.fa",
 		threads: 2
 		log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
 		shell:
 			'''
 			DIR=$(dirname {output.gfa}) &&
-			(time {hifiasm} -o $DIR/{wildcards.clust_pair} -t {threads} {input} &&
+			(time {hifiasm} -o $DIR/asm -t {threads} {input} &&
 			time grep S {output.gfa} | awk '{{print \">\"$2\"\\n\"$3}}' > {output.fa}) > {log} 2<&1
 			'''
 
 	rule detect_bubbles_overlap_graph:
-		input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}_utg.gfa"
-		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}.bubbles.fasta"
-		log: "log/detect_bubbles_overlap_graph_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{prefix}.log"
+		input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.gfa"
+		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r.bubbles.fasta"
+		log: "log/detect_bubbles_overlap_graph_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_r.log"
 		shell: "(time {BubbleGun} -g {input} bchains --fasta {output})> {log} 2>&1"
 
 
@@ -326,11 +325,11 @@ if config["overlap_graph"]:
 	rule map_SS_reads_to_unitigs:
 		input:
 			SSreads="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/ss_reads/cluster{clust_pair}.fasta",
-			utg="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}_utg.fa",
+			utg="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.fa",
 		output:
-			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data"
+			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/{clust_pair}_r_utg_maximal_uniqe_exact_match.data"
 		threads: 2
-		log: "log/map_SS_reads_to_unitigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{prefix}.log"
+		log: "log/map_SS_reads_to_unitigs_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_r.log"
 		shell: 
 			'''
 			(time bwa index {input.utg} &&
@@ -339,10 +338,10 @@ if config["overlap_graph"]:
 
 	rule output_overlap_graph_unitigs_valid_maps:
 		input:
-			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data",
-			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}.bubbles.fasta",
-		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data"
-		log: "log/output_valid_maps_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{prefix}.log"
+			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/{clust_pair}_r_utg_maximal_uniqe_exact_match.data",
+			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r.bubbles.fasta",
+		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_r_utg_maximal_uniqe_exact_match.data"
+		log: "log/output_valid_maps_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_r.log"
 		script: "utils/output_valid_maps.snakemake.py"
 
 
@@ -351,59 +350,45 @@ if config["overlap_graph"]:
 	rule strandphaser_overlap_graph:
 		input:
 			ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/ss_reads/cluster{clust_pair}.data",
-			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data",
-			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}.bubbles.fasta",
+			map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_r_utg_maximal_uniqe_exact_match.data",
+			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r.bubbles.fasta",
 			wc_cell_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/wc_cells_clusters.data",
 		output:
-			phased_strand_states="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_{prefix}.data",
-		log: "log/strandphaser_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{prefix}.log"
+			phased_strand_states="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_r.data",
+		log: "log/strandphaser_kminimap{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_r.log"
 		script: "utils/strandphaser.snakemake.R"
 
 
 	rule phase_unitigs:
 		input:
-			SS_unitigs_map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data",
+			SS_unitigs_map="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_r_utg_maximal_uniqe_exact_match.data",
 			ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/ss_reads/cluster{clust_pair}.data",
-			phased_strand_states="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_{prefix}.data",
-			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}.bubbles.fasta"
-		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/iteration1_{clust_pair}_{prefix}.data"
+			phased_strand_states="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_r.data",
+			bubbles="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r.bubbles.fasta"
+		output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/phased_bubbles.data"
 		script: "utils/phase_snv_bubbles.snakemake.py"
     
     
 	rule haplosplit_graph:
 		input:
-			input_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.r_utg.gfa",
-			haplo_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/iteration1_{clust_pair}_r.data"
+			ccs_fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fasta",
+			input_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.gfa",
+			haplo_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/phased_bubbles.data"
 		output:
-			h1_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/hifiasm/{clust_pair}.r_h1_utg.gfa",
-			h2_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/hifiasm/{clust_pair}.r_h2_utg.gfa",
+			h1_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/split.h1.r_utg.gfa",
+			h2_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/split.h2.r_utg.gfa",
+			ccs_phase="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/ccs_phase.data"
 		script: "utils/haplosplit_graphs.snakemake.py"
-		
-	rule haplosplit_long_reads_names:
-		input:
-			fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fasta",
-			h1_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/hifiasm/{clust_pair}.r_h1_utg.gfa",
-			h2_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/hifiasm/{clust_pair}.r_h2_utg.gfa",
-		output:
-			tmp=temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/ccs_phase_tmp.data"),
-			phase="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/ccs_phase.data"
-		shell:
-			'''
-			awk '/^A/{{print $5,"H1"}}' {input.h1_gfa} > {output.tmp} &&
-			awk '/^A/{{print $5,"H2"}}' {input.h2_gfa} >> {output.tmp} &&
-			sort <(bioawk -c fastx '{{print $name}}' {input.fasta}) <(awk '{{print $1}}' {output.tmp}) | uniq -u | awk '{{print $1, "none"}}' > {output.phase} && # adding untagged reads
-			cat {output.tmp} >> {output.phase}
-			'''
-		
+
 	rule haplosplit_long_reads_fasta:
 		input:
 			fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.fasta",
-			haplo_list="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/ccs_phase.data"
+			haplo_list="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/ccs_phase.data"
 		output:
-			h1_names=temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/h1.names"),
-			h2_names=temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/h2.names"),
-			h1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/h1.fasta",
-			h2="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/h2.fasta",
+			h1_names=temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/h1.names"),
+			h2_names=temp("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/h2.names"),
+			h1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/long_reads.h1.fasta",
+			h2="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/long_reads.h2.fasta",
 		log: "log/haplosplit_unitig_fasta_{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.log"
 		# whatshap split subcommand does not work!
 		#		shell: "(time {whatshap} split {input.fastq} {input.haplo_list} --output-h1 {output[0]} --output-h2 {output[1]} --discard-unknown-reads --add-untagged --pigz) > {log} 2>&1"
@@ -414,16 +399,16 @@ if config["overlap_graph"]:
 			'''
         
 	rule hifiasm_per_haplo:
-		input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/{haplo}.fasta"
+		input: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/long_reads.{haplo}.fasta"
 		output:
-			gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/{haplo}.p_ctg.gfa",
-			fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/{haplo}.p_ctg.fa",
+			gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.{haplo}.p_ctg.gfa",
+			fa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.{haplo}.p_ctg.fa",
 		threads: 4
 		log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{haplo}.log"
 		shell:
 			'''
 			DIR=$(dirname {output.gfa}) &&
-			(time {hifiasm} -o $DIR/{wildcards.haplo} -t {threads} {input} &&
+			(time {hifiasm} -o $DIR/asm.{wildcards.haplo} -t {threads} {input} &&
 			awk '/^S/{{print ">"$2;print $3}}' {output.gfa} > {output.fa}) > {log} 2<&1
 			'''
 
