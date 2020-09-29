@@ -71,6 +71,7 @@ rule all:
 	input:
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_gr_haplo.csv", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs),
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=['h1', 'h2']),
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/ccs_phase_eval.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample)
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}.p_ctg/report.pdf", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
 		#expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam.bai", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs)
@@ -447,7 +448,7 @@ rule evaluate_haploclust:
 rule evaluate_phasing:
     input:
         bam=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
-        phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/phased_bubbles/{clust_pair}/ccs_phase.data", clust_pair=clust_pairs)
+        phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/{clust_pair}/ccs_phase.data", clust_pair=clust_pairs)
     output:
         "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/ccs_phase_eval.data"
     log:
@@ -461,7 +462,7 @@ rule quast_evaluate_assembly:
 	input:
 		ref_h0=lambda wc: ("phased_references/{}.{}.h0.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
 		ref_h1=lambda wc: ("phased_references/{}.{}.h1.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
-		assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/{haplo}.p_ctg.fa",
+		assembly="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.{haplo}.p_ctg.fa",
 	output: 
 		H0="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf",
 		H1="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H1_{clust_pair}_{haplo}.p_ctg/report.pdf"
