@@ -248,7 +248,7 @@ rule evaluate_minimap:
 	input: 
 		minimap="aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}.maf.gz",
 		#pb_ss_intersect=expand(PBbamDir+"/intersect_with_ss_bams/intersect_{{sample}}.{lib}.{{chunks}}.bed", lib=libs),
-		log    ="log/minimap_align_chunks_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
+		log    ="log/evaluate_minimap_{sample}_chunk{chunks}_{kMinimap}_w{w}_f{f}_z{z}.log"
 	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/{sample}_chunk{chunks}_evaluation.txt"
 	params:
 		overlap=0.8

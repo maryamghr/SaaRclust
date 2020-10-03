@@ -487,8 +487,8 @@ def add_long_reads_pred_haplotype(long_reads_phase_file_list, long_reads):
 			for line in f:
 				sp = line.split()
 				read_name, haplo = sp[0], sp[-1]
-				read_name_sp = read_name.split('/ccs')
-				read_name = read_name_sp[0]+'/ccs'
+#				read_name_sp = read_name.split('/ccs')
+#				read_name = read_name_sp[0]+'/ccs'
 
 				assert (read_name in long_reads), 'read ' + read_name + ' should be present in long_reads'
 				# to be removed

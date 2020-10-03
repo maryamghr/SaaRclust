@@ -71,7 +71,8 @@ rule all:
 	input:
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_gr_haplo.csv", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs),
 		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}_{haplo}.p_ctg/report.pdf", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=['h1', 'h2']),
-		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/ccs_phase_eval.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample)
+		expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/ccs_phase_eval.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
+		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/unitigs_phase_eval.data", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/quast_results/ref_H0_{clust_pair}.p_ctg/report.pdf", k=config["k"], a = config["kmer_abundance"], l = config["l"], kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, clust_pair=clust_pairs, haplo=haplotypes),
 		#expand("ground_truth_strand_states/{lib}_haplo_strand_states_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.data", lib=libs, kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample),
 		#expand("aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bubbles.bam.bai", kMinimap=kMinimap, w=w, f=fMinimap, z=z, sample=sample, prefix=['r'], clust_pair=clust_pairs)
@@ -335,18 +336,18 @@ rule index_haplotagged_bam_bubbles:
 rule create_bandage_coloring_csv:
 		input:
 			clust_to_chrom_file="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/clust_partners.txt",
-			unitigs_fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.{prefix}_utg.fa",
-			unitigs_bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.{prefix}.haplotagged.bam",
-			phased_unitigs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/iteration1_{clust_pair}_{prefix}.data",
-			valid_maps="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_{prefix}_utg_maximal_uniqe_exact_match.data",
+			unitigs_fasta="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.fa",
+			unitigs_bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.r.haplotagged.bam",
+			phased_unitigs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/phased_bubbles.data",
+			valid_maps="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/bubble_ss_map/valid_{clust_pair}_r_utg_maximal_uniqe_exact_match.data",
 			ss_clust="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/ss_reads/cluster{clust_pair}.data",
-			ss_phase="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_{prefix}.data",
+			ss_phase="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_strand_states/haplo_strand_states_{clust_pair}_r.data",
 			ccs_bam="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/{sample}.{clust_pair}.haplotagged.bam",
-			hifiasm_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}.r_utg.gfa"
+			hifiasm_gfa="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/{clust_pair}/asm.r_utg.gfa"
 		output:
-			gr_haplo="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_gr_haplo.csv",
-			ss_haplo_cov="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_{prefix}_haplo_ss_cov.csv",
-		log: "log/create_bandage_coloring_csv_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.{prefix}.log"
+			gr_haplo="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_r_gr_haplo.csv",
+			ss_haplo_cov="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/Bandage_sessions/{clust_pair}_r_haplo_ss_cov.csv",
+		log: "log/create_bandage_coloring_csv_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}.r.log"
 		script: "utils/output_bandage_labels.R"
 
 
@@ -446,19 +447,24 @@ rule evaluate_haploclust:
 #########################################################
 
 rule evaluate_phasing:
-    input:
-        bam=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
-        phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/{clust_pair}/ccs_phase.data", clust_pair=clust_pairs)
-    output:
-        "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/phased_bubbles/ccs_phase_eval.data"
-    log:
-        "log/evaluate_phasing_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
-    shell:
-        '''
-        (time python3 utils/evaluate_phasing.py --haplotagged_bam_file {input.bam} --phase_file {input.phase} --output_file {output})> {log} 2>&1
+	input:
+		ccs_bam=expand(PBbamDir+"/{{sample}}.{chunks}.haplotagged.bam", chunks=chunkID),
+		ccs_phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/{clust_pair}/ccs_phase.data", clust_pair=clust_pairs),
+		unitig_bam=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/bubble_ref_aln/{clust_pair}.r.haplotagged.bam", clust_pair=clust_pairs),
+		unitig_phase=expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/"+outputfolder+"_{{sample}}/Clusters/split/hifiasm/{clust_pair}/phased_bubbles.data", clust_pair=clust_pairs),
+	output:
+		ccs="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/ccs_phase_eval.data",
+#		unitig="aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/split/hifiasm/unitigs_phase_eval.data",
+	params:
+		data_type="unitig"
+	log:
+		"log/evaluate_phasing_k{kMinimap}_w{w}_f{f}_z{z}_{sample}.log"
+	shell:
+		'''
+		(time python3 utils/evaluate_phasing.py --haplotagged_bam_file {input.ccs_bam} --phase_file {input.ccs_phase} --output_file {output.ccs})> {log} 2>&1
         '''
 
-rule quast_evaluate_assembly:
+	rule quast_evaluate_assembly:
 	input:
 		ref_h0=lambda wc: ("phased_references/{}.{}.h0.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
 		ref_h1=lambda wc: ("phased_references/{}.{}.h1.polish.fasta").format(wc.sample, clust_pair_to_chrom[wc.clust_pair]),
