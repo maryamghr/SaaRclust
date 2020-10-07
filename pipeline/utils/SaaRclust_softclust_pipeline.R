@@ -17,10 +17,6 @@ library(data.table)
 
 print(SaaRclust)
 
-source('../R/SaaRclust.R')
-
-print(SaaRclust)
-
 output <- SaaRclust(minimap.file=args[1], outputfolder=args[2], num.clusters=args[3], EM.iter=args[4], alpha=as.numeric(args[5]), minLib=as.numeric(args[6]), upperQ=as.numeric(args[7]), logL.th=args[8], theta.constrain=FALSE, HC.input=args[9], log.scale=args[10], filter.soft.clust.input=args[11], filter.ss.file=args[12])
 
 # testing

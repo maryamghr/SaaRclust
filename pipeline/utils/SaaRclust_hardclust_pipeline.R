@@ -11,7 +11,6 @@ print(version)
 
 #BiocManager::install("ComplexHeatmap")
 
-
 #args <- c("aligns_k15_w-default_f0.0002_z500", "aligns_k15_w-default_f0.0002_z500/SaaRclust_results_HG00514", "100", "0.01", "30000", "TRUE", "/local/data/maryam/haploclust-css-HG00514/SaaRclust/pipeline/utils/R-packages/")
 print(args)
 

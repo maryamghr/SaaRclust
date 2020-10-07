@@ -69,6 +69,6 @@ numAlignments: 30000 #150000
 # phasing params
 num_iterations: 2
 
-hifiasm: hifiasm/hifiasm
+hifiasm: ../../tools/hifiasm/hifiasm
 overlap_graph: TRUE
 BubbleGun: ~/.local/bin/BubbleGun

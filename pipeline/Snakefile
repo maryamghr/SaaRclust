@@ -35,34 +35,34 @@ libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
 #####################################################################
 
 ###### getting clusters
-clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMinimap) + "_z" + str(z) + "/SaaRclust_results_" + sample + "/clust_partners.txt"
+#clust_pairs_file = "aligns_k" + str(kMinimap) + "_w" + str(w) + "_f" + str(fMinimap) + "_z" + str(z) + "/SaaRclust_results_" + sample + "/clust_partners.txt"
 
 clusters = []
 clust_pairs = []
 
-with open(clust_pairs_file) as f:
-	next(f)
-	for line in f:
-		if line=="":
-			continue
+#with open(clust_pairs_file) as f:
+#	next(f)
+#	for line in f:
+#		if line=="":
+#			continue
+#
+#		sp = line.split()
+#		chr, clust1, clust2 = sp[0], sp[1], sp[2]
+#		chr = chr.split('_')[0]
+#		chr = chr.split('chr')[1]
+#		
+#		if chr=="X":
+#			chr="23"
+#		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
+#		clust_pair = min_clust + '_' + max_clust
+#		
+#		clusters.append(clust1)
+#		if clust1 == min_clust:
+#			clust_pairs.append(clust_pair)
 
-		sp = line.split()
-		chr, clust1, clust2 = sp[0], sp[1], sp[2]
-		chr = chr.split('_')[0]
-		chr = chr.split('chr')[1]
-		
-		if chr=="X":
-			chr="23"
-		min_clust, max_clust = min(clust1, clust2), max(clust1, clust2)
-		clust_pair = min_clust + '_' + max_clust
-		
-		clusters.append(clust1)
-		if clust1 == min_clust:
-			clust_pairs.append(clust_pair)
-
-print('clusters =', clusters)
-print('clust_pairs =', clust_pairs)
-print('len(clust_pairs) =', len(clust_pairs))
+#print('clusters =', clusters)
+#print('clust_pairs =', clust_pairs)
+#print('len(clust_pairs) =', len(clust_pairs))
 
 
 #####################################################################
@@ -74,9 +74,9 @@ print('len(clust_pairs) =', len(clust_pairs))
 
 rule all:
 	input:
-		expand("{sample}/bwa_ss_unitigs/{lib}.bam", sample=sample, lib=libs),
-		
-		
+		expand("../../{sample}/bwa_ss_unitigs/{lib}.bam", sample=sample, lib=libs),
+		expand("../../{sample}/minimap2_ss_unitigs/{lib}.paf.gz", sample=sample, lib=libs),
+
 		
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -114,9 +114,9 @@ rule concat_assembled_with_first_pair_of_unassembled:
 rule hifiasm:
 	input: fastq=PBbamDir+"/{sample}.fastq.gz",
 	output:
-		gfa="{sample}/hifiasm/asm.r_utg.gfa",
-		fa="{sample}/hifiasm/asm.r_utg.fa",
-	threads: 2
+		gfa="../../{sample}/hifiasm/asm.r_utg.gfa",
+		fa="../../{sample}/hifiasm/asm.r_utg.fa",
+	threads: 38
 	log: "log/hifiasm_{sample}.log"
 	shell:
 		'''
@@ -131,18 +131,18 @@ rule hifiasm:
 ########################################################################################################################
 
 rule bwa_index_hifiasm_unitigs:
-	input: "{sample}/hifiasm/asm.r_utg.fa"
-	output: expand("{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa'])
+	input: "../../{sample}/hifiasm/asm.r_utg.fa"
+	output: expand("../../{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa'])
 	log: "log/bwa_index_hifiasm_unitigs_{sample}.log"
 	shell: "(time bwa index {input}) > {log} 2>&1"
 
 
 rule bwa_align_SS_to_PB:
 	input:
-		unitigs="{sample}/hifiasm/asm.r_utg.fa",
-		unitigs_index=expand("{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa']),
+		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
+		unitigs_index=expand("../../{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa']),
 		ss_reads=SSfastqDir+"/merged/{lib}.combined.fasta"
-	output: "{sample}/bwa_ss_unitigs/{lib}.bam"
+	output: "../../{sample}/bwa_ss_unitigs/{lib}.bam"
 	threads: 2
 	log: "log/bwa_align_chunks_{sample}_{lib}.log"
 	shell: "(time bwa mem -t {threads} {input.unitigs} {input.ss_reads} | samtools view -Sb - > {output}) > {log} 2>&1"
@@ -150,9 +150,9 @@ rule bwa_align_SS_to_PB:
 	
 rule minimap2_align_SS_to_PB:
 	input:
-		unitigs="{sample}/hifiasm/asm.r_utg.fa",
+		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
 		ss_reads=SSfastqDir+"/merged/{lib}.combined.fasta"
-	output: "{sample}/minimap2_ss_unitigs/{lib}.paf.gz"
+	output: "../../{sample}/minimap2_ss_unitigs/{lib}.paf.gz"
 	threads: 2
 	log: "log/minimap2_align_chunks_{sample}_{lib}.log"
 	shell: "(time minimap2 -sr -t{threads} {input.unitigs} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
@@ -163,7 +163,7 @@ rule minimap2_align_SS_to_PB:
 ########################################################################################################################
 
 
-		
+
 		
 		
 ########################################################################################################################
