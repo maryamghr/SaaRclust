@@ -67,14 +67,13 @@ clust_pairs = []
 
 #####################################################################
 
-#wildcard_constraints:
-#	clust = "[V]\d+",
-#	prefix = "[rp]"
+wildcard_constraints:
+	sample = "[a-zA-Z\d]+"
 
 
 rule all:
 	input:
-		expand("../../{sample}/bwa_ss_unitigs/{lib}.bam", sample=sample, lib=libs),
+		expand("../../{sample}/bwa_ss_unitigs/{lib}.bam.bai", sample=sample, lib=libs),
 		expand("../../{sample}/minimap2_ss_unitigs/{lib}.paf.gz", sample=sample, lib=libs),
 
 		
@@ -136,18 +135,28 @@ rule bwa_index_hifiasm_unitigs:
 	log: "log/bwa_index_hifiasm_unitigs_{sample}.log"
 	shell: "(time bwa index {input}) > {log} 2>&1"
 
-
 rule bwa_align_SS_to_PB:
 	input:
 		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
 		unitigs_index=expand("../../{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa']),
 		ss_reads=SSfastqDir+"/merged/{lib}.combined.fasta"
-	output: "../../{sample}/bwa_ss_unitigs/{lib}.bam"
+	output: temp("../../{sample}/temp_bwa_ss_unitigs/{lib}.bam")
 	threads: 2
 	log: "log/bwa_align_chunks_{sample}_{lib}.log"
 	shell: "(time bwa mem -t {threads} {input.unitigs} {input.ss_reads} | samtools view -Sb - > {output}) > {log} 2>&1"
 
-	
+rule bwa_sort_index_SS_to_PB_bams:
+	input: "../../{sample}/temp_bwa_ss_unitigs/{lib}.bam"
+	output:
+		bam="../../{sample}/bwa_ss_unitigs/{lib}.bam",
+		bai="../../{sample}/bwa_ss_unitigs/{lib}.bam.bai"
+	log: "log/bwa_sort_index_SS_to_PB_bams_{sample}_{lib}.log"
+	shell: 
+		'''
+		(time samtools sort -o {output.bam} {input} &&
+		samtools index {output.bam}) > {log} 2>&1
+		'''
+		
 rule minimap2_align_SS_to_PB:
 	input:
 		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",

@@ -290,3 +290,68 @@ importBams <- function(bamfolder=bamfolder, chromosomes=NULL, bin.length=1000000
   }
   return(counts.l)
 }
+
+#'
+#' @param bam.files A set of bam files (per single-cell) containing ss to long-read/unitig alignments
+#' @return A \code{list} of \code{data.table}s.
+#' @author Maryam Ghareghani
+#' @export 
+
+count.wc.bam <- function(bam.files, max.unitig.cov=2){
+  counts.l = list()
+  for (bam in bam.files){
+    cat('counting directional reads in', basename(bam), '\n')
+    lib.name = gsub('.bam$', '', basename(bam))
+    aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=F)))[[1]]
+    aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=T)))[[1]]
+    
+    aln.plus <- data.table(rname=aln.plus$rname, qname=aln.plus$qname)[!is.na(rname)]
+    aln.plus[, c:=.N, by='rname']
+    aln.minus <- data.table(rname=aln.minus$rname, qname=aln.minus$qname)
+    aln.minus[, w:=.N, by='rname']
+    
+    if (!is.null(max.unitig.cov)){
+      aln.plus[, unitig.cov:=.N, by='qname']
+      aln.minus[, unitig.cov:=.N, by='qname']
+      
+      aln.plus <- aln.plus[unitig.cov <= max.unitig.cov]
+      aln.minus <- aln.minus[unitig.cov <= max.unitig.cov]
+    }
+    
+    aln.plus <- aln.plus[, head(.SD, 1), by='rname', .SDcols='c']
+    
+    aln.minus <- aln.minus[, head(.SD, 1), by='rname', .SDcols='w']
+    
+    
+    counts <- merge(aln.minus, aln.plus, by='rname')
+    rownames(counts) <- counts[, rname]
+    counts[, rname:=NULL]
+    
+    counts.l[[lib.name]]=counts
+  }
+  
+  return(counts.l)
+}
+
+# TODO: this filtering remove most of the single-cells. Double check to make sure the counts are correct!
+get_representative_counts(counts.l, num.alignments){
+  counts <- data.table()
+  for (i in 1:length(counts.l)){
+    counts.dt <- counts.l[[i]]
+    lib.name=names(counts.l)[i]
+    cat('lib', lib.name, '...\n')
+    rname=rownames(counts.dt)
+    
+    suppressWarnings(counts.dt[, `:=`(rname=rname, lib=lib.name)])
+    
+    counts <- rbind(counts, counts.dt)
+  }
+  
+  counts[, ss.cov:=sum(w+c), by='rname']
+  counts <- counts[, head(.SD, 1), by='rname']
+  setkey(counts, ss.cov)
+  counts[, ss.cov:=NULL]
+  counts <- tail(counts, num.alignments)
+  
+  return()
+}
