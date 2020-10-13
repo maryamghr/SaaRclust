@@ -333,8 +333,14 @@ count.wc.bam <- function(bam.files, max.unitig.cov=2){
   return(counts.l)
 }
 
-# TODO: this filtering remove most of the single-cells. Double check to make sure the counts are correct!
-get_representative_counts(counts.l, num.alignments){
+#'
+#' @param counts.l A \code{list} of \code{data.table}s (rows=long reads/unitigs) per single cell
+#' @param num.alignments the number of selected long read/unitig names with the highest ss coverage
+#' @return A \code{list} of \code{data.table}s containing the selected alignments
+#' @author Maryam Ghareghani
+#' @export 
+
+get_representative_counts <- function(counts.l, num.alignments){
   counts <- data.table()
   for (i in 1:length(counts.l)){
     counts.dt <- counts.l[[i]]
@@ -342,16 +348,23 @@ get_representative_counts(counts.l, num.alignments){
     cat('lib', lib.name, '...\n')
     rname=rownames(counts.dt)
     
-    suppressWarnings(counts.dt[, `:=`(rname=rname, lib=lib.name)])
+    suppressWarnings(counts.dt[, `:=`(rname=rname, lib.name=lib.name)])
     
     counts <- rbind(counts, counts.dt)
   }
   
-  counts[, ss.cov:=sum(w+c), by='rname']
-  counts <- counts[, head(.SD, 1), by='rname']
+  counts[, ss.cov:=sum(w+c), by=rname]
   setkey(counts, ss.cov)
-  counts[, ss.cov:=NULL]
-  counts <- tail(counts, num.alignments)
   
-  return()
+  counts.selected <- counts[, head(.SD, 1), by=rname]
+  selected.rname <- tail(counts.selected[, rname], num.alignments)
+  counts.selected <- counts[rname %in% selected.rname]
+  counts.selected.l <- split(counts.selected, by='lib.name')
+  
+  for (counts in counts.selected.l){
+    rownames(counts) <- counts[, rname]
+    counts[, `:=`(rname=NULL, lib.name=NULL, ss.cov=NULL)]
+  }
+
+  return(counts.selected.l)
 }
