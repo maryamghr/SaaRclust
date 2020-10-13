@@ -20,7 +20,7 @@ hardClust <- function(counts.l=NULL, num.clusters=NULL, nstart=10, iter.max=10) 
     counts <- counts.l[[j]]
    
     ratios <- (counts[,2]-counts[,1])/(counts[,2]+counts[,1]) #calculate ratio of WW reads
-    ratios[is.nan(ratios)] <- 0
+    ratios[is.na(ratios)] <- 0
     ratios.l[[j]] <- ratios
   }
    

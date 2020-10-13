@@ -345,7 +345,6 @@ get_representative_counts <- function(counts.l, num.alignments){
   for (i in 1:length(counts.l)){
     counts.dt <- counts.l[[i]]
     lib.name=names(counts.l)[i]
-    cat('lib', lib.name, '...\n')
     rname=rownames(counts.dt)
     
     suppressWarnings(counts.dt[, `:=`(rname=rname, lib.name=lib.name)])
@@ -353,6 +352,15 @@ get_representative_counts <- function(counts.l, num.alignments){
     counts <- rbind(counts, counts.dt)
   }
   
+  # expanding the counts table to have all possible unitig/libs (synchronizing the set of unitigs for all single-cells)
+  rnames <- counts[, unique(rname)]
+  lib.names <- counts[, unique(lib.name)]
+  expand.counts <- data.table(expand.grid(rnames, lib.names))
+  colnames(expand.counts) <- c('rname', 'lib.name')
+  counts <- merge(counts, expand.counts, by=c('rname', 'lib.name'), all=T)
+  counts[is.na(counts)] <- 0
+  
+  # subsetting the highest coverage unitigs
   counts[, ss.cov:=sum(w+c), by=rname]
   setkey(counts, ss.cov)
   
@@ -361,9 +369,9 @@ get_representative_counts <- function(counts.l, num.alignments){
   counts.selected <- counts[rname %in% selected.rname]
   counts.selected.l <- split(counts.selected, by='lib.name')
   
-  for (counts in counts.selected.l){
-    rownames(counts) <- counts[, rname]
-    counts[, `:=`(rname=NULL, lib.name=NULL, ss.cov=NULL)]
+  for (i in 1:length(counts.selected.l)){
+    rownames(counts.selected.l[[i]]) <- counts.selected.l[[i]][, rname]
+    counts.selected.l[[i]][, `:=`(rname=NULL, lib.name=NULL, ss.cov=NULL)]
   }
 
   return(counts.selected.l)
