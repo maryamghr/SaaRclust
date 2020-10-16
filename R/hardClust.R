@@ -47,6 +47,7 @@ hardClust <- function(counts.l=NULL, num.clusters=NULL, nstart=10, iter.max=10) 
 #' @author David Porubsky
 #' @export
 
+# 
 estimateTheta <- function(counts.l=NULL, hard.clust=NULL, alpha=0.1) {
   ptm <- startTimedMessage("Estimate theta values") 
   theta.estim <- list()
@@ -54,6 +55,11 @@ estimateTheta <- function(counts.l=NULL, hard.clust=NULL, alpha=0.1) {
     minus.c <- split(counts.l[[j]][,1], hard.clust)
     plus.c <- split(counts.l[[j]][,2], hard.clust)
     
+    # adjustment for data.table count format
+    if (length(minus.c)>0 & "data.table" %in% class(minus.c[[1]])){
+      minus.c <- lapply(minus.c, function(x) x[,w])
+      plus.c <- lapply(plus.c, function(x) x[,c])
+    }
     #minus.counts <- sapply(minus.c, sum)
     #plus.counts <- sapply(plus.c, sum)
     #probs <- countProb2(minusCounts = minus.counts, plusCounts = plus.counts)

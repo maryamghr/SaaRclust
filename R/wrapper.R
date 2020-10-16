@@ -12,7 +12,8 @@
 #' @export
 #' @author David Porubsky, Maryam Ghareghani
 
-runSaaRclust <- function(inputfolder=NULL, input_type="bam", outputfolder="SaaRclust_results", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, hardclustMinLib = 35, hardclustLowerQ=0.7, hardclustUpperQ=0.9, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hardClusteringResults.RData") {
+
+runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", input_type="bam", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, logL.th=1, theta.constrain=FALSE, hardclustMinLib = 35, hardclustLowerQ=0.7, hardclustUpperQ=0.9, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hardClusteringResults.RData") {
   
   #=========================#
   ### Create directiories ###
@@ -67,12 +68,12 @@ runSaaRclust <- function(inputfolder=NULL, input_type="bam", outputfolder="SaaRc
     if (input_type=="bam"){
       # counting w/c in bam files
       bam.files <- list.files(path=inputfolder, pattern='.bam$', full.names=TRUE)
-      counts.l <- count.wc.bam(bam.files)
+      counts.l.all <- count.wc.bam(bam.files)
       # getting representative counts table (alignments with highest ss coverage)
-      counts.l <- get_representative_counts(counts.l, numAlignments)
-    }
-    
-    else{
+      counts <- get_representative_counts(counts.l.all, numAlignments)
+      counts.l.all <- counts[[1]]
+      counts.l <- counts[[2]]
+    } else{
       ### Get representative alignments to estimate theta and pi values ###
       destination <- file.path(rawdata.store, "representativeAligns.RData")
       
@@ -87,8 +88,8 @@ runSaaRclust <- function(inputfolder=NULL, input_type="bam", outputfolder="SaaRc
           save(file = destination, best.alignments)
         }
       } else {
-        best.alignments <- get(load(destination))
-      }  
+      best.alignments <- get(load(destination))
+      }
       
       #use PB read names as factor in order to export counts for every PB read (also for zero counts)
       best.alignments$PBreadNames <- factor(best.alignments$PBreadNames, levels=unique(best.alignments$PBreadNames))
@@ -156,7 +157,7 @@ runSaaRclust <- function(inputfolder=NULL, input_type="bam", outputfolder="SaaRc
     pi.param <- readsPerCluts/sum(readsPerCluts)
     
     #save hard clustering results into a file
-    hard.clust <- list(ord=hardClust.ord.merged, unmerged.ord=hardClust.ord, theta.param=theta.param, pi.param=pi.param, pb.chr = chr.rows, pb.flag = pb.flag)
+    hard.clust <- list(ord=hardClust.ord.merged, unmerged.ord=hardClust.ord, theta.param=theta.param, pi.param=pi.param)#, pb.chr = chr.rows, pb.flag = pb.flag)
     destination <- file.path(Clusters.store, outputfilename)
     if (!file.exists(destination)) {
       save(file = destination, hard.clust)
@@ -164,26 +165,38 @@ runSaaRclust <- function(inputfolder=NULL, input_type="bam", outputfolder="SaaRc
     
   } else {
     message("Loading Hard clustering results")
+    cat('destination =', destination)
     hard.clust <- get(load(destination))
   }
   
+  # TODO: remove
+  # SaaRclust(counts.l=counts.l.all, outputfolder=args[2], EM.iter=args[8], alpha=as.numeric(args[5]), minLib=as.numeric(args[9]), 
+  #          upperQ=as.numeric(args[10]), logL.th=args[11], theta.constrain=FALSE, log.scale=args[7], filter.soft.clust.input=FALSE)
   if(!HC.only) {
     #Initialize theta parameter
     theta.param <- hard.clust$theta.param
     #Initialize pi parameter
     pi.param <- hard.clust$pi.param 
     
-    #List files to process
-    file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
-  
-    ### Main loop to process all files using EM algorithm ###
-    for (file in file.list) {
-      if (verbose) {
-        clust.obj <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale)
-      } else {
-        suppressMessages(  clust.obj <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, num.clusters=num.clusters, EM.iter=EM.iter, alpha=alpha, minLib=minLib, upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale) )
+    if (input_type=="bam"){
+      soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, 
+                             upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale)
+    } else {
+      #List files to process
+      file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
+    
+      ### Main loop to process all files using EM algorithm ###
+      for (file in file.list) {
+        if (verbose) {
+          soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, 
+                                 upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale)
+        } else {
+          suppressMessages( soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, num.clusters=num.clusters, EM.iter=EM.iter, alpha=alpha, minLib=minLib, upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale) )
+        }
       }
     }
+    
+    return(list(hard.clust, soft.clust))
   
   } else {
     return(hard.clust)

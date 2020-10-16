@@ -360,6 +360,8 @@ get_representative_counts <- function(counts.l, num.alignments){
   counts <- merge(counts, expand.counts, by=c('rname', 'lib.name'), all=T)
   counts[is.na(counts)] <- 0
   
+  counts.expand <- split(counts, by='lib.name')
+  
   # subsetting the highest coverage unitigs
   counts[, ss.cov:=sum(w+c), by=rname]
   setkey(counts, ss.cov)
@@ -372,7 +374,11 @@ get_representative_counts <- function(counts.l, num.alignments){
   for (i in 1:length(counts.selected.l)){
     rownames(counts.selected.l[[i]]) <- counts.selected.l[[i]][, rname]
     counts.selected.l[[i]][, `:=`(rname=NULL, lib.name=NULL, ss.cov=NULL)]
+    
+    rownames(counts.expand[[i]]) <- counts.expand[[i]][, rname]
+    counts.expand[[i]][, `:=`(rname=NULL, lib.name=NULL)]
   }
 
-  return(counts.selected.l)
+  return(list(counts.expand, counts.selected.l))
 }
+

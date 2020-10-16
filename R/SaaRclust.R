@@ -16,7 +16,7 @@
 #' @author David Porubsky
 
 
-SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
+SaaRclust <- function(minimap.file=NULL, counts.l=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
 
   print('hello world')
   #Get ID of a file to be processed
@@ -75,71 +75,73 @@ SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.c
     pi.param <- hard.clust.results$pi.param
   }  
   
-  ### Read in minimap alignment file ###
-  suppressWarnings( tab.in <- importData(infile = minimap.file) )
-  #suppressWarnings( tab.in <- importTestData(infile = minimap.file, removeDuplicates = TRUE) ) #SLOW because test data have to be processed differently
+  if (is.null(counts.l)) {
+    ### Read in minimap alignment file ###
+    suppressWarnings( tab.in <- importData(infile = minimap.file) )
+    #suppressWarnings( tab.in <- importTestData(infile = minimap.file, removeDuplicates = TRUE) ) #SLOW because test data have to be processed differently
+    
+    ### get some quality measures on imported data ### [OPTIONAL]
+    data.qual.measures <- getQualMeasure(tab.in)
+    destination <- file.path(rawdata.store, paste0(fileID, "_dataQuals.RData"))
+    save(file = destination, data.qual.measures)
+    
+    ### Filter imported data ###
+    tab.filt <- tab.in
+    if (filter.soft.clust.input)
+    {
+      tab.filt.l <- filterInput(inputData=tab.in, quantileSSreads = c(0, upperQ), minSSlibs = c(minLib,Inf))
+      tab.filt <- tab.filt.l$tab.filt
+    
+      ### Store upperQ reads in a trashBin ###
+      upperQ.tab <- tab.in[tab.in$PBreadNames %in% tab.filt.l$upperQ.reads,]
+      #upperQ.tab$PBreadNames <- factor(upperQ.tab$PBreadNames, levels=unique(upperQ.tab$PBreadNames))
+      #tab.upperQ.l <- split(upperQ.tab, upperQ.tab$SSlibNames)
+      #counts.upperQ.l <- countDirectionalReads(tab.upperQ.l)
   
-  ### get some quality measures on imported data ### [OPTIONAL]
-  data.qual.measures <- getQualMeasure(tab.in)
-  destination <- file.path(rawdata.store, paste0(fileID, "_dataQuals.RData"))
-  save(file = destination, data.qual.measures)
-  
-  ### Filter imported data ###
-  tab.filt <- tab.in
-  if (filter.soft.clust.input)
-  {
-    tab.filt.l <- filterInput(inputData=tab.in, quantileSSreads = c(0, upperQ), minSSlibs = c(minLib,Inf))
-    tab.filt <- tab.filt.l$tab.filt
-  
-    ### Store upperQ reads in a trashBin ###
-    upperQ.tab <- tab.in[tab.in$PBreadNames %in% tab.filt.l$upperQ.reads,]
-    #upperQ.tab$PBreadNames <- factor(upperQ.tab$PBreadNames, levels=unique(upperQ.tab$PBreadNames))
-    #tab.upperQ.l <- split(upperQ.tab, upperQ.tab$SSlibNames)
-    #counts.upperQ.l <- countDirectionalReads(tab.upperQ.l)
-
-    ptm <- startTimedMessage("Writing upperQ reads into a file")
-    destination <- file.path(trashbin.store, paste0(fileID, "_upperQreads.gz"))
-    gzf = gzfile(destination, 'w')
-    utils::write.table(x = upperQ.tab, file = gzf, quote = F, row.names = F)
-    close(gzf)
+      ptm <- startTimedMessage("Writing upperQ reads into a file")
+      destination <- file.path(trashbin.store, paste0(fileID, "_upperQreads.gz"))
+      gzf = gzfile(destination, 'w')
+      utils::write.table(x = upperQ.tab, file = gzf, quote = F, row.names = F)
+      close(gzf)
+      stopTimedMessage(ptm)
+      #data.table::fwrite(upperQ.tab, destination)
+      #gzip(destination)
+    }
+    
+    if (!is.null(filter.ss.file))
+    {
+      filter.ss.names <- fread(filter.ss.file, header=F)[, V1]
+      tab.filt <- tab.filt[!SSreadNames %in% filter.ss.names]
+    }
+    
+    ### Sorting filtered data table by direction and chromosome ###
+    ptm <- startTimedMessage("Sorting data")
+    #additional sort by direction
+#    tab.filt <- tab.filt[order(tab.filt$PBflag),]
+    
+    #use PB read names as factor
+#    tab.filt <- tab.filt[order(tab.filt$PBchrom),]
+#    tab.filt$PBreadNames <- factor(tab.filt$PBreadNames, levels=unique(tab.filt$PBreadNames))
+    
+    #get PB chrom names from the ordered PB reads
+#    chr.l <- split(tab.filt$PBchrom, tab.filt$PBreadNames)
+#    chr.rows <- sapply(chr.l, function(x) x[1])
+    
+    #get PB directionality from the ordered PB reads
+#    pb.flag <- split(tab.filt$PBflag, tab.filt$PBreadNames)
+#    pb.flag <- sapply(pb.flag, unique)
+    
+    #get PB read position
+    #pb.pos <- split(tab.filt$PBpos, tab.filt$PBreadNames)
+    #pb.pos <- sapply(pb.pos, unique)
+    
+    #split data by SS library
+    tab.l <- split(tab.filt, tab.filt$SSlibNames)
     stopTimedMessage(ptm)
-    #data.table::fwrite(upperQ.tab, destination)
-    #gzip(destination)
+    
+    ### Count directional reads ###
+    counts.l <- countDirectionalReads(tab.l)
   }
-  
-  if (!is.null(filter.ss.file))
-  {
-    filter.ss.names <- fread(filter.ss.file, header=F)[, V1]
-    tab.filt <- tab.filt[!SSreadNames %in% filter.ss.names]
-  }
-  
-  ### Sorting filtered data table by direction and chromosome ###
-  ptm <- startTimedMessage("Sorting data")
-  #additional sort by direction
-  tab.filt <- tab.filt[order(tab.filt$PBflag),]
-  
-  #use PB read names as factor
-  tab.filt <- tab.filt[order(tab.filt$PBchrom),]
-  tab.filt$PBreadNames <- factor(tab.filt$PBreadNames, levels=unique(tab.filt$PBreadNames))
-  
-  #get PB chrom names from the ordered PB reads
-  chr.l <- split(tab.filt$PBchrom, tab.filt$PBreadNames)
-  chr.rows <- sapply(chr.l, function(x) x[1])
-  
-  #get PB directionality from the ordered PB reads
-  pb.flag <- split(tab.filt$PBflag, tab.filt$PBreadNames)
-  pb.flag <- sapply(pb.flag, unique)
-  
-  #get PB read position
-  #pb.pos <- split(tab.filt$PBpos, tab.filt$PBreadNames)
-  #pb.pos <- sapply(pb.pos, unique)
-  
-  #split data by SS library
-  tab.l <- split(tab.filt, tab.filt$SSlibNames)
-  stopTimedMessage(ptm)
-  
-  ### Count directional reads ###
-  counts.l <- countDirectionalReads(tab.l)
   
   # subsetting single cell libraries
   if (!is.null(cellNum)) {
@@ -169,9 +171,9 @@ SaaRclust <- function(minimap.file=NULL, outputfolder='SaaRclust_results', num.c
 
   ### Save final results ###
   #add known chromosome and directionality of PB reads to a final data object
-  soft.clust.obj$PBchrom <- as.character(chr.rows)
-  soft.clust.obj$PBflag <- as.character(pb.flag)
-  soft.clust.obj$pb.readLen <- tab.filt$PBreadLen[match(rownames(soft.clust.obj$soft.pVal), tab.filt$PBreadNames)]  #report PB read length
+#  soft.clust.obj$PBchrom <- as.character(chr.rows)
+#  soft.clust.obj$PBflag <- as.character(pb.flag)
+#  soft.clust.obj$pb.readLen <- tab.filt$PBreadLen[match(rownames(soft.clust.obj$soft.pVal), tab.filt$PBreadNames)]  #report PB read length
   #export data in RData object
   destination <- file.path(Clusters.store, paste0(fileID, "_clusters.RData"))
   

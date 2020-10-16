@@ -168,13 +168,35 @@ rule minimap2_align_SS_to_PB:
 	
 
 ########################################################################################################################
-###################################  aligning ss reads to hifiasm unitigs ##############################################
+###################################  SaaRclust ##############################################
 ########################################################################################################################
 
+rule SaaRclust:
+	input:
+		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample=sample, chunks=chunkID), 
+		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
+	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData"
+	params:
+		input_type="bam"
+	log: "log/HARD_clustering_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_{numClustersHard}.log"
+	shell:
+		"""
+		(time Rscript utils/SaaRclust_hardclust_pipeline.R \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z} \
+		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
+		{params.input_type} \
+		{wildcards.numClustersHard} \
+		{alpha} \
+		{numAlignments} \
+		{log_scale} \
+		{EMiter} \
+		{minLib} \
+		{upperQ} \
+		{logLth} \
+		$(pwd)/utils/R-packages/) \
+		> {log} 2>&1
+		"""
 
-
-		
-		
 ########################################################################################################################
 ################################### splitting long reads into chromosomes ##############################################
 ########################################################################################################################

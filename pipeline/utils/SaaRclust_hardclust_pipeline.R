@@ -27,4 +27,12 @@ suppressPackageStartupMessages(library(dplyr))
 print('running hard clustering')
 output.filename <- paste0("hardClusteringResults_", args[3], "clusters.RData")
 
-hard.clust <- runSaaRclust(inputfolder = args[1], outputfolder = args[2], num.clusters=as.numeric(args[3]), alpha = as.numeric(args[4]),  HC.only = TRUE, store.counts = FALSE, store.bestAlign = TRUE, numAlignments = as.numeric(args[5]), log.scale=args[6], outputfilename=output.filename)
+#hard.clust <- runSaaRclust(inputfolder = args[1], outputfolder = args[2], input_type=args[3], num.clusters=as.numeric(args[4]), 
+#                           alpha = as.numeric(args[5]),  HC.only = TRUE, store.counts = FALSE, store.bestAlign = TRUE, numAlignments = as.numeric(args[6]), 
+#                           log.scale=args[7], outputfilename=output.filename)
+
+hard.clust <- runSaaRclust(inputfolder = args[1], outputfolder = args[2], input_type=args[3], num.clusters=as.numeric(args[4]), 
+                         EM.iter=args[8], alpha=as.numeric(args[5]), minLib=as.numeric(args[9]), upperQ=as.numeric(args[10]), 
+                         logL.th=args[11], theta.constrain=FALSE, store.counts=FALSE, store.bestAlign=TRUE, numAlignments=as.numeric(args[6]), 
+                         HC.only=FALSE, log.scale=args[7], outputfilename=output.filename)
+  
