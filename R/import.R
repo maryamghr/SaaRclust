@@ -297,11 +297,14 @@ importBams <- function(bamfolder=bamfolder, chromosomes=NULL, bin.length=1000000
 #' @author Maryam Ghareghani
 #' @export 
 
-count.wc.bam <- function(bam.files, max.unitig.cov=2){
-  counts.l = list()
-  for (bam in bam.files){
+count.wc.bam <- function(bam.files, max.unitig.cov=4, numCPU){
+  lib.names <- sapply(bam.files, function(bam) gsub('.bam$', '', basename(bam)))
+  
+  cl <- makeCluster(numCPU)
+  doParallel::registerDoParallel(cl)
+  
+  counts.l <- foreach (bam=bam.files, .packages=c('Rsamtools', 'data.table')) %dopar%{
     cat('counting directional reads in', basename(bam), '\n')
-    lib.name = gsub('.bam$', '', basename(bam))
     aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=F)))[[1]]
     aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=T)))[[1]]
     
@@ -327,8 +330,10 @@ count.wc.bam <- function(bam.files, max.unitig.cov=2){
     rownames(counts) <- counts[, rname]
     counts[, rname:=NULL]
     
-    counts.l[[lib.name]]=counts
+    counts
   }
+  
+  names(counts.l) <- lib.names
   
   return(counts.l)
 }

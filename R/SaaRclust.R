@@ -16,12 +16,14 @@
 #' @author David Porubsky
 
 
-SaaRclust <- function(minimap.file=NULL, counts.l=NULL, outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
+SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
 
-  print('hello world')
+  print('soft clustering ...')
   #Get ID of a file to be processed
-  fileID <- basename(minimap.file)
-  fileID <- strsplit(fileID, "\\.")[[1]][1]
+  if (is.null(fileID) & !is.null(minimap.file)){
+    fileID <- basename(minimap.file)
+    fileID <- strsplit(fileID, "\\.")[[1]][1]
+  }
 
   #Prepare locations for export
   #Create a master output directory if it wasn't created before
@@ -66,13 +68,18 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, outputfolder='SaaRclust_
   if (is.null(theta.param) | is.null(pi.param)) {
     if (!file.exists(HC.input)) {
       stop("Hard clustering results not available!!!")
-    }    
-    hard.clust.results <- get(load(HC.input))
+    }
+    if (class(HC.input)=="character"){ # (HC.input=filename) input as file
+      hard.clust.results <- get(load(HC.input))
+    } else { # HC.input=hard clust object
+      hard.clust.results <- HC.input
+    }
     
     #Initialize theta parameter
     theta.param <- hard.clust.results$theta.param
     #Initialize pi parameter
     pi.param <- hard.clust.results$pi.param
+    
   }  
   
   if (is.null(counts.l)) {
@@ -141,16 +148,16 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, outputfolder='SaaRclust_
     
     ### Count directional reads ###
     counts.l <- countDirectionalReads(tab.l)
-  }
   
-  # subsetting single cell libraries
-  if (!is.null(cellNum)) {
-    counts.l = counts.l[1:cellNum]
-  }
-  
-  if (store.counts) {
-    destination <- file.path(rawdata.store, paste0(fileID, "_counts.RData"))
-    save(file = destination, counts.l)
+    # subsetting single cell libraries
+    if (!is.null(cellNum)) {
+      counts.l = counts.l[1:cellNum]
+    }
+    
+    if (store.counts) {
+      destination <- file.path(rawdata.store, paste0(fileID, "_counts.RData"))
+      save(file = destination, counts.l)
+    }
   }
   
   ### EM algorithm ###

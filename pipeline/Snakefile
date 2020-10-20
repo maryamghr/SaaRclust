@@ -8,6 +8,7 @@ print(sys.version)
 
 configfile: "config.yaml"
 
+sample = config["sample"]
 GRAPHPATH = config["graphfolder"]
 SSfastqDir = config["SS_fastq_dir"]
 SSbamDir = config["SS_bam_dir"]
@@ -21,7 +22,19 @@ minPBlen = config["min_pb_len"]
 N = config["Nchunks"]
 l = len(str(N))
 chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
-sample = config["sample"]
+
+numClustersHard = config["numClustersHard"]
+numClustersSoft = config["numClustersSoft"]
+EMiter          = config["EMiter"]
+alpha           = config["alpha"]
+minLib          = config["minLib"]
+upperQ          = config["upperQ"]
+logLth          = config["logLth"]
+theta_constrain = config["theta_constrain"]
+log_scale    = config["log_scale"]
+ss_names_filter = config["SS_names_filter"]
+numAlignments   = config["numAlignments"]
+
 w = config["w"]
 kMinimap = config["k_minimap"]
 fMinimap = config["f"]
@@ -73,8 +86,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("../../{sample}/bwa_ss_unitigs/{lib}.bam.bai", sample=sample, lib=libs),
-		expand("../../{sample}/minimap2_ss_unitigs/{lib}.paf.gz", sample=sample, lib=libs),
+		expand("../../{sample}/SaaRclust/Clusters/soft_clusters.RData", sample=sample),
 
 		
 ###############################################################################
@@ -173,19 +185,23 @@ rule minimap2_align_SS_to_PB:
 
 rule SaaRclust:
 	input:
-		minimapFiles = expand("aligns_k{{kMinimap}}_w{{w}}_f{{f}}_z{{z}}/{sample}_chunk{chunks}.maf.gz", sample=sample, chunks=chunkID), 
+		bam=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.bam", lib=libs),
+		bai=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.bam.bai", lib=libs),
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
-	output: "aligns_k{kMinimap}_w{w}_f{f}_z{z}/"+outputfolder+"_{sample}/Clusters/hardClusteringResults_{numClustersHard}clusters.RData"
+	output:
+		hard_clust="../../{sample}/SaaRclust/Clusters/hard_clusters.RData",
+		soft_clust="../../{sample}/SaaRclust/Clusters/soft_clusters.RData"
 	params:
 		input_type="bam"
-	log: "log/HARD_clustering_{sample}_k{kMinimap}_w{w}_f{f}_z{z}_{numClustersHard}.log"
+	threads: 32
+	log: "log/SaaRclust_{sample}_initial_clusters.log"
 	shell:
 		"""
-		(time Rscript utils/SaaRclust_hardclust_pipeline.R \
-		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z} \
-		aligns_k{wildcards.kMinimap}_w{wildcards.w}_f{wildcards.f}_z{wildcards.z}/{outputfolder}_{sample} \
+		(time Rscript utils/SaaRclust.snakemake.R \
+		../../{sample}/bwa_ss_unitigs \
+		../../{sample}/SaaRclust \
 		{params.input_type} \
-		{wildcards.numClustersHard} \
+		{numClustersHard} \
 		{alpha} \
 		{numAlignments} \
 		{log_scale} \
@@ -193,6 +209,7 @@ rule SaaRclust:
 		{minLib} \
 		{upperQ} \
 		{logLth} \
+		{threads} \
 		$(pwd)/utils/R-packages/) \
 		> {log} 2>&1
 		"""
