@@ -113,6 +113,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     ### Perform k-means hard clustering method ###
     set.seed(1000) #in order to reproduce hard clustering results
     hardClust.ord <- hardClust(counts.l, num.clusters=num.clusters, nstart = 100)
+    names(hardClust.ord) <- rownames(counts.l[[1]])
     
 #    ### computing the accuracy of the hard clustering before merging lusters ### [OPTIONAL]
 #    #get PB chrom names from the ordered PB reads
@@ -183,9 +184,11 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     pi.param <- hard.clust$pi.param 
     
     if (input_type=="bam"){
+      read.names <- rownames(counts.l.all[[1]])
       counts.l.all <- lapply(counts.l.all, as.data.frame)
       soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, 
                              upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale, HC.input=hard.clust)
+      rownames(soft.clust$soft.pVal) <- read.names
     } else {
       #List files to process
       file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
