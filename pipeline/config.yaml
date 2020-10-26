@@ -17,9 +17,9 @@ pb_bam_dir: ../../ccs_bams
 min_pb_len: 5000
 
 
-reference: hg38.fa
+reference: ../../reference/hg38.fa
 
-phased_vcf_dir: trio-based-phasing/
+phased_vcf_dir: ../../trio-based-phasing/
 vcf_prefix: PR05
 
 # SS bams and phased vcf files
