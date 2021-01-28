@@ -16,7 +16,11 @@
 #' @author David Porubsky
 
 
-SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfolder='SaaRclust_results', num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL) {
+SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfolder='SaaRclust_results', 
+                      num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, 
+                      pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, 
+                      cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL, 
+                      read.names=NULL) {
 
   print('soft clustering ...')
   #Get ID of a file to be processed
@@ -183,6 +187,8 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
 #  soft.clust.obj$pb.readLen <- tab.filt$PBreadLen[match(rownames(soft.clust.obj$soft.pVal), tab.filt$PBreadNames)]  #report PB read length
   #export data in RData object
   destination <- file.path(Clusters.store, paste0(fileID, "_clusters.RData"))
+  
+  rownames(soft.clust.obj$soft.pVal) <- read.names
   
   save(file = destination, soft.clust.obj)
 

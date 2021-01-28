@@ -59,34 +59,37 @@ plotQualMeasure <- function(summary.tab) {
 #' @author David Porubsky
 #' @export
 
-plotHeatmap <- function(pVal.df=NULL, colOrder=NULL, num.clusters=NULL) {
+plotHeatmap <- function(soft.clust=NULL, colOrder=NULL, num.clusters=NULL) {
 
   #order clusters based on most likely chromosome partners                               
   if (!is.null(colOrder)) {                               
-    pVal.df[,1:length(colOrder)] <- pVal.df[,colOrder]
-    colnames(pVal.df)[1:num.clusters] <- colOrder
+    soft.clust$soft.pVal[,1:length(colOrder)] <- soft.clust$soft.pVal[,colOrder]
+    colnames(soft.clust)[1:num.clusters] <- colOrder
   }
   
   if (!is.null(num.clusters)) {
 
-    chr.ids <- names(sort(table(pVal.df$PBchrom), decreasing = T))
+    chr.ids <- names(sort(table(soft.clust$chrom), decreasing = T))
     chr.ids <- gsub('^chr', '', chr.ids)
-    #chr.ids <- sort(as.numeric(chr.ids))
+    chr.ids <- sort(as.numeric(chr.ids))
     chr.colors <- rep(c("gray48","gray72"), ceiling(length(chr.ids)/2))
     chr.colors <- chr.colors[1:length(chr.ids)]
     names(chr.colors) <- chr.ids
     
-    pVal.df$PBchrom <- gsub('^chr', '', pVal.df$PBchrom)
-    pVal.df$PBchrom <- factor(pVal.df$PBchrom, levels=chr.ids)
-    pVal.df <- pVal.df[order(pVal.df$PBchrom),]
+    soft.clust$chrom <- gsub('^chr', '', soft.clust$chrom)
+    soft.clust$chrom <- factor(soft.clust$chrom, levels=chr.ids)
+    soft.clust$soft.pVal <- soft.clust$soft.pVal[order(soft.clust$chrom),]
+    # soft.clust$chrom <- soft.clust$chrom[order(soft.clust$chrom)]
     
     #set unexpected directionality flags to 1
-    pVal.df$PBflag[pVal.df$PBflag != 0 & pVal.df$PBflag != 16] <- 1
+    soft.clust$flag[soft.clust$flag != 0 & soft.clust$flag != 16] <- 1
     
-    ha1 = rowAnnotation(df = data.frame(chr = pVal.df$PBchrom), col = list(chr=chr.colors))
-    ha2 = rowAnnotation(df = data.frame(PB.dir = pVal.df$PBflag), col = list(PB.dir = c('0'="chocolate1", '16'="chartreuse3", '1'="white")))
-    hm <- Heatmap(pVal.df[,c(1:num.clusters)], name = "Probs", cluster_columns = F, cluster_rows = F, show_row_names = FALSE)
+    ha1 = rowAnnotation(df = data.frame(chr = soft.clust$chrom), col = list(chr=chr.colors))
+    ha2 = rowAnnotation(df = data.frame(dir = soft.clust$flag), col = list(dir = c('0'="chocolate1", '16'="chartreuse3", '1'="white")))
+    hm <- Heatmap(soft.clust$soft.pVal[,c(1:num.clusters)], name = "Probs", cluster_columns = F, cluster_rows = F, show_row_names = FALSE)
+    #hm <- Heatmap(soft.clust$soft.pVal[,c(1:num.clusters)], name = "Probs", cluster_columns = F, cluster_rows = F, show_row_names = FALSE)
     hm + ha1 + ha2
+    return(hm)
   } else {
     message("num.clusters not specified!!!\n")
   }  
@@ -100,9 +103,9 @@ plotHeatmap <- function(pVal.df=NULL, colOrder=NULL, num.clusters=NULL) {
 #' @author David Porubsky
 #' @export
 
-plotClustAccuracy <- function(pVal.df=NULL, num.clusters=NULL, thresh=c(0.5,0.6,0.7,0.8,0.9,0.99)) {
+plotClustAccuracy <- function(pVal.df=NULL, chrom=NULL, flag=NULL, num.clusters=NULL, thresh=c(0.5,0.6,0.7,0.8,0.9,0.99)) {
   pVals <- pVal.df[,c(1:num.clusters)]
-  chr.rows <- pVal.df$PBchrom
+  chr.rows <- chrom
   
   acc.l <- list()
   for (th in thresh) {
@@ -241,3 +244,125 @@ plotReadAlignments <- function(minimap.tab=NULL) {
   plt <- ggplot(all.libs.df) + geom_linerange(data=readLen, aes(x=0, ymin=start, ymax=end), color="black") + geom_linerange(aes(x=level, ymin=start, ymax=end, color=strand)) + coord_flip() + scale_color_manual(values = c("paleturquoise4","sandybrown")) + xlab("") + facet_grid(SSlibNames ~ ., scales = 'free') + geom_text(aes(x=Inf,y=0, vjust=1, hjust=0), label=all.libs.df$probs) + ggtitle(readID) + theme(strip.text.y = element_text(angle = 360))
   return(plt)
 }
+
+#' Plots heatmap of w reads fractions in chrom/libs
+#'
+#' @param counts.l A list of W/C read count data tables (rows=long reads, cols=w,c) per single-cell
+#' @author Maryam Ghareghani
+#' @export
+
+
+plot_heatmap_wfrac <- function(counts.l, compute_Wfrac=F, by_chrom=F)
+{
+  # avg.unitigs.w.frac is from count.selected obtained from get_representative_alignments in import.R
+  
+  w.frac <- counts.l
+  
+  if (compute_Wfrac)
+  {
+    w.frac[, W.frac:=(w-c)/(w+c)]
+    #w.frac[, `:=`(w=NULL, c=NULL)]
+  }
+  
+  mat <- dcast(w.frac, rname+chrom+flag~lib, value.var='W.frac')
+  # test
+  #mat <- mat[1:100,1:10]
+  
+  chroms <- paste0('chr',c(1:22, 'X'))
+  if (by_chrom) {
+    expected.clusters <- chroms
+  } else {
+    expected.clusters <- paste0(rep(chroms, each=2), rep(c('_0','_16'),23))
+    mat[, chrom:=paste0(chrom,'_',flag)]
+    
+  }
+  row.order <- factor(expected.clusters, levels = expected.clusters)
+
+  mat <- mat[order(factor(chrom, levels=row.order))]
+  
+  annot <- HeatmapAnnotation(data.frame(chromosome=mat[, chrom]), which = 'row')
+  if (!by_chrom){
+    annot <- annot + HeatmapAnnotation(data.frame(flag=as.character(mat[, flag])), which = 'row')
+  }
+  
+  row.names <- mat[, rname]
+  mat[, `:=`(rname=NULL,chrom=NULL,flag=NULL)]
+  # only cluster by chrom:
+  #  mat <- abs(mat)
+  mat <- as.matrix(mat)
+  rownames(mat) <- row.names
+  
+  if (by_chrom) {mat <- abs(mat)}
+  
+  d= as.matrix(dist(mat))
+  
+  plt.clust <- Heatmap(mat, name='w-c fraction', show_row_names = F, show_column_names = F) + annot #+ chrom.annot + flag.annot
+  plt.clust.rows <- Heatmap(mat, name='w-c fraction', cluster_columns = F, show_row_names = F, show_column_names = F) + annot #+ chrom.annot + flag.annot
+  plt <- Heatmap(mat, name='w-c fraction', cluster_rows = F, cluster_columns = F, show_row_names = F, show_column_names = F) + annot #+ chrom.annot + flag.annot
+  plt.dist.clust <- Heatmap(d, name='dist of w-c fraction vectors', show_row_names = F, show_column_names = F) + annot #+ chrom.annot + flag.annot
+  plt.dist <- Heatmap(d, name='dist of w-c fraction vectors', cluster_rows = F, cluster_columns = F, show_row_names = F, show_column_names = F) + annot
+  
+  list(plt.clust=plt.clust, plt.clust.rows=plt.clust.rows, plt=plt, plt.dist.clust=plt.dist.clust, plt.dist=plt.dist, features.matrix=mat)
+}
+
+# hard clust heatmap
+
+clust.chrom.count <- data.table(chrom=hard.clust$chrom, clust=hard.clust$ord)[!is.na(chrom)]
+clust.chrom.count[, count:=.N, by=.(chrom, clust)]
+clust.chrom.count <- clust.chrom.count[, head(.SD, 1), by=.(chrom, clust)]
+mat <- dcast(clust.chrom.count, chrom~clust, value.var = 'count', fill=0)
+mat <- mat[order(factor(chrom, levels=paste0('chr', c(1:22, 'X'))))]
+row.names <- mat[, chrom]
+mat[, chrom:=NULL]
+mat <- as.matrix(mat)
+rownames(mat) <- row.names
+heatmap(mat, scale = 'column', Rowv = NA, Colv = NA, col= colorRampPalette(brewer.pal(8, "Blues"))(25))
+
+# input data insights- bar plot of true clusters in all and selected unitigs
+ggplot(chrom.flag)+ geom_bar(aes())
+
+# complex Heatmap:
+#Heatmap(mat)
+################### SS Wfrac in long reads/unitigs
+counts <- data.table()
+for (i in 1:length(counts.l)){
+  counts.dt <- ratios.l[[i]] # counts.l[[i]]
+  lib.name=names(counts.l)[i]
+  rnames=rownames(counts.l[[i]]) #(counts.dt)
+  
+  counts.dt[, `:=`(rname=rnames, lib.name=lib.name)]
+  
+  counts <- rbind(counts, counts.dt)
+}
+
+colnames(counts)[1] <- 'W.frac' #counts[, W.frac:=(w-c)/(w+c)]
+counts.selected <- counts
+
+rnames <- counts[, unique(rname)]
+lib.names <- counts[, unique(lib.name)]
+expand.counts <- data.table(expand.grid(rnames, lib.names))
+colnames(expand.counts) <- c('rname', 'lib.name')
+counts <- merge(counts, expand.counts, by=c('rname', 'lib.name'), all=T)
+counts[is.na(counts)] <- 0
+
+counts <- merge(counts, chrom.flag, by='rname')
+
+# subsetting the highest coverage unitigs
+counts[, ss.cov:=sum(w+c), by=rname]
+setkey(counts, ss.cov)
+
+counts.selected <- counts[, head(.SD, 1), by=rname]
+counts.selected <- counts.selected[ss.cov >= min.ss.cov]
+
+selected.rname <- counts.selected[, rname]
+if (nrow(counts.selected) > num.alignments){
+  selected.rname <- tail(selected.rname, num.alignments)
+}
+counts.selected <- counts[rname %in% selected.rname]
+counts.selected[, avg.w.frac:=mean(W.frac[W.frac!=0]), by=.(lib.name,chrom,flag)]
+
+avg.unitigs.w.frac <- counts.selected[, head(.SD,1), by=.(lib.name,chrom,flag)][, .(lib=lib.name, chrom, flag, W.frac=avg.w.frac)]
+avg.unitigs.w.frac[, chrom:=paste0(chrom,'_', flag, '_unitig'), by=.(chrom, flag)]
+avg.unitigs.w.frac[, flag:=NULL]
+
+w.frac = rbind()

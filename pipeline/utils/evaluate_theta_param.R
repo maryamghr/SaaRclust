@@ -1,37 +1,35 @@
 library(data.table)
 library(ggplot2)
 library(gridExtra)
-source(evaluate_pairing_clusters.R)
 
-countfiles.dir <- '/MMCI/TM/scratch/maryam/haploclust-css-HG00514/SaaRclust/pipeline/ground_truth_strand_states/'
+countfiles.dir <- '../../HG00733/SaaRclust/ground_truth_strand_states/'
 soft.clust <- get(load('/MMCI/TM/scratch/maryam/haploclust-css-HG00514/SaaRclust/pipeline/aligns_k15_w1_f0.1_z500/SaaRclust_results_HG00514/Clusters/HG00514_chunk000_clusters.RData'))
 hard.clust <- get(load('/MMCI/TM/scratch/maryam/haploclust-css-HG00514/SaaRclust/pipeline/aligns_k15_w1_f0.1_z500/SaaRclust_results_HG00514/Clusters/hardClusteringResults_100clusters.RData'))
-clust.to.chrom <- fread('/MMCI/TM/scratch/maryam/haploclust-css-HG00514/SaaRclust/pipeline/aligns_k15_w1_f0.1_z500/SaaRclust_results_HG00514/clust_partners.txt')
+clust.to.chrom <- fread('../../HG00733/SaaRclust/Clusters/clust_partners.txt')
 clust.to.chrom[,cluster:=clust.forward]
 
 soft.theta <- soft.clust$theta.param
 hard.theta <- hard.clust$theta.param
 
-
-compare_theta_with_wfrac <- function(theta, title)
+compare_theta_with_wfrac <- function(theta, clust.to.chrom, countfiles.dir="", title="", num.clusters=80)
 {
-	theta.wc = data.table(lib=NULL, cluster=NULL, thetawc=NULL, W.frac=NULL)
+	theta.wc = data.table()
 
 	for (cell in 1:length(theta))
 	{
 		libname = names(theta)[cell]
-		cell.theta.wc = data.table(lib=libname, cluster=paste0('V', 1:47), thetawc=theta[[cell]][,3])
-		cell.theta.wc = merge(cell.theta.wc, clust.to.chrom[, .(original.chrom, cluster)], by="cluster")
-		cell.theta.wc[, chrom:=sapply(original.chrom, function(x) strsplit(x, '_')[[1]][1])]
+	#	cell.theta.wc = data.table(lib=libname, clust=paste0('V', 1:47), thetawc=theta[[cell]][,3])
+		cell.theta.wc = data.table(lib=libname, clust=1:num.clusters, thetawc=theta[[cell]][,3])
+		cell.theta.wc = merge(cell.theta.wc, clust.to.chrom[, .(chrom, clust)], by="clust")
+	#	cell.theta.wc[, chrom:=sapply(original.chrom, function(x) strsplit(x, '_')[[1]][1])]
 		
-
 		# reading W and C read counts data
 		countfile = paste0(countfiles.dir, libname, '_chrom_haplo_count.data')
 		counts = fread(countfile)
 
 		cell.theta.wc <- merge(cell.theta.wc, counts[, .(chrom, W.frac=W/(W+C))], by="chrom")
 
-		theta.wc = rbind(theta.wc, cell.theta.wc[, .(lib, cluster, thetawc, W.frac)])
+		theta.wc = rbind(theta.wc, cell.theta.wc[, .(lib, chrom, clust, thetawc, W.frac)])
 	}
 
 	return(list(theta.wc, ggplot(theta.wc, aes(x=W.frac, y=thetawc))+geom_point()+ggtitle(title)))

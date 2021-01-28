@@ -67,7 +67,7 @@ partners <- findClusterPartners(hard.clust$theta.param)
 
 clust.partners <- data.table(clust=c(partners[,1], partners[,2]), pair=c(partners[,2], partners[,1]))
 
-hard.clust.to.chromflag <- numFoundClusters(hard.clust$ord, hard.clust$pb.chr, hard.clust$pb.flag)[[1]]
+hard.clust.to.chromflag <- numFoundClusters(hard.clust$ord, hard.clust$chrom, hard.clust$flag)[[1]]
 
 hard.clust.to.chromflag <- merge(hard.clust.to.chromflag, clust.partners, by="clust")
 

@@ -86,7 +86,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("../../{sample}/SaaRclust/Clusters/soft_clusters.RData", sample=sample),
+		expand("../../{sample}/bwa_ss_unitigs/{lib}.mdup.bam.bai", sample=sample, lib=libs),
 
 		
 ###############################################################################
@@ -147,7 +147,7 @@ rule bwa_index_hifiasm_unitigs:
 	log: "log/bwa_index_hifiasm_unitigs_{sample}.log"
 	shell: "(time bwa index {input}) > {log} 2>&1"
 
-rule bwa_align_SS_to_PB:
+rule bwa_align:
 	input:
 		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
 		unitigs_index=expand("../../{{sample}}/hifiasm/asm.r_utg.fa.{extention}", extention=['amb', 'ann', 'bwt', 'pac', 'sa']),
@@ -157,16 +157,31 @@ rule bwa_align_SS_to_PB:
 	log: "log/bwa_align_chunks_{sample}_{lib}.log"
 	shell: "(time bwa mem -t {threads} {input.unitigs} {input.ss_reads} | samtools view -Sb - > {output}) > {log} 2>&1"
 
-rule bwa_sort_index_SS_to_PB_bams:
+rule bwa_sort:
 	input: "../../{sample}/temp_bwa_ss_unitigs/{lib}.bam"
-	output:
-		bam="../../{sample}/bwa_ss_unitigs/{lib}.bam",
-		bai="../../{sample}/bwa_ss_unitigs/{lib}.bam.bai"
-	log: "log/bwa_sort_index_SS_to_PB_bams_{sample}_{lib}.log"
+	output: "../../{sample}/bwa_ss_unitigs/{lib}.bam"
+	log: "log/bwa_sort_{sample}_{lib}.log"
+	shell:
+		'''
+		(time samtools sort -o {output} {input}) > {log} 2>&1
+		'''
+
+rule mark_duplicates:
+	input: "../../{sample}/bwa_ss_unitigs/{lib}.bam"
+	output: "../../{sample}/bwa_ss_unitigs/{lib}.mdup.bam",
+	log: "log/mark_duplicates_{sample}_{lib}.log"
 	shell: 
 		'''
-		(time samtools sort -o {output.bam} {input} &&
-		samtools index {output.bam}) > {log} 2>&1
+		(time sambamba markdup {input} {output}) > {log} 2>&1
+		'''
+
+rule bwa_index:
+	input: "../../{sample}/bwa_ss_unitigs/{lib}.mdup.bam"
+	output: "../../{sample}/bwa_ss_unitigs/{lib}.mdup.bam.bai"
+	log: "log/bwa_index_{sample}_{lib}.log"
+	shell:
+		'''
+		(time samtools index {input}) > {log} 2>&1
 		'''
 		
 rule minimap2_align_SS_to_PB:

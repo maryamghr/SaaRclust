@@ -1,3 +1,55 @@
+#' Given a bam file, returns a data table containing read name, chrom, and flag.
+#'
+#' @param bam.file Input bam file
+#' @param valid.chroms A set of valid chromosome names
+#' @author Maryam Ghareghani
+#' @export
+
+getChromFlag <- function(bam.file, valid.chroms=NULL) {
+  if (is.null(valid.chroms)){
+    valid.chroms <- paste0('chr',c(1:22, 'X'))
+  }
+  
+  aln <- scanBam(file = bam.file, param=ScanBamParam(what=c('qname','rname','flag'), mapqFilter=10,  
+                                                     flag=scanBamFlag(isSupplementaryAlignment=F,
+                                                                      isSecondaryAlignment = F)))[[1]]
+  chrom.flag <- data.table(chrom=as.character(aln$rname), rname=aln$qname, flag=aln$flag)[!is.na(chrom)]
+  chrom.flag <- chrom.flag[chrom %in% valid.chroms]
+  chrom.flag <- chrom.flag[flag %in% c(0, 16)]
+  
+  return(chrom.flag)
+}
+
+
+#' Add chrom and flag (ground truth based on reference-based mapping) to a clustering object
+#'
+#'
+#' @param clust.obj A hard or soft clustering object
+#' @param bam.file Input bam file
+#' @param clust.type Type of the clustering object \in {'hard', 'soft'}
+#' @importFrom dplyr group_by summarise
+#' @author Maryam Ghareghani
+#' @export
+
+addChromFlag <- function(clust.obj, bam.file, clust.type='soft') {
+  new.clust <- clust.obj
+  aln <- getChromFlag(bam.file)
+  
+  # sorting qnames in aln according the rownames of the soft clustering matrix
+  if (clust.type=='soft') {
+    qnames <- data.table(qname=rownames(clust.obj$soft.pVal))
+  } else {
+    qnames <- data.table(qname=names(clust.obj$ord))
+  }
+  aln.sorted <- merge(qnames, aln, by='qname', all.x=T)
+  
+  new.clust$chrom <- as.character(aln.sorted[, chrom])
+  new.clust$flag <- as.numeric(aln.sorted[, flag])
+  
+  return(new.clust)
+}
+
+
 #' Obtain summary measures of minimap output.
 #'
 #' Takes imported data table and export relevant data quality measures.
@@ -125,18 +177,58 @@ hardClustAccuracy <- function(hard.clust, pb.chr, pb.flag, tab.filt, female=TRUE
 #' @export
 
 
-numFoundClusters <- function (ord, chr, flag) 
+numFoundClusters <- function (ord, chr, flag, expected.clusters=NULL) 
 {
     hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr, flag = flag)
-    hard.clust.dt[, `:=`(chrom_flag_count, .N), by = .(clust, chrom, flag)]
+    hard.clust.dt[, chrom_flag_count:=.N, by = .(clust, chrom, flag)]
     hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom, flag)]
-    hard.clust.to.chrom[, name:=NULL]
     hard.clust.to.chrom[, `:=`(chrom_flag_rank, rank(-chrom_flag_count)), by = clust]
     hard.clust.to.chrom <- hard.clust.to.chrom[chrom_flag_rank == 1]
     hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, .(chrom, flag)])
-    return(nrow(hard.clust.to.chrom.unq))
+
+    if (! is.null(expected.clusters)){
+      missed.clusters <- setdiff(expected.clusters,hard.clust.to.chrom.unq[, paste0(chrom,'_',flag)])
+      message('missing clusters: ', paste(missed.clusters, collapse=', '))
+    }
+    
+    # computing clustering accuracy
+    clust.dt <- hard.clust.dt[!is.na(chrom)]
+    clust.dt <- merge(clust.dt, hard.clust.to.chrom, by='clust')
+    true.clustered <- clust.dt[chrom.x==chrom.y & flag.x==flag.y]
+    cat('clust accuracy:', nrow(true.clustered)/nrow(clust.dt), '\n')
+    
+    print('detected chroms:')
+    print(sort(hard.clust.to.chrom.unq[, paste0(chrom, '_', flag)]))
+    cat('number of detected clusters:', nrow(hard.clust.to.chrom.unq))
+    
+    return(hard.clust.to.chrom[, .(clust, chrom, flag)])
 }
 
+numFoundChromosomes <- function (ord, chr, expected.clusters=NULL) 
+{
+  hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr)
+  hard.clust.dt[, chrom_count:=.N, by = .(clust, chrom)]
+  hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom)]
+  hard.clust.to.chrom[, `:=`(chrom_rank, rank(-chrom_count)), by = clust]
+  hard.clust.to.chrom <- hard.clust.to.chrom[chrom_rank == 1]
+  hard.clust.to.chrom.unq <- unique(hard.clust.to.chrom[, chrom])
+  
+  if (! is.null(expected.clusters)){
+    missed.clusters <- setdiff(expected.clusters,hard.clust.to.chrom.unq)
+    message('missing clusters: ', paste(missed.clusters, collapse=', '))
+  }
+  
+  # computing clustering accuracy
+  clust.dt <- hard.clust.dt[!is.na(chrom)]
+  clust.dt <- merge(clust.dt, hard.clust.to.chrom, by='clust')
+  true.clustered <- clust.dt[chrom.x==chrom.y]
+  cat('clust accuracy:', nrow(true.clustered)/nrow(clust.dt), '\n')
+  
+  print('detected chroms:')
+  print(paste(sort(hard.clust.to.chrom.unq)))
+  
+  return(length(hard.clust.to.chrom.unq))
+}
 
 #' Simulate random theta estimates for cell type
 #'

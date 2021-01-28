@@ -297,20 +297,24 @@ importBams <- function(bamfolder=bamfolder, chromosomes=NULL, bin.length=1000000
 #' @author Maryam Ghareghani
 #' @export 
 
-count.wc.bam <- function(bam.files, max.unitig.cov=4, numCPU){
-  lib.names <- sapply(bam.files, function(bam) gsub('.bam$', '', basename(bam)))
+count.wc.bam <- function(bam.files, max.unitig.cov=2, numCPU){
+  lib.names <- sapply(bam.files, function(bam) gsub('.mdup.bam$', '', basename(bam)))
   
   cl <- makeCluster(numCPU)
   doParallel::registerDoParallel(cl)
   
   counts.l <- foreach (bam=bam.files, .packages=c('Rsamtools', 'data.table')) %dopar%{
     cat('counting directional reads in', basename(bam), '\n')
-    aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=F)))[[1]]
-    aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), flag=scanBamFlag(isMinusStrand=T)))[[1]]
+    aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), #mapqFilter=10, 
+                                                      flag=scanBamFlag(isMinusStrand=F, isSupplementaryAlignment=F, 
+                                                                                      , isSecondaryAlignment = F, isDuplicate = F)))[[1]]
+    aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), 
+                                                       flag=scanBamFlag(isMinusStrand=T, isSupplementaryAlignment=F, 
+                                                                                       , isSecondaryAlignment = F, isDuplicate = F)))[[1]]
     
-    aln.plus <- data.table(rname=aln.plus$rname, qname=aln.plus$qname)[!is.na(rname)]
+    aln.plus <- data.table(rname=as.character(aln.plus$rname), qname=aln.plus$qname)[!is.na(rname)]
     aln.plus[, c:=.N, by='rname']
-    aln.minus <- data.table(rname=aln.minus$rname, qname=aln.minus$qname)
+    aln.minus <- data.table(rname=as.character(aln.minus$rname), qname=aln.minus$qname)
     aln.minus[, w:=.N, by='rname']
     
     if (!is.null(max.unitig.cov)){
@@ -326,7 +330,8 @@ count.wc.bam <- function(bam.files, max.unitig.cov=4, numCPU){
     aln.minus <- aln.minus[, head(.SD, 1), by='rname', .SDcols='w']
     
     
-    counts <- merge(aln.minus, aln.plus, by='rname')
+    counts <- merge(aln.minus, aln.plus, by='rname', all=T)
+    counts[is.na(counts)] <- 0
     rownames(counts) <- counts[, rname]
     counts[, rname:=NULL]
     
@@ -345,45 +350,73 @@ count.wc.bam <- function(bam.files, max.unitig.cov=4, numCPU){
 #' @author Maryam Ghareghani
 #' @export 
 
-get_representative_counts <- function(counts.l, num.alignments){
+get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, plot.hist=FALSE, chrom.flag=NULL){
   counts <- data.table()
   for (i in 1:length(counts.l)){
     counts.dt <- counts.l[[i]]
     lib.name=names(counts.l)[i]
     rname=rownames(counts.dt)
     
-    suppressWarnings(counts.dt[, `:=`(rname=rname, lib.name=lib.name)])
+    counts.dt[, `:=`(rname=rname, lib=lib.name)]
     
     counts <- rbind(counts, counts.dt)
   }
   
   # expanding the counts table to have all possible unitig/libs (synchronizing the set of unitigs for all single-cells)
   rnames <- counts[, unique(rname)]
-  lib.names <- counts[, unique(lib.name)]
-  expand.counts <- data.table(expand.grid(rnames, lib.names))
-  colnames(expand.counts) <- c('rname', 'lib.name')
-  counts <- merge(counts, expand.counts, by=c('rname', 'lib.name'), all=T)
+  lib.names <- counts[, unique(lib)]
+  expand.counts <- data.table(expand.grid(rnames, lib.names, stringsAsFactors = F))
+  colnames(expand.counts) <- c('rname', 'lib')
+  counts <- merge(counts, expand.counts, by=c('rname', 'lib'), all=T)
   counts[is.na(counts)] <- 0
   
-  counts.expand <- split(counts, by='lib.name')
+  counts.expand <- split(counts, by='lib')
   
   # subsetting the highest coverage unitigs
   counts[, ss.cov:=sum(w+c), by=rname]
   setkey(counts, ss.cov)
   
   counts.selected <- counts[, head(.SD, 1), by=rname]
-  selected.rname <- tail(counts.selected[, rname], num.alignments)
+  counts.selected <- counts.selected[ss.cov >= min.ss.cov]
+  
+  selected.rname <- counts.selected[, rname]
+  if (length(selected.rname) > num.alignments){
+    selected.rname <- tail(selected.rname, num.alignments)
+  }
+  
+  if (plot.hist){
+    counts.selected.chrom <- merge(counts.selected, chrom.flag, by='rname', all.x=T)
+    ggplot(counts.selected.chrom[rname %in% selected.rname])+geom_bar(aes(x=paste(chrom, flag)))
+  }
+  
   counts.selected <- counts[rname %in% selected.rname]
-  counts.selected.l <- split(counts.selected, by='lib.name')
+  
+  # choosing the set of reads/unitigs with a reasonable fraction of ww/cc strand states ovel all single-cells
+  counts.selected[, non.zero.cov:=0][w+c>0, non.zero.cov:=1]
+  counts.selected[, non.zero.cov:=sum(non.zero.cov), by=rname]
+  counts.selected[, `:=`(n.ww=0, n.cc=0)]
+  counts.selected[w/(w+c) < 0.2, n.cc:=1]
+  counts.selected[w/(w+c) > 0.8, n.ww:=1]
+  counts.selected[, n.ww.cc:=sum(n.ww+n.cc), by=rname]
+  filt <- counts.selected[, head(.SD, 1), by=rname]
+  filt <- merge(filt, chrom.flag, by='rname', all.x=T)
+  filt[, norm.n.ww.cc:=n.ww.cc/non.zero.cov]
+  
+  filt.rname <- filt[norm.n.ww.cc>0.25 & norm.n.ww.cc<0.75, rname]
+  
+  counts.selected <- counts.selected[rname %in% filt.rname, .(rname,w,c,lib)]
+  #################################################
+  
+  counts.selected.l <- split(counts.selected, by='lib')
   
   for (i in 1:length(counts.selected.l)){
     rownames(counts.selected.l[[i]]) <- counts.selected.l[[i]][, rname]
-    counts.selected.l[[i]][, `:=`(rname=NULL, lib.name=NULL, ss.cov=NULL)]
+    counts.selected.l[[i]][, `:=`(rname=NULL, lib=NULL)]
     
     rownames(counts.expand[[i]]) <- counts.expand[[i]][, rname]
-    counts.expand[[i]][, `:=`(rname=NULL, lib.name=NULL)]
+    counts.expand[[i]][, `:=`(rname=NULL, lib=NULL)]
   }
 
-  return(list(counts.expand, counts.selected.l))
+  return(list(counts.expand, counts.selected.l, counts.selected))
 }
 

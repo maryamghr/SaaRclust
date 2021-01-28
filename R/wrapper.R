@@ -15,7 +15,8 @@
 
 runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", input_type="bam", num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, 
                          logL.th=1, theta.constrain=FALSE, hardclustMinLib = 35, hardclustLowerQ=0.7, hardclustUpperQ=0.9, store.counts=FALSE, store.bestAlign=TRUE, 
-                         numAlignments=30000, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hard_clusters.RData", numCPU=20) {
+                         numAlignments=30000, minSScov=30, HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, outputfilename="hard_clusters.RData", 
+                         ref.aln.bam=NULL, numCPU=20) {
   
   #=========================#
   ### Create directiories ###
@@ -65,7 +66,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     bam.files <- list.files(path=inputfolder, pattern='.bam$', full.names=TRUE)
     counts.l.all <- count.wc.bam(bam.files, numCPU=numCPU)
     # getting representative counts table (alignments with highest ss coverage)
-    counts <- get_representative_counts(counts.l.all, numAlignments)
+    counts <- get_representative_counts(counts.l.all, numAlignments,min.ss.cov=minSScov)
     counts.l.all <- counts[[1]]
     counts.l <- counts[[2]]
   }
@@ -112,7 +113,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     
     ### Perform k-means hard clustering method ###
     set.seed(1000) #in order to reproduce hard clustering results
-    hardClust.ord <- hardClust(counts.l, num.clusters=num.clusters, nstart = 100)
+    hardClust.ord <- hardClust(counts.l, num.clusters=num.clusters)
     names(hardClust.ord) <- rownames(counts.l[[1]])
     
 #    ### computing the accuracy of the hard clustering before merging lusters ### [OPTIONAL]
@@ -139,6 +140,32 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     
     #Merge splitted clusters after hard clustering
     hardClust.ord.merged <- mergeClusters(hard.clust=hardClust.ord, theta.l=theta.estim, k=47)
+    
+    if (!is.null(ref.aln.bam)){
+      # getting ground true chrom/flags
+      valid.chroms <- paste0('chr',c(1:22, 'X'))
+      expected.clusters <- paste0(rep(valid.chroms, each=2), rep(c('_0','_16'),23))
+      chrom.flag <- getChromFlag(ref.aln.bam)
+      
+      # adding ground true info to hard clust object
+      hard.clust <- addChromFlag(clust.obj=hard.clust, bam.file=bam.file, clust.type = 'hard')
+      
+      # getting number of detected  clusters in hard clustering
+      for (hard.clust in list(hardClust.ord, hardClust.ord.merged)){
+        clust <- data.table(qname=names(hard.clust), ord=hard.clust)
+        clust <- merge(clust, chrom.flag, by='qname')
+      
+        ord = clust$ord
+        names(ord)=clust$qname
+        
+        if (max(hard.clust)==num.clusters){ # initial unmerged clusters
+          print('number of detected clusters in initial kmeans clustering:')
+        } else {print('number of detected clusters after merging:')}
+        
+        print(numFoundClusters(ord, clust$chrom, clust$flag))
+      }
+    }
+    
     #findSplitedClusters(theta.param = theta.estim) -> to.join
     #hardClust.ord.merged <- hardClust.ord
     #for (i in 1:length(to.join)) {
@@ -187,8 +214,8 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       read.names <- rownames(counts.l.all[[1]])
       counts.l.all <- lapply(counts.l.all, as.data.frame)
       soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, 
-                             upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale, HC.input=hard.clust)
-      rownames(soft.clust$soft.pVal) <- read.names
+                             upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale, 
+                             HC.input=hard.clust, read.names=read.names)
     } else {
       #List files to process
       file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
@@ -204,6 +231,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
                                                     log.scale=log.scale, HC.input=hard.clust) )
         }
       }
+    }
+    if (!is.null(ref.aln.bam)){
+      # adding ground true info to soft clust object
+      soft.clust <- addChromFlag(soft.clust, bam.file=bam.file, clust.type = 'soft')
     }
     
     return(list(hard.clust, soft.clust))
