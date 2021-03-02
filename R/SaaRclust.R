@@ -6,7 +6,8 @@
 #' @param minLib Minimal number of StrandS libraries being represent per long PB read
 #' @param upperQ Filter out given percentage of PacBio reads with the highest number of alignments.
 #' @param EM.iter Number of iteration to run EM for.
-#' @param theta.constrain Recalibrate theta values to meet expected distribution of W and C strand across Strand-seq libraries.
+#' @param theta.constrain Recalibrate theta values to meet expected distribution of W and C strand across 
+#' Strand-seq libraries.
 #' @param store.counts Logical if to store raw read counts per PB read
 #' @param HC.input Filaname where hard clustering results are stored
 #' @param cellNum Specifies the number of single cells to be used in clustering
@@ -62,10 +63,14 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
   cat("", file=savename)
   cat("Current folder contains the following folders.\n", file=savename, append=TRUE)
   cat("==============================================\n", file=savename, append=TRUE)
-  cat("- Clusters: RData files with the results of the clustering. Contains soft clustering probabilities as well as estimates of theta and pi parameter.\n", file=savename, append=TRUE)
-  cat("- RawData: RData files thart contains some measures of data quality. Raw alignment counts are also exported here depending on option 'store.counts=FALSE'.\n", file=savename, append=TRUE)
-  cat("- Plots: Some plots produced to evaluate clustering efficacy and accuracy (Left empty for now).\n", file=savename, append=TRUE)
-  cat("- TrashBin: This folder contains long reads that belong to the highest 5% based on the Strand-seq read counts. Depends on option 'upperQ=0.95'.\n", file=savename, append=TRUE)
+  cat("- Clusters: RData files with the results of the clustering. Contains soft clustering 
+      probabilities as well as estimates of theta and pi parameter.\n", file=savename, append=TRUE)
+  cat("- RawData: RData files thart contains some measures of data quality. Raw alignment counts 
+      are also exported here depending on option 'store.counts=FALSE'.\n", file=savename, append=TRUE)
+  cat("- Plots: Some plots produced to evaluate clustering efficacy and accuracy (Left empty for now).\n", 
+      file=savename, append=TRUE)
+  cat("- TrashBin: This folder contains long reads that belong to the highest 5% based on the Strand-seq 
+      read counts. Depends on option 'upperQ=0.95'.\n", file=savename, append=TRUE)
   
   #Load Hard clustering results and initialize parameters of EM algorithm [temporary solution for snakemake]
   #destination <- file.path(Clusters.store, HC.input)
@@ -89,7 +94,8 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
   if (is.null(counts.l)) {
     ### Read in minimap alignment file ###
     suppressWarnings( tab.in <- importData(infile = minimap.file) )
-    #suppressWarnings( tab.in <- importTestData(infile = minimap.file, removeDuplicates = TRUE) ) #SLOW because test data have to be processed differently
+    #suppressWarnings( tab.in <- importTestData(infile = minimap.file, removeDuplicates = TRUE) ) 
+    #SLOW because test data have to be processed differently
     
     ### get some quality measures on imported data ### [OPTIONAL]
     data.qual.measures <- getQualMeasure(tab.in)
@@ -127,25 +133,7 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
     
     ### Sorting filtered data table by direction and chromosome ###
     ptm <- startTimedMessage("Sorting data")
-    #additional sort by direction
-#    tab.filt <- tab.filt[order(tab.filt$PBflag),]
-    
-    #use PB read names as factor
-#    tab.filt <- tab.filt[order(tab.filt$PBchrom),]
-#    tab.filt$PBreadNames <- factor(tab.filt$PBreadNames, levels=unique(tab.filt$PBreadNames))
-    
-    #get PB chrom names from the ordered PB reads
-#    chr.l <- split(tab.filt$PBchrom, tab.filt$PBreadNames)
-#    chr.rows <- sapply(chr.l, function(x) x[1])
-    
-    #get PB directionality from the ordered PB reads
-#    pb.flag <- split(tab.filt$PBflag, tab.filt$PBreadNames)
-#    pb.flag <- sapply(pb.flag, unique)
-    
-    #get PB read position
-    #pb.pos <- split(tab.filt$PBpos, tab.filt$PBreadNames)
-    #pb.pos <- sapply(pb.pos, unique)
-    
+
     #split data by SS library
     tab.l <- split(tab.filt, tab.filt$SSlibNames)
     stopTimedMessage(ptm)
@@ -165,13 +153,15 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
   }
   
   ### EM algorithm ###
-  soft.clust.obj <- EMclust(counts.l, theta.param=theta.param, pi.param=pi.param, num.iter=EM.iter, alpha=alpha, logL.th=logL.th, log.scale=log.scale)
+  soft.clust.obj <- EMclust(counts.l, theta.param=theta.param, pi.param=pi.param, 
+                            num.iter=EM.iter, alpha=alpha, logL.th=logL.th, log.scale=log.scale)
   
   #rescale theta parameter and run one more iteration to redo soft clustering [EXPERIMENTAL]
   if (theta.constrain) {
     theta.expected <- num.clusters * c(0.25,0.25,0.5)
     theta.rescaled <- thetaRescale(theta.param=soft.clust.obj$theta.param, theta.expected=theta.expected)
-    soft.clust.obj <- EMclust(counts.l, theta.param=theta.rescaled, pi.param=soft.clust.obj$pi.param, num.iter=1, alpha=alpha, logL.th=logL.th, log.scale=log.scale)
+    soft.clust.obj <- EMclust(counts.l, theta.param=theta.rescaled, pi.param=soft.clust.obj$pi.param, 
+                              num.iter=1, alpha=alpha, logL.th=logL.th, log.scale=log.scale)
   }
   
   #Get pairs of clusters coming from the same chromosome but differs in directionality of PB reads  [EXPERIMENTAL]

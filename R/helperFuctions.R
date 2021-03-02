@@ -25,28 +25,25 @@ getChromFlag <- function(bam.file, valid.chroms=NULL) {
 #'
 #'
 #' @param clust.obj A hard or soft clustering object
-#' @param bam.file Input bam file
+#' @param chrom.flag A data table with columns 'rname', 'chrom', 'flag'
 #' @param clust.type Type of the clustering object \in {'hard', 'soft'}
 #' @importFrom dplyr group_by summarise
 #' @author Maryam Ghareghani
 #' @export
 
-addChromFlag <- function(clust.obj, bam.file, clust.type='soft') {
-  new.clust <- clust.obj
-  aln <- getChromFlag(bam.file)
+addChromFlag <- function(clust.obj, chrom.flag, clust.type='soft') {
   
-  # sorting qnames in aln according the rownames of the soft clustering matrix
   if (clust.type=='soft') {
-    qnames <- data.table(qname=rownames(clust.obj$soft.pVal))
+    clust <- data.table(rname=rownames(clust.obj$soft.pVal))
   } else {
-    qnames <- data.table(qname=names(clust.obj$ord))
+    clust <- data.table(rname=names(clust.obj$ord))
   }
-  aln.sorted <- merge(qnames, aln, by='qname', all.x=T)
+  clust <- merge(clust, chrom.flag, by='rname', all.x=T)
+
+  clust.obj$chrom <- clust[, chrom]
+  clust.obj$flag <- clust[, flag]
   
-  new.clust$chrom <- as.character(aln.sorted[, chrom])
-  new.clust$flag <- as.numeric(aln.sorted[, flag])
-  
-  return(new.clust)
+  return(clust.obj)
 }
 
 
@@ -177,9 +174,12 @@ hardClustAccuracy <- function(hard.clust, pb.chr, pb.flag, tab.filt, female=TRUE
 #' @export
 
 
-numFoundClusters <- function (ord, chr, flag, expected.clusters=NULL) 
+numFoundClusters <- function (ord, chrom.flag) 
 {
-    hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr, flag = flag)
+    valid.chroms <- paste0('chr', c(1:22, "X"))
+    expected.clusters <- paste0(rep(valid.chroms, each=2), rep(c('_0','_16'),23))
+    hard.clust.dt <- data.table(rname = names(ord), clust = ord)
+    hard.clust.dt <- merge(hard.clust.dt, chrom.flag, by='rname')
     hard.clust.dt[, chrom_flag_count:=.N, by = .(clust, chrom, flag)]
     hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom, flag)]
     hard.clust.to.chrom[, `:=`(chrom_flag_rank, rank(-chrom_flag_count)), by = clust]
@@ -204,10 +204,11 @@ numFoundClusters <- function (ord, chr, flag, expected.clusters=NULL)
     return(hard.clust.to.chrom[, .(clust, chrom, flag)])
 }
 
-numFoundChromosomes <- function (ord, chr, expected.clusters=NULL) 
+numFoundChromosomes <- function (ord, chrom.flag) 
 {
-  hard.clust.dt <- data.table(name = names(ord), clust = ord, chrom = chr)
-  hard.clust.dt[, chrom_count:=.N, by = .(clust, chrom)]
+  expected.clusters <- paste0('chr', c(1:22, "X"))
+  hard.clust.dt <- data.table(rname = names(ord), clust = ord)
+  hard.clust.dt <- merge(hard.clust.dt, chrom.flag[, .(chrom, rname)], by='rname')
   hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom)]
   hard.clust.to.chrom[, `:=`(chrom_rank, rank(-chrom_count)), by = clust]
   hard.clust.to.chrom <- hard.clust.to.chrom[chrom_rank == 1]

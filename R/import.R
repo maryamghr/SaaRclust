@@ -307,10 +307,10 @@ count.wc.bam <- function(bam.files, max.unitig.cov=2, numCPU){
     cat('counting directional reads in', basename(bam), '\n')
     aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), #mapqFilter=10, 
                                                       flag=scanBamFlag(isMinusStrand=F, isSupplementaryAlignment=F, 
-                                                                                      , isSecondaryAlignment = F, isDuplicate = F)))[[1]]
+                                                                                      isSecondaryAlignment = F, isDuplicate = F)))[[1]]
     aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), 
                                                        flag=scanBamFlag(isMinusStrand=T, isSupplementaryAlignment=F, 
-                                                                                       , isSecondaryAlignment = F, isDuplicate = F)))[[1]]
+                                                                                       isSecondaryAlignment = F, isDuplicate = F)))[[1]]
     
     aln.plus <- data.table(rname=as.character(aln.plus$rname), qname=aln.plus$qname)[!is.na(rname)]
     aln.plus[, c:=.N, by='rname']
@@ -340,17 +340,56 @@ count.wc.bam <- function(bam.files, max.unitig.cov=2, numCPU){
   
   names(counts.l) <- lib.names
   
+  stopCluster(cl)
+  
   return(counts.l)
+}
+
+# converts counts format between data.table and list
+
+convert.counts.format <- function(counts)
+{
+  counts.output <- NULL
+  
+  if ('data.table' %in% class(counts))
+  {
+    counts.output <- split(counts, by='lib')
+    
+    for (i in 1:length(counts.output)){
+      rnames <- counts.output[[i]][, rname]
+      counts.output[[i]] <- counts.output[[i]][, .(w,c)]
+      rownames(counts.output[[i]]) <- rnames
+    }
+  } else if (class(counts)=='list') {
+    counts.output <- data.table()
+    
+    for (i in 1:length(counts)) {
+      counts.dt <- counts[[i]]
+      counts.dt[, rname:=rownames(counts.dt)]
+      counts.dt[, lib:=names(counts)[i]]
+      counts.output <- rbind(counts.output, counts.dt)
+    }
+  } else {
+    warning('input type should be list or data.table')
+  }
+  
+  return(counts.output)
 }
 
 #'
 #' @param counts.l A \code{list} of \code{data.table}s (rows=long reads/unitigs) per single cell
 #' @param num.alignments the number of selected long read/unitig names with the highest ss coverage
+#' @param min.ss.cov Minimum required coverage of SS reads in unitigs
+#' @param chrom.bar.plot plots the bar plot of the number of long reads/unitigs per chrom/direction. Works with the given chrom.flag input.
+#' @param chrom.flag The ground true \code{data.table} containing the chrom/flags of long reads/unitigs
+#' @param output.type type of the output counts data. It can be \code{data.table} or \code{list} (if it is splitted by lib names)
 #' @return A \code{list} of \code{data.table}s containing the selected alignments
 #' @author Maryam Ghareghani
 #' @export 
 
-get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, plot.hist=FALSE, chrom.flag=NULL){
+get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, 
+                                      chrom.bar.plot=FALSE, chrom.flag=NULL,
+                                      output.type='data.table'){
   counts <- data.table()
   for (i in 1:length(counts.l)){
     counts.dt <- counts.l[[i]]
@@ -384,7 +423,7 @@ get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, p
     selected.rname <- tail(selected.rname, num.alignments)
   }
   
-  if (plot.hist){
+  if (chrom.bar.plot){
     counts.selected.chrom <- merge(counts.selected, chrom.flag, by='rname', all.x=T)
     ggplot(counts.selected.chrom[rname %in% selected.rname])+geom_bar(aes(x=paste(chrom, flag)))
   }
@@ -399,7 +438,7 @@ get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, p
   counts.selected[w/(w+c) > 0.8, n.ww:=1]
   counts.selected[, n.ww.cc:=sum(n.ww+n.cc), by=rname]
   filt <- counts.selected[, head(.SD, 1), by=rname]
-  filt <- merge(filt, chrom.flag, by='rname', all.x=T)
+#  filt <- merge(filt, chrom.flag, by='rname', all.x=T)
   filt[, norm.n.ww.cc:=n.ww.cc/non.zero.cov]
   
   filt.rname <- filt[norm.n.ww.cc>0.25 & norm.n.ww.cc<0.75, rname]
@@ -416,7 +455,14 @@ get_representative_counts <- function(counts.l, num.alignments, min.ss.cov=30, p
     rownames(counts.expand[[i]]) <- counts.expand[[i]][, rname]
     counts.expand[[i]][, `:=`(rname=NULL, lib=NULL)]
   }
-
-  return(list(counts.expand, counts.selected.l, counts.selected))
+  
+  if (output.type=='data.table') {
+    return(list(counts.expand, counts.selected))
+  } else if (output.type=='list') {
+    return(list(counts.expand, counts.selected.l))
+  } else {
+    warning('ouput.type should be data.table or list')
+    return(NULL)
+  }
 }
 

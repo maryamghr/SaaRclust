@@ -3,7 +3,8 @@
 #' This function performs basic steps of EM algorithm.
 #'
 #' @param counts.l A \code{list} of plus and minus alignments per genomic region.
-#' @param theta.param A \code{list} of estimated cell types for each single cell. (rows=clusters, cols=strand states)
+#' @param theta.param A \code{list} of cell type probabilities in clusters for each single cell. 
+#' \code {matrix)}(rows=clusters, cols=strand states)
 #' @param pi.param A \code{vector} of estimated sizes of each cluster based on initial hard clustering.
 #' @param num.iter Set number of iteration to EM algorithm.
 #' @param logL.th Set the difference between objective function from the current and the previous interation for EM algorithm to converge.
@@ -71,6 +72,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
         mask <- which( apply(BN.probs, 1, function(x) any(is.nan(x) | sum(x)==0)) )
       }
         
+      #TODO: double check the potential confusion of names
       if (length(mask)>0) { #remove PB reads with extremely high StrandS read counts
         message(length(mask), " NAN numbers after binomial probability calculation!!!")
         num.removed.reads <- num.removed.reads + length(mask)
@@ -78,15 +80,19 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
         counts.l[[j]] <- counts[-mask,]
       }
         
-      ## Multiplication of BN.probs by theta parameter for a given cell ##
+      ## Each cluster in clusters is a matrix multiplication of BN.probs by theta parameter for a given cell ##
+      ## dim(BN.probs)=N*t; dim(params)=k*t; dim(clusters[[i1]])=N*t 
+      ## ==> clusters[[i1]]=BN.probs*t(params) = t(params*t(BN.probs)) (computation is faster in the second way)
+      
       clusters <- list()
       ## clusters: represent list of matrices per cluster. Matrix: rows=reads/genomic segments, cols=strand states
       #TODO: rename clusters to ...
+      # params: rows=clusters, cols=strand states
       for (i1 in 1:nrow(params)) {
         ## In the log scale change multiplication changes to summation
-        if (log.scale) {
+        if (log.scale) { # It adds params[i1,] to all columns of t(BN.probs)
           clusters[[i1]] <- t(t(BN.probs)+params[i1,])
-        } else {
+        } else { # It multiplies params[i1,] to all columns of t(BN.probs)
           clusters[[i1]] <- t(t(BN.probs)*params[i1,])
         }
       }
@@ -233,8 +239,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
   } else {
     soft.probs.tab.norm <- cluts.tab.update / rowSums(cluts.tab.update)
   }
-  rownames(soft.probs.tab.norm) <- rownames(counts.l[[1]])
-
+  
   names(theta.param) <- cell.names
 
   message("DONE!!!")  
