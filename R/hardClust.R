@@ -100,6 +100,29 @@ hard.hclust <- function(counts.l=NULL, num.clusters=NULL,
   hc <- hclust(d)
   hc.clust <- cutree(hc, k=num.clusters)
   
+  hardclust <- data.table(rname=names(hc.clust), clust=hc.clust)
+  hardclust[, num.clust:=.N, by=clust]
+  # computing cluster counts
+  clust.num <- hardclust[, .(rname,clust,num.clust)]
+  
+  if (chrom.bar.plot){
+    clust.num <- merge(clust.num, clust.to.chrom, by='clust')
+    ggplot(clust.num) + geom_bar(aes(x=clust, fill=is.na(chrom)))
+  }
+  
+  clust.num <- clust.num[, head(.SD,1), by=clust]
+  
+  # filtering out extremly small clusters
+  min.clust.num <- nrow(hardclust)*min.cluster.frequency
+  hardclust <- hardclust[num.clust > min.clust.num]
+  
+  # re-number clusters from 1 to #clusters
+  hardclust[, new.clust:=frank(hardclust, clust, ties.method="dense")]
+  setkey(hardclust, new.clust)
+  
+  hc.clust <- hardclust[, new.clust]
+  names(hc.clust) <- hardclust[, rname]
+  
   if (!is.null(chrom.flag))
   {
     # evaluation of hard clustering
@@ -112,25 +135,6 @@ hard.hclust <- function(counts.l=NULL, num.clusters=NULL,
       numFoundChromosomes(ord=hc.clust, chrom.flag=chrom.flag)
     }
   }
-  
-  clust <- data.table(rname=names(hc.clust), clust=hc.clust)
-  clust[, num.clust:=.N, by=clust]
-  # computing cluster counts
-  clust.num <- clust[, .(rname,clust,num.clust)]
-  
-  if (chrom.bar.plot){
-    clust.num <- merge(clust.num, clust.to.chrom, by='clust')
-    ggplot(clust.num) + geom_bar(aes(x=clust, fill=is.na(chrom)))
-  }
-  
-  clust.num <- clust.num[, head(.SD,1), by=clust]
-  
-  # filtering out extremly small clusters
-  min.clust.num <- nrow(clust)*min.cluster.frequency
-  clust <- clust[num.clust > min.clust.num]
-  
-  hc.clust <- clust[, clust]
-  names(hc.clust) <- clust[, rname]
   
   stopTimedMessage(ptm)
   return(hc.clust)
@@ -187,16 +191,17 @@ estimateTheta <- function(counts=NULL, hard.clust=NULL, alpha=0.1, method='media
     
     if (!'W.frac' %in% colnames(counts)) {
       counts[, W.frac:=(w-c)/(w+c)]
+      counts[is.nan(W.frac), W.frac:=0]
     }
     
     clust <- data.table(rname=names(hard.clust), clust=hard.clust)
     theta <- merge(counts[, .(rname,lib, W.frac)], clust[, .(rname, clust)], by='rname')
-    theta[!is.nan(W.frac), median.w.frac:=median(W.frac), by=.(clust, lib)]
+    theta[, median.w.frac:=median(W.frac), by=.(clust, lib)]
     
     theta[, `:=`(theta.ww=0, theta.cc=0, theta.wc=0)]
-    theta[median.w.frac < -0.5, `:=`(theta.ww=0.05, theta.cc=0.95, theta.wc=0.05), by=.(clust,lib)]
-    theta[median.w.frac > -0.5 & median.w.frac < 0.5, `:=`(theta.ww=0.05, theta.cc=0.05, theta.wc=0.95), by=.(clust,lib)]
-    theta[median.w.frac > 0.5, `:=`(theta.ww=0.95, theta.cc=0.05, theta.wc=0.05), by=.(clust,lib)]
+    theta[median.w.frac < -0.5, `:=`(theta.ww=0.05, theta.cc=0.9, theta.wc=0.05), by=.(clust,lib)]
+    theta[median.w.frac >= -0.5 & median.w.frac <= 0.5, `:=`(theta.ww=0.05, theta.cc=0.05, theta.wc=0.9), by=.(clust,lib)]
+    theta[median.w.frac > 0.5, `:=`(theta.ww=0.9, theta.cc=0.05, theta.wc=0.05), by=.(clust,lib)]
     
     theta <- theta[, head(.SD,1), by=.(clust, lib)]
     setkey(theta, clust, lib)
@@ -257,9 +262,9 @@ estimateTheta <- function(counts=NULL, hard.clust=NULL, alpha=0.1, method='media
 }
 
                              
-#' Hierarchical clustering for merging the kmeans clusters.
+#' Hierarchical clustering for merging hard clusters.
 #'
-#' This function takes as input the kmeans hard clustering output and the initialized thetas and merges the kmeans clusters based on thetas
+#' This function takes as input the hard clustering output and the initialized thetas and merges the hard clusters based on thetas
 #'
 #' @param theta.l A \code{list} of estimated theta values for each cluster and cell.
 #' @param hard.clust The kmeans hard clustering.
@@ -278,21 +283,91 @@ mergeClusters <- function(hard.clust, theta.l, k=46)
   
   d <- dist(theta.all)
   hc <- hclust(d)
-  hc.clust <- cutree(hc, k=k)
+  merged <- cutree(hc, k=k)
   
-  hard.clust.ord <- NULL
-
-  row.clusters <- as.integer(rownames(theta.l[[1]]))
-  
-  for (i in 1:length(hard.clust)){
-    # find the theta corresponding to the hard clust row
-    theta.row <- which(row.clusters==hard.clust[i])
-    # this row is mapped (merged to another row by hc.clust and we should compute the cluster of that row)
-    hard.clust.ord <- c(hard.clust.ord, row.clusters[hc.clust[theta.row]])
-  }
-  
-  names(hard.clust.ord) <- names(hard.clust)
+  hard.clust.merged <- merged[match(hard.clust, names(merged))]
+  names(hard.clust.merged) <- names(hard.clust)
   
   stopTimedMessage(ptm)
-  return(hard.clust.ord)
+  return(hard.clust.merged)
+}
+
+#' Clustering SS reads based on SaaRclust clusting of long reads.
+#'
+#'
+#' @param alignments A \code{list} of alingment data tables (cols=rname, qname, strand) per single cell
+#' @param clusters \code{data.table} of clusters of long reads (cols=rname, first_clust).
+#' @param clust.pairs a data table (cols=...) representing the cluster pairs.
+#' @param numCPU number of threads for parallelization.
+#' @return Clusters of SS reads named with the read names.
+#' @author Maryam Ghareghani
+#' @export
+
+cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
+                            ss.bam.dir=NULL, ss.bam.suffix='_haplotagged.bam',
+                            clust.to.chrom=NULL){
+  ##cl <- makeCluster(numCPU)
+  ##doParallel::registerDoParallel(cl)
+  
+  ## parallel processing does not work!
+  ##parallel.results <- foreach (i=1:length(alignments), 
+  ##                             .packages=c('Rsamtools', 'data.table'),
+  ##                             .export='getChromFlag') %dopar%{
+  
+  ss.clust <- data.table()
+  acc <- data.table()
+  
+  clust.pairs <- rbind(clust.pairs, data.table(first_clust =clust.pairs$second_clust, 
+                                               second_clust=clust.pairs$first_clust,
+                                               chrom_clust =clust.pairs$chrom_clust))
+  
+  for (i in 1:length(alignments)) {
+    aln <- alignments[[i]]
+    lib.name <- names(alignments)[i]
+    ptm <- startTimedMessage(paste("lib", lib.name))
+    
+    clust <- clusters[, .(rname, first_clust)]
+    aln <- merge(aln, clust, by='rname')
+    aln <- merge(aln, clust.pairs, by='first_clust')
+    
+    aln[, clust:=first_clust]
+    suppressWarnings(aln[strand=='-', clust:=second_clust])
+    
+    # check the uniqueness of clusters for ss reads
+    aln[, ss.cluster.range:=max(clust)-min(clust), by='qname']
+    
+    # cluster only the reads that have unique clusters
+    aln <- aln[ss.cluster.range==0]
+    
+    ##acc <- NULL
+    if (!is.null(ss.bam.dir)){
+      ss.bam.file <- file.path(ss.bam.dir, paste0(lib.name, ss.bam.suffix))
+      chrom.flag <- getChromFlag(ss.bam.file)
+      chrom.flag[, qname:=rname]
+      clust.eval <- merge(aln, chrom.flag[, .(qname, chrom, flag)], by='qname')
+      clust.eval <- merge(clust.eval, clust.to.chrom, by='clust')
+      num.true <- nrow(clust.eval[chrom.x==chrom.y & flag.x==flag.y])
+      num.false <- nrow(clust.eval)-num.true
+      
+      ##acc <- c(num.true=num.true, num.false=num.false)
+      acc <- rbind(acc, data.table(num.true=num.true, num.false=num.false))
+    }
+    
+    ## for foreach
+    ##ss.clust <- aln[, .(qname, cluster)]
+    ##list(ss.clust=ss.clust, acc=acc)
+    
+    ss.clust <- rbind(ss.clust, aln[, .(qname, clust, chrom_clust)])
+    stopTimedMessage(ptm)
+  }
+  
+  num.true <- sum(acc[, num.true])
+  num.false <- sum(acc[, num.false])
+  cat('number of clustered SS reads =', num.true+num.false, 
+      ', SS clustering accuracy =', num.true/(num.true+num.false), '\n')
+  
+  
+  ##stopCluster(cl)
+  
+  return(ss.clust)
 }

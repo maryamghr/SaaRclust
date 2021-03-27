@@ -278,8 +278,9 @@ findClusterPartners2 <- function(theta.param=NULL) {
 #' @author Maryam Ghareghani
 #' @export
 
-findClusterPartners_simple <- function(theta.param=NULL) {
-  
+findClusterPartners_simple <- function(theta.param=NULL, clust.to.chrom=NULL,
+                                       verbose=FALSE) {
+  cat('pairing clusters\n')
   # get only wc thetas
   theta.param.wc <- lapply(theta.param, function(x) x[,3])
   # cbid wc thetas for all single cells
@@ -291,17 +292,36 @@ findClusterPartners_simple <- function(theta.param=NULL) {
   min.cost.clust.pair <- data.table(first_clust=1:nrow(d), second_clust=as.numeric(names(min.cost.clust.pair)))
   # put the min rank cluster in the first column
   min.cost.clust.pair[, min_id_clust:=min(first_clust, second_clust), by=1:nrow(min.cost.clust.pair)]
-  min.cost.clust.pair[, second_clust:=max(first_clust, second_clust), by=1:nrow(min.cost.clust.pair)]
-  min.cost.clust.pair[, `:=`(first_clust=min_id_clust, min_id_clust=NULL)]
+  min.cost.clust.pair[, max_id_clust:=max(first_clust, second_clust), by=1:nrow(min.cost.clust.pair)]
+  min.cost.clust.pair[, `:=`(first_clust=min_id_clust, second_clust=max_id_clust)]
   
+  min.cost.clust.pair <- unique(min.cost.clust.pair[, .(first_clust, second_clust)])
+  
+  if (!is.null(clust.to.chrom)){
+    min.cost.clust.pair[, clust:=first_clust]
+    min.cost.clust.pair <- merge(min.cost.clust.pair, clust.to.chrom, by='clust')
+    min.cost.clust.pair[, clust:=second_clust]
+    min.cost.clust.pair <- merge(min.cost.clust.pair, clust.to.chrom, by='clust')
+    min.cost.clust.pair[, clust:=NULL]
+    # ordering rows by chromosome
+    min.cost.clust.pair[, chrom:=factor(chrom.x, levels = valid.chroms)]
+    setkey(min.cost.clust.pair, chrom)
+    # asserting the correcness of cluster pairing
+    min.cost.clust.pair[, is.pairing.correct:=all(chrom.x==chrom.y & c(0,16) %in% c(flag.x, flag.y))
+                        , by=1:nrow(min.cost.clust.pair)]
+    assert_that(min.cost.clust.pair[, all(is.pairing.correct)]) %>% invisible()
+    if(verbose) print(min.cost.clust.pair)
+  }
   # compute the frequencies of each cluster in this pairing
-  fr <- table(c(min.cost.clust.pair$first_clust, min.cost.clust.pair$second_clust))
+#  fr <- table(c(min.cost.clust.pair$min_id_clust, min.cost.clust.pair$max_id_clust))
   
   # check whether the pairing is a matching
-  assert_that(all(sort(unique(fr))==1:3) & length(which(duplicated(min.cost.clust.pair)))==floor(nrow(min.cost.clust.pair)/2)) %>% invisible()
+#  assert_that(all(sort(unique(fr))==1:3) & length(which(duplicated(min.cost.clust.pair)))==floor(nrow(min.cost.clust.pair)/2)) %>% invisible()
   
   # keep only the duplicated rows (keep the matching and kick out the garbage cluster)
-  min.cost.clust.pair <- min.cost.clust.pair[duplicated(min.cost.clust.pair)]
+#  min.cost.clust.pair <- min.cost.clust.pair[duplicated(min.cost.clust.pair)]
   
-  return(min.cost.clust.pair)
+  min.cost.clust.pair[, chrom_clust:=1:nrow(min.cost.clust.pair)]
+  
+  return(min.cost.clust.pair[, .(first_clust, second_clust, chrom_clust)])
 }

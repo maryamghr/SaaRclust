@@ -9,7 +9,7 @@
 #' @param theta.constrain Recalibrate theta values to meet expected distribution of W and C strand across 
 #' Strand-seq libraries.
 #' @param store.counts Logical if to store raw read counts per PB read
-#' @param HC.input Filaname where hard clustering results are stored
+#' @param HC.input File name where hard clustering results are stored
 #' @param cellNum Specifies the number of single cells to be used in clustering
 #' @inheritParams countProb
 #' @inheritParams EMclust
@@ -21,7 +21,7 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
                       num.clusters=47, EM.iter=100, alpha=0.1, minLib=10, upperQ=0.95, theta.param=NULL, 
                       pi.param=NULL, logL.th=1, theta.constrain=FALSE, store.counts=FALSE, HC.input=NULL, 
                       cellNum=NULL, log.scale=FALSE, filter.soft.clust.input=TRUE, filter.ss.file=NULL, 
-                      read.names=NULL) {
+                      read.names=NULL, clust.pairs=NULL, numCPU=4) {
 
   print('soft clustering ...')
   #Get ID of a file to be processed
@@ -154,7 +154,8 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
   
   ### EM algorithm ###
   soft.clust.obj <- EMclust(counts.l, theta.param=theta.param, pi.param=pi.param, 
-                            num.iter=EM.iter, alpha=alpha, logL.th=logL.th, log.scale=log.scale)
+                            num.iter=EM.iter, alpha=alpha, logL.th=logL.th, 
+                            log.scale=log.scale, numCPU=numCPU)
   
   #rescale theta parameter and run one more iteration to redo soft clustering [EXPERIMENTAL]
   if (theta.constrain) {
@@ -176,11 +177,21 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
 #  soft.clust.obj$PBflag <- as.character(pb.flag)
 #  soft.clust.obj$pb.readLen <- tab.filt$PBreadLen[match(rownames(soft.clust.obj$soft.pVal), tab.filt$PBreadNames)]  #report PB read length
   #export data in RData object
-  destination <- file.path(Clusters.store, paste0(fileID, "_clusters.RData"))
+#  destination <- file.path(Clusters.store, paste0(fileID, "_clusters.RData"))
   
   rownames(soft.clust.obj$soft.pVal) <- read.names
+  ML.clust <- apply(soft.clust.obj$soft.pVal, 1, which.max)
+  ML.clust <- data.table(rname=names(ML.clust), first_clust=ML.clust)
   
-  save(file = destination, soft.clust.obj)
+  if (!is.null(clust.pairs)){
+    ML.clust <- merge(ML.clust, clust.pairs, by='first_clust')
+    ML.clust <- ML.clust[, .(rname, first_clust, chrom_clust)]
+  }
+  
+  soft.clust.obj$ML.clust <- ML.clust
+  names(soft.clust.obj$ML.clust) <- read.names
+  
+#  save(file = destination, soft.clust.obj)
 
   return(soft.clust.obj)
 }

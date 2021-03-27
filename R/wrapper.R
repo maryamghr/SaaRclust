@@ -17,9 +17,11 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
                          num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, 
                          logL.th=1, theta.constrain=FALSE, hardclustMethod="hclust",
                          hard.theta.estim.method="median", hardclustMinLib = 35, hardclustLowerQ=0.7, 
-                         hardclustUpperQ=0.9, min.cluster.frequency=0.002, store.counts=TRUE, store.bestAlign=TRUE, 
-                         numAlignments=30000, minSScov=30, HC.only=TRUE, verbose=TRUE, cellNum=NULL, 
-                         log.scale=FALSE, hardclust.file="hard_clusters.RData", softclust.file="soft_clusters.RData",
+                         add.garbage.cluster=FALSE, hardclustUpperQ=0.9, min.cluster.frequency=0.002, 
+                         store.counts=TRUE, store.bestAlign=TRUE, numAlignments=30000, minSScov=30, 
+                         HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, 
+                         hardclust.file="hard_clusters.RData", softclust.file="soft_clusters.RData",
+                         ss.clust.file="ss_clusters.data",
                          ref.aln.bam=NULL, store.chrom.flag=TRUE, chrom.flag=NULL, numCPU=20) {
   
   #=========================#
@@ -67,15 +69,20 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   
   # getting Strand-seq read counts
   #reuse existing data if they were already created and saved in a given location
-  destination1 <- file.path(rawdata.store, "read_counts.RData")
-  destination2 <- file.path(rawdata.store, "read_selected_counts.RData")
+  destination1 <- file.path(rawdata.store, "alignments.RData")
+  destination2 <- file.path(rawdata.store, "read_counts.RData")
+  destination3 <- file.path(rawdata.store, "read_selected_counts.RData")
   
   if (file.exists(destination1)) {
-    counts.l.all <- get(load(destination1))
+    alignments <- get(load(destination1))
   }
   
   if (file.exists(destination2)) {
-    counts.l <- get(load(destination2))
+    counts.l.all <- get(load(destination2))
+  }
+  
+  if (file.exists(destination3)) {
+    counts.l <- get(load(destination3))
   } else  {
     if (input_type=="bam"){
       # counting w/c in bam files
@@ -85,7 +92,9 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       }
       
       cat('counting w/c reads...\n')
-      counts.l.all <- count.wc.bam(bam.files, numCPU=numCPU)
+      counts <- count.wc.bam(bam.files, numCPU=numCPU)
+      counts.l.all <- counts[[1]]
+      alignments <- counts[[2]]
       # getting representative counts table (alignments with highest ss coverage)
       cat('getting representative alignments...\n')
       counts <- get_representative_counts(counts.l=counts.l.all, 
@@ -128,9 +137,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     
     if (store.counts) {
       if (exists("counts.l.all")) {
-        save(file = destination1, counts.l.all)
+        save(file = destination1, alignments)
+        save(file = destination2, counts.l.all)
       }
-      save(file = destination2, counts.l)
+      save(file = destination3, counts.l)
     }
   }
   
@@ -175,27 +185,25 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
 
     ### Perform hard clustering ###
     hardClust.ord <- hardClust(counts.l=counts.l, method=hardclustMethod, 
-                               num.clusters=num.clusters, nstart=nstart, 
-                               iter.max=iter.max, min.cluster.frequency=min.cluster.frequency, 
+                               num.clusters=num.clusters, 
+                               min.cluster.frequency=min.cluster.frequency, 
                                chrom.flag=chrom.flag)
-    # TODO: check out missing clusters: chr14_0, chr22_0
     
     theta.estim <- estimateTheta(counts.l, hard.clust=hardClust.ord, alpha=alpha, 
                                  method=hard.theta.estim.method)
     
     #Merge splitted clusters after hard clustering
-    hardClust.ord.merged <- mergeClusters(hard.clust=hardClust.ord, theta.l=theta.estim, k=47)
-    
-    if (!is.null(chrom.flag)){
-      print('hard clustering on merged clusters')
-      clust.to.chrom <- numFoundClusters(ord=hardClust.ord.merged, chrom.flag)
-    }
-    
+    k <- 46
+    if (add.garbage.cluster) {k <- 47}
+    hardClust.ord.merged <- mergeClusters(hard.clust=hardClust.ord, theta.l=theta.estim, k=k)
 
     #Re-estimate theta parameter after cluster merging. 
     #Use the current theta as initial theta parameter for soft clustering.
-    theta.param <- estimateTheta(counts.l, hard.clust=hardClust.ord, alpha=alpha, method=hard.theta.estim.method)
-    theta.estim <- theta.param
+    theta.param <- estimateTheta(counts.l, hard.clust=hardClust.ord.merged, alpha=alpha, 
+                                 method=hard.theta.estim.method)
+    
+    # assert that all theta params per cell/cluster sum up to 1
+    assertthat::assert_that(all(sapply(theta.param, function(theta) rowSums(theta)==1L))) %>% invisible()
     
     #Estimate pi parameter based on number of long reads in each cluster
     readsPerClusts <- table(hardClust.ord.merged)
@@ -214,50 +222,99 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     
   }
   
+  clust.to.chrom <- NULL
+  
+  if (!is.null(chrom.flag)){
+    print('hard clustering on merged clusters')
+    clust.to.chrom <- numFoundClusters(ord=hard.clust$ord, chrom.flag)
+  }
+  clust.pairs <- findClusterPartners_simple(hard.clust$theta.param, clust.to.chrom)
+  
   if(!HC.only) {
-    #Initialize theta parameter
-    theta.param <- hard.clust$theta.param
-    #Initialize pi parameter
-    pi.param <- hard.clust$pi.param
-    
-    if (input_type=="bam"){
-      read.names <- rownames(counts.l.all[[1]])
-      counts.l.all <- lapply(counts.l.all, as.data.frame)
-      soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, 
-                              num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, minLib=minLib, 
-                              upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, logL.th=logL.th, 
-                              theta.constrain=theta.constrain, log.scale=log.scale, HC.input=hard.clust, 
-                              read.names=read.names)
+    destination <- file.path(Clusters.store, softclust.file)
+    if (file.exists(destination)) {
+      message("Loading Soft clustering results")
+      cat('destination =', destination)
+      soft.clust <- get(load(destination))
     } else {
-      #List files to process
-      file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
-    
-      ### Main loop to process all files using EM algorithm ###
-      for (file in file.list) {
-        if (verbose) {
-          soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, 
-                                  num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, 
-                                  minLib=minLib, upperQ=upperQ, theta.param=theta.param, 
-                                  pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, 
-                                  log.scale=log.scale, HC.input=hard.clust)
-        } else {
-          suppressMessages( soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, 
-                                                    num.clusters=num.clusters, EM.iter=EM.iter, alpha=alpha, 
-                                                    minLib=minLib, upperQ=upperQ, theta.param=theta.param, 
-                                                    pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, 
-                                                    log.scale=log.scale, HC.input=hard.clust) )
+      #Initialize theta parameter
+      theta.param <- hard.clust$theta.param
+      #Initialize pi parameter
+      pi.param <- hard.clust$pi.param
+      
+      if (input_type=="bam"){
+        read.names <- rownames(counts.l.all[[1]])
+        counts.l.all <- lapply(counts.l.all, as.data.frame)
+        soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, 
+                                num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, 
+                                minLib=minLib, upperQ=upperQ, theta.param=theta.param, pi.param=pi.param, 
+                                logL.th=logL.th, theta.constrain=theta.constrain, log.scale=log.scale, 
+                                HC.input=hard.clust, read.names=read.names, clust.pairs=clust.pairs,
+                                numCPU=numCPU)
+      } else {
+        #List files to process
+        file.list <- list.files(path = inputfolder, pattern = "chunk.+maf.gz$", full.names = TRUE)
+      
+        ### Main loop to process all files using EM algorithm ###
+        for (file in file.list) {
+          if (verbose) {
+            soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, 
+                                    num.clusters=length(pi.param), EM.iter=EM.iter, alpha=alpha, 
+                                    minLib=minLib, upperQ=upperQ, theta.param=theta.param, 
+                                    pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, 
+                                    log.scale=log.scale, HC.input=hard.clust)
+          } else {
+            suppressMessages( soft.clust <- SaaRclust(minimap.file=file, outputfolder=outputfolder.destination, 
+                                                      num.clusters=num.clusters, EM.iter=EM.iter, alpha=alpha, 
+                                                      minLib=minLib, upperQ=upperQ, theta.param=theta.param, 
+                                                      pi.param=pi.param, logL.th=logL.th, theta.constrain=theta.constrain, 
+                                                      log.scale=log.scale, HC.input=hard.clust) )
+          }
         }
       }
-    }
-    if (!is.null(ref.aln.bam)){
-      # adding ground true info to the clustering objects
-      soft.clust <- addChromFlag(clust.obj=soft.clust, chrom.flag=chrom.flag, clust.type = 'soft')
+      if (!is.null(ref.aln.bam)){
+        # adding ground true info to the clustering objects
+        soft.clust <- addChromFlag(clust.obj=soft.clust, chrom.flag=chrom.flag, clust.type = 'soft')
+      }
+      
+      destination <- file.path(Clusters.store, softclust.file)
+      dt.destination <- file.path(Clusters.store, "MLclust.data")
+      save(file = destination, soft.clust)
+      fwrite(soft.clust$ML.clust, dt.destination, sep='\t', quote=F, row.names=F)
     }
     
-    destination <- file.path(Clusters.store, softclust.file)
-    save(file = destination, hard.clust)
+    destination <- file.path(Clusters.store, 'clust_partners.txt')
+    if (!file.exists(destination)) {
+      fwrite(clust.pairs, file=destination, quote = F, row.names = F)
+    }
     
-    return(list(hard.clust, soft.clust))
+    if (!is.null(chrom.flag)) {
+      # computing the accuracy of ML clustering resulting from EM soft clustering algorithm
+      clust.to.chrom <- numFoundClusters(soft.clust$ML.clust, chrom.flag)
+      destination <- file.path(Clusters.store, 'clust_to_chrom.data')
+      fwrite(clust.to.chrom, file=destination, quote = F, row.names = F)
+    }
+    
+    # clustering ss reads
+    destination <- file.path(Clusters.store, ss.clust.file)
+    if (file.exists(destination)) {
+      message("Loading SS clustering results")
+      cat('destination =', destination)
+      ss.clust <- fread(destination)
+    } else {
+      ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs, numCPU=numCPU)
+      #names(ss.clust) <- c('name', 'clust.forward')
+      fwrite(ss.clust, file=destination, sep='\t', quote = F, row.names = F)
+    }
+    
+    output.list <- list(hard.clust=hard.clust, soft.clust=soft.clust, 
+                        clust.pairs=clust.pairs, ss.clust=ss.clust)
+    
+    if (!is.null(clust.to.chrom)){
+      output.list$clust.to.chrom <- clust.to.chrom
+    }
+    
+    return(output.list)
   
   } else {
     return(hard.clust)

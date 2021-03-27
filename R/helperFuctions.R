@@ -199,7 +199,7 @@ numFoundClusters <- function (ord, chrom.flag)
     
     print('detected chroms:')
     print(sort(hard.clust.to.chrom.unq[, paste0(chrom, '_', flag)]))
-    cat('number of detected clusters:', nrow(hard.clust.to.chrom.unq))
+    print(paste('number of detected clusters:', nrow(hard.clust.to.chrom.unq)))
     
     return(hard.clust.to.chrom[, .(clust, chrom, flag)])
 }

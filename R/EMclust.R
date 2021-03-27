@@ -15,10 +15,15 @@
 #' @export
 
 #saarclust <- function(tab.l, theta.l=NULL, pi.param=NULL, num.iter=100, raw.counts=NULL) {
-EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alpha=0.1, logL.th=1, log.scale=FALSE) {
+EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alpha=0.1, 
+                    logL.th=1, log.scale=FALSE, numCPU=4) {
 
+  ptm <- startTimedMessage("making clusters for parallel processing")
+  cl <- makeCluster(numCPU)
+  doParallel::registerDoParallel(cl)
+  stopTimedMessage(ptm)
+  
   cell.names <- names(theta.param)
-  print(paste('cell.names =', cell.names))
 
   if (num.iter>1) {
     message("Running EM") 
@@ -44,9 +49,11 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     clust.gammas.colsums.l <- list() ## list of matrices per single cell: matrix rows=clusters, cols=strand states
     #clust.gammas.rowsums.l <- list()
     theta.update.l <- list() ## list of matrices per single cell: matrix rows=clusters, cols=strand states
-    num.removed.reads <- 0
+    #num.removed.reads <- 0
     ## Loop over all Strand-seq cells
-    for (j in 1:length(counts.l)) {
+    
+    parallel.results <- foreach (j = 1:length(counts.l), .packages=c('matrixStats'),
+                                 .export=c('countProb','gammaFunction')) %dopar%{
       print(paste('single cell', j))
       ## Get theta estimates for a given cell
       #TODO: rename params to cell.params
@@ -56,15 +63,15 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       counts <- counts.l[[j]]
   
       ## Calculate BN probabilities
-      if (i == 1) {
+#      if (i == 1) {
 	#print(paste('i=', i, ',j=', j, ',countProb ...'))
-        BN.probs <- countProb(minusCounts = counts[,1], plusCounts = counts[,2], alpha=alpha, log=log.scale)
-        BN.probs.l[[j]] <- BN.probs
+      BN.probs <- countProb(minusCounts = counts[,1], plusCounts = counts[,2], alpha=alpha, log=log.scale)
+#        BN.probs.l[[j]] <- BN.probs
 	#print('countProb is done.')
-      } else {
-        BN.probs <- BN.probs.l[[j]]
-      }  
-  
+#      } else {
+#        BN.probs <- BN.probs.l[[j]]
+#      }
+      
       ## Remove BN probs and corresponding PB reads which probability is assigned NaN value or when all probabilities are zero [TODO!!! resolve this problem]
       if (log.scale) {
         mask <- which( apply(BN.probs, 1, function(x) any(is.nan(x) | logSumExp(x)==-Inf)) )
@@ -75,7 +82,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       #TODO: double check the potential confusion of names
       if (length(mask)>0) { #remove PB reads with extremely high StrandS read counts
         message(length(mask), " NAN numbers after binomial probability calculation!!!")
-        num.removed.reads <- num.removed.reads + length(mask)
+        #num.removed.reads <- num.removed.reads + length(mask)
         BN.probs <- BN.probs[-mask,]
         counts.l[[j]] <- counts[-mask,]
       }
@@ -101,9 +108,9 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       ## clusters.per.cell[[[j]]: a list of vectors per cluster. Each vector represent rowSums of each cluster (matrix)
       if (log.scale) {
         #clusters.per.cell[[j]] <- lapply(clusters, function(x) apply(x, 1, logSumExp))
-        clusters.per.cell[[j]] <- lapply(clusters, rowLogSumExps)
+        clusters.per.cell <- lapply(clusters, rowLogSumExps)
       } else {
-        clusters.per.cell[[j]] <- lapply(clusters, rowSums)
+        clusters.per.cell <- lapply(clusters, rowSums)
       }  
       
       ## Scale pi.param given the number of Strand-seq cells ##
@@ -125,7 +132,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       
       ## Calculate gamma function ##
       clust.gammas.l <- gammaFunction(clust.prob=clusters.scaled, pi.scaled=pi.param.scaled, cellNum=cellNum, log.scale=log.scale)
-  
+      
       ## Take sum over all reads/genomic segments ##
       if (log.scale) { 
         #clust.gammas.colsums <- lapply(clust.gammas.l, function(x) apply(x, 2, logSumExp))
@@ -143,14 +150,22 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
         theta.update <- clust.gammas.colsums / rowSums(clust.gammas.colsums)
       }  
       
-      clust.gammas.colsums.l[[j]] <- clust.gammas.colsums
-      theta.update.l[[j]] <- theta.update
+      #clust.gammas.colsums.l[[j]] <- clust.gammas.colsums
+      #theta.update.l[[j]] <- theta.update
+      
+      list(clusters.per.cell=clusters.per.cell,
+           clust.gammas.colsums.l=clust.gammas.colsums,
+           theta.update.l=theta.update)
     } #end of the loop over all Strand-seq cells
     
+    clusters.per.cell <- lapply(parallel.results, function(l) l$clusters.per.cell)
+    clust.gammas.colsums.l <- lapply(parallel.results, function(l) l$clust.gammas.colsums.l)
+    theta.update.l <- lapply(parallel.results, function(l) l$theta.update)
+    
     ## Report number of removed reads
-    if (num.removed.reads > 0) {
-      message("Warning: Removing ", num.removed.reads, " PacBio reads with all zero or NaN binom probability!!!", appendLF = FALSE)
-    }  
+    #if (num.removed.reads > 0) {
+    #  message("Warning: Removing ", num.removed.reads, " PacBio reads with all zero or NaN binom probability!!!", appendLF = FALSE)
+    #}  
     
     ## Keep old pi and theta parameters
     #pi.param.old <- pi.param
@@ -194,16 +209,16 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
       #clust.prod[[k]] <- clust.rowsums.prod
       soft.probs[[k]] <- clust.soft.prob
     }
-    cluts.tab.update <- do.call(cbind, soft.probs) #rows=reads/genomic segments, cols=clusters
+    clust.tab.update <- do.call(cbind, soft.probs) #rows=reads/genomic segments, cols=clusters
     
     ## Calculate the likelihood function ##
     if (log.scale) {
-      cluts.tab.sums <- apply(cluts.tab.update, 1, logSumExp)
-      log.like <- sum(cluts.tab.sums)*(-1)
+      clust.tab.sums <- apply(clust.tab.update, 1, logSumExp)
+      log.like <- sum(clust.tab.sums)*(-1)
     } else {
-      cluts.tab.sums <- rowSums(cluts.tab.update)
-      log.like <- sum(log(cluts.tab.sums))*(-1)
-    }  
+      clust.tab.sums <- rowSums(clust.tab.update)
+      log.like <- sum(log(clust.tab.sums))*(-1)
+    }
     
     ## Check the difference between previous and last results of likelihood function
     if (length(log.like.l) > 0) {
@@ -216,7 +231,7 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
           break
         }
       }
-    }  
+    }
     
     if (!is.infinite(log.like)) {
       log.like.l[[length(log.like.l)+1]] <- log.like
@@ -225,24 +240,26 @@ EMclust <- function(counts.l, theta.param=NULL, pi.param=NULL, num.iter=100, alp
     }
     
   stopTimedMessage(ptm)
-  }
+  } # end of EM iteration
   
   
   ## Perform soft clustering
   ## Scaling soft probabilities to 1
   if (log.scale) {
-    soft.probs.tab.norm <- cluts.tab.update - rowLogSumExps(cluts.tab.update)
+    soft.probs.tab.norm <- clust.tab.update - rowLogSumExps(clust.tab.update)
     soft.probs.tab.norm <- exp(soft.probs.tab.norm) #get non-log scale probabilities
     #convert theta.param and pi.param back to non-log scale probabilities
     theta.param <- lapply(theta.param, exp)
     pi.param <- exp(pi.param)
   } else {
-    soft.probs.tab.norm <- cluts.tab.update / rowSums(cluts.tab.update)
+    soft.probs.tab.norm <- clust.tab.update / rowSums(clust.tab.update)
   }
   
   names(theta.param) <- cell.names
+  
+  stopCluster(cl)
 
   message("DONE!!!")  
   return(list(soft.pVal=soft.probs.tab.norm, log.l=unlist(log.like.l), theta.param=theta.param, pi.param=pi.param))
-}  
+}
 

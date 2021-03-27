@@ -6,7 +6,9 @@ library(Rsamtools)
 library(doParallel)
 library(matrixStats)
 library(ComplexHeatmap)
+library(assertthat)
 library(dplyr)
+library(biovizBase)
 source('../R/timedMessage.R')
 source('../R/import.R')
 source('../R/hardClust.R')
@@ -15,6 +17,7 @@ source('../R/wrapper.R')
 source('../R/EMclust.R')
 source('../R/calcProbs.R')
 source('../R/helperFuctions.R')
+source('../R/dumped_functions.R')
 source('utils/evaluate_theta_param.R')
 
 inputfolder <- '../../HG00733/bwa_ss_unitigs'
@@ -43,27 +46,23 @@ chrom.flag <- NULL
 store.chrom.flag=TRUE
 min.cluster.frequency=0.002
 ref.aln.bam <- '../../HG00733/hifiasm/ref_aln/asm.r_utg.bam'
+ss.bam.dir <- '../../ss_bams/'
+ss.bam.suffix <- '_haplotagged.bam'
+ss.clust.file="ss_clusters.data"
 
-args <- c(inputfolder, outputfolder, input_type, num.clusters, alpha, numAlignments, log.scale, EM.iter, 
-          minLib, minSScov, upperQ, logL.th, numCPU, hardclustMethod, hard.theta.estim.method, hardclust.file)
+
+args <- c(inputfolder, outputfolder, num.clusters, EM.iter, minLib, minSScov, 
+          upperQ, hardclustMethod, hard.theta.estim.method, numAlignments, log.scale, 
+          hardclust.file, softclust.file, ref.aln.bam, numCPU)
 
 
-clust <- runSaaRclust(inputfolder=args[1], outputfolder=args[2], input_type=args[3], 
-                      num.clusters=as.numeric(args[4]), EM.iter=args[8], alpha=as.numeric(args[5]), 
-                      minLib=as.numeric(args[9]), minSScov=as.numeric(args[10]), upperQ=as.numeric(args[11]), 
-                      logL.th=args[12], theta.constrain=FALSE, hardclustMethod=args[14],
-                      hard.theta.estim.method=args[15], store.counts=TRUE, store.bestAlign=TRUE, 
-                      numAlignments=as.numeric(args[6]), HC.only=FALSE, log.scale=args[7], 
-                      hardclust.file="hard_clusters.RData", softclust.file="soft_clusters.RData", 
-                      numCPU=as.numeric(args[13]), hardclust.file=args[16])
+clust <- runSaaRclust(inputfolder=args[1], outputfolder=args[2], num.clusters=as.numeric(args[3]), 
+                      EM.iter=args[4], minLib=as.numeric(args[5]), minSScov=as.numeric(args[6]), 
+                      upperQ=as.numeric(args[7]), hardclustMethod=args[8],
+                      hard.theta.estim.method=args[9], numAlignments=as.numeric(args[10]), 
+                      HC.only=FALSE, log.scale=args[11], hardclust.file=args[12], 
+                      softclust.file=args[13], ref.aln.bam=args[14], numCPU=as.numeric(args[15]))
 
-#clust <- runSaaRclust(inputfolder=NULL, outputfolder="SaaRclust_results", input_type="bam", 
-#                         num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, 
-#                         logL.th=1, theta.constrain=FALSE, hardclustMethod="hclust",
-#                         hard.theta.estim.method="median", hardclustMinLib = 35, hardclustLowerQ=0.7, 
-#                         hardclustUpperQ=0.9, store.counts=TRUE, store.bestAlign=TRUE, 
-#                         numAlignments=30000, minSScov=30, HC.only=TRUE, verbose=TRUE, cellNum=NULL, 
-#                         log.scale=FALSE, outputfilename="hard_clusters.RData", ref.aln.bam=NULL, numCPU=20)
 
 hard.clust <- clust[[1]]
 soft.clust <- clust[[2]]
@@ -111,7 +110,7 @@ hard.clust <- list(ord=hardClust.ord.merged, unmerged.ord=hardClust.ord, theta.p
 destination <- file.path(Clusters.store, outputfilename)
 
 ################## eval:
-hard.clust <- get(load('../../HG00733/SaaRclust/Clusters/hardclusters.RData'))
+hard.clust <- get(load('../../HG00733/SaaRclust/Clusters/hard_clusters.RData'))
 soft.clust <- get(load('../../HG00733/SaaRclust/Clusters/soft_clusters.RData'))
 bam.file <- '../../HG00733/hifiasm/ref_aln/asm.r_utg.haplotagged.bam'
 

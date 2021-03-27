@@ -297,52 +297,48 @@ importBams <- function(bamfolder=bamfolder, chromosomes=NULL, bin.length=1000000
 #' @author Maryam Ghareghani
 #' @export 
 
-count.wc.bam <- function(bam.files, max.unitig.cov=2, numCPU){
+count.wc.bam <- function(bam.files, max.unitig.cov=2, numCPU=4){
   lib.names <- sapply(bam.files, function(bam) gsub('.mdup.bam$', '', basename(bam)))
   
   cl <- makeCluster(numCPU)
   doParallel::registerDoParallel(cl)
   
-  counts.l <- foreach (bam=bam.files, .packages=c('Rsamtools', 'data.table')) %dopar%{
+  parallel.results <- foreach (bam=bam.files, .packages=c('Rsamtools', 'data.table')) %dopar%{
     cat('counting directional reads in', basename(bam), '\n')
-    aln.plus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), #mapqFilter=10, 
-                                                      flag=scanBamFlag(isMinusStrand=F, isSupplementaryAlignment=F, 
-                                                                                      isSecondaryAlignment = F, isDuplicate = F)))[[1]]
-    aln.minus = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname'), 
-                                                       flag=scanBamFlag(isMinusStrand=T, isSupplementaryAlignment=F, 
-                                                                                       isSecondaryAlignment = F, isDuplicate = F)))[[1]]
+    aln = scanBam(file = bam, param=ScanBamParam(what=c('qname','rname','strand'), 
+                                                 flag=scanBamFlag(isSupplementaryAlignment=F, 
+                                                                  isSecondaryAlignment = F, 
+                                                                  isDuplicate = F)))[[1]]
     
-    aln.plus <- data.table(rname=as.character(aln.plus$rname), qname=aln.plus$qname)[!is.na(rname)]
-    aln.plus[, c:=.N, by='rname']
-    aln.minus <- data.table(rname=as.character(aln.minus$rname), qname=aln.minus$qname)
-    aln.minus[, w:=.N, by='rname']
+    aln <- data.table(rname=as.character(aln$rname), qname=aln$qname, strand=aln$strand)
+    aln <- aln[strand %in% c('+','-')]
+    aln[, unitig.cov:=.N, by='qname']
+    aln <- aln[unitig.cov <= max.unitig.cov]
     
-    if (!is.null(max.unitig.cov)){
-      aln.plus[, unitig.cov:=.N, by='qname']
-      aln.minus[, unitig.cov:=.N, by='qname']
-      
-      aln.plus <- aln.plus[unitig.cov <= max.unitig.cov]
-      aln.minus <- aln.minus[unitig.cov <= max.unitig.cov]
-    }
+    counts <- aln
+    counts[strand=='+', c:=.N, by='rname']
+    counts[strand=='-', w:=.N, by='rname']
     
-    aln.plus <- aln.plus[, head(.SD, 1), by='rname', .SDcols='c']
-    
-    aln.minus <- aln.minus[, head(.SD, 1), by='rname', .SDcols='w']
-    
-    
-    counts <- merge(aln.minus, aln.plus, by='rname', all=T)
     counts[is.na(counts)] <- 0
+    counts[, `:=`(c=max(c), w=max(w)), by='rname']
+    
+    counts <- counts[, head(.SD, 1), by='rname', .SDcols=c('c','w')]
+    
     rownames(counts) <- counts[, rname]
     counts[, rname:=NULL]
     
-    counts
+    list(counts=counts, aln=aln[, .(rname, qname, strand)])
   }
   
+  counts.l <- lapply(parallel.results, function(l) l$counts)
+  alignments <- lapply(parallel.results, function(l) l$aln)
+  
   names(counts.l) <- lib.names
+  names(alignments) <- lib.names
   
   stopCluster(cl)
   
-  return(counts.l)
+  return(list(counts.l=counts.l, alignments=alignments))
 }
 
 # converts counts format between data.table and list
