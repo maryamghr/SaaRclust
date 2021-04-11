@@ -317,7 +317,7 @@ cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
   ss.clust <- data.table()
   acc <- data.table()
   
-  clust.pairs <- rbind(clust.pairs, data.table(first_clust =clust.pairs$second_clust, 
+  extend.clust.pairs <- rbind(clust.pairs, data.table(first_clust =clust.pairs$second_clust, 
                                                second_clust=clust.pairs$first_clust,
                                                chrom_clust =clust.pairs$chrom_clust))
   
@@ -328,7 +328,7 @@ cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
     
     clust <- clusters[, .(rname, first_clust)]
     aln <- merge(aln, clust, by='rname')
-    aln <- merge(aln, clust.pairs, by='first_clust')
+    aln <- merge(aln, extend.clust.pairs, by='first_clust')
     
     aln[, clust:=first_clust]
     suppressWarnings(aln[strand=='-', clust:=second_clust])
@@ -361,10 +361,12 @@ cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
     stopTimedMessage(ptm)
   }
   
-  num.true <- sum(acc[, num.true])
-  num.false <- sum(acc[, num.false])
-  cat('number of clustered SS reads =', num.true+num.false, 
-      ', SS clustering accuracy =', num.true/(num.true+num.false), '\n')
+  if (!is.null(ss.bam.dir)) {
+    num.true <- sum(acc[, num.true])
+    num.false <- sum(acc[, num.false])
+    cat('number of clustered SS reads =', num.true+num.false, 
+        ', SS clustering accuracy =', num.true/(num.true+num.false), '\n')
+  }
   
   
   ##stopCluster(cl)

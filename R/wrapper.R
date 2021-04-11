@@ -280,7 +280,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       destination <- file.path(Clusters.store, softclust.file)
       dt.destination <- file.path(Clusters.store, "MLclust.data")
       save(file = destination, soft.clust)
+      orig.colnames <- colnames(soft.clust$ML.clust)
+      colnames(soft.clust$ML.clust)[1] <- paste0('#', colnames(soft.clust$ML.clust)[1])
       fwrite(soft.clust$ML.clust, dt.destination, sep='\t', quote=F, row.names=F)
+      colnames(soft.clust$ML.clust) <- orig.colnames
     }
     
     destination <- file.path(Clusters.store, 'clust_partners.txt')
@@ -303,7 +306,8 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       ss.clust <- fread(destination)
     } else {
       ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs, numCPU=numCPU)
-      #names(ss.clust) <- c('name', 'clust.forward')
+      orig.colnames <- colnames(ss.clust)
+      colnames(ss.clust)[1] <- paste0('#', colnames(ss.clust)[1])
       fwrite(ss.clust, file=destination, sep='\t', quote = F, row.names = F)
     }
     
