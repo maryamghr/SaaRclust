@@ -291,6 +291,12 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       fwrite(clust.pairs, file=destination, quote = F, row.names = F)
     }
     
+    wc.cells.clusters <- get.wc.cells.clusters(soft.clust)
+    destination <- file.path(Clusters.store, 'wc_cells_clusters.data')
+    if (!file.exists(destination)) {
+      fwrite(wc.cells.clusters, file=destination, quote = F, row.names = F)
+    }
+    
     if (!is.null(chrom.flag)) {
       # computing the accuracy of ML clustering resulting from EM soft clustering algorithm
       clust.to.chrom <- numFoundClusters(soft.clust$ML.clust, chrom.flag)
@@ -305,10 +311,14 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       cat('destination =', destination)
       ss.clust <- fread(destination)
     } else {
-      ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs, numCPU=numCPU)
+      ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs)
       orig.colnames <- colnames(ss.clust)
       colnames(ss.clust)[1] <- paste0('#', colnames(ss.clust)[1])
+      ss.clust.sp <- split(ss.clust, by="chrom_clust")
       fwrite(ss.clust, file=destination, sep='\t', quote = F, row.names = F)
+      lapply(names(ss.clust.sp), function(clust) fwrite(ss.clust.sp[[clust]], 
+                                                        file=paste0(Clusters.store,"/ss_clusters_",clust,".data"),
+                                                        sep='\t', quote = F, row.names = F)) %>% invisible()
     }
     
     output.list <- list(hard.clust=hard.clust, soft.clust=soft.clust, 

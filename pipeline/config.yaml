@@ -10,6 +10,7 @@ bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
 
 # whatshap
 whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
+whatshap_split : ../../tools/whatshap-fork/whatshap/cli/split.py
 
 
 # PacBio reads
@@ -68,6 +69,8 @@ numAlignments: 30000 #150000
 
 # phasing params
 num_iterations: 2
+
+num_chromosomes: 23
 
 hifiasm: ../../tools/hifiasm/hifiasm
 overlap_graph: TRUE

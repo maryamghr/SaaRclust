@@ -303,7 +303,7 @@ mergeClusters <- function(hard.clust, theta.l, k=46)
 #' @author Maryam Ghareghani
 #' @export
 
-cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
+cluster.ss.reads <- function(alignments, clusters, clust.pairs, # numCPU=4,
                             ss.bam.dir=NULL, ss.bam.suffix='_haplotagged.bam',
                             clust.to.chrom=NULL){
   ##cl <- makeCluster(numCPU)
@@ -324,6 +324,7 @@ cluster.ss.reads <- function(alignments, clusters, clust.pairs, numCPU=4,
   for (i in 1:length(alignments)) {
     aln <- alignments[[i]]
     lib.name <- names(alignments)[i]
+    aln[, qname:=paste0(qname, '_', lib.name)]
     ptm <- startTimedMessage(paste("lib", lib.name))
     
     clust <- clusters[, .(rname, first_clust)]

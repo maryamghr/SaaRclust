@@ -463,3 +463,25 @@ exportClusteredReads <- function(inputfolder=NULL, prob.th=NULL, minLib=NULL) {
   } 
 } 
 
+get.wc.cells.clusters <- function(soft.clust, min.theta.wc=0.75){
+  d <- data.table()
+  for (j in 1:length(soft.clust$theta.param))
+  {
+    cell.theta.wc <- soft.clust$theta.param[[j]][,3]
+    wc.clusters <- which(cell.theta.wc > min.theta.wc)
+    if (length(wc.clusters) == 0) next
+    d <- rbind(d, data.table(lib=names(soft.clust$theta.param)[j], 
+                             thetawc=cell.theta.wc[wc.clusters], 
+                             first_clust=wc.clusters))
+  }
+  extend.clust.pairs <- rbind(clust.pairs, data.table(first_clust =clust.pairs$second_clust, 
+                                                      second_clust=clust.pairs$first_clust,
+                                                      chrom_clust =clust.pairs$chrom_clust))
+  d <- merge(d, extend.clust.pairs, by='first_clust')
+  # compute the number of wc clusters per chromosome cluster for every lib
+  d[, num_wc_clust_per_chrom:=.N, by=.(lib, chrom_clust)]
+  # take only the cell/clusters in which both cluster pairs are wc, and subset the required columns
+  d <- d[num_wc_clust_per_chrom==2, .(lib, thetawc, clust.forward=first_clust, clust.backward=second_clust)]
+  
+  return(d)
+}

@@ -189,11 +189,9 @@ SaaRclust <- function(minimap.file=NULL, counts.l=NULL, fileID='soft', outputfol
                                                         chrom_clust =clust.pairs$chrom_clust))
     ML.clust <- merge(ML.clust, extend.clust.pairs, by='first_clust')
     ML.clust <- ML.clust[, .(rname, first_clust, chrom_clust)]
-    colnames(ML.clust)[1] <- paste0('#', colnames(ML.clust)[1])
   }
   
   soft.clust.obj$ML.clust <- ML.clust
-  #names(soft.clust.obj$ML.clust) <- read.names
   
 #  save(file = destination, soft.clust.obj)
 

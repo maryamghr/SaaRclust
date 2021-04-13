@@ -65,7 +65,7 @@ def phase_bubbles(ss_bubble_map_files, bubbles, ss_to_clust, lib_clust_to_haplo,
 
 
 	with open(bubble_phase_file, 'w') as out:
-		print("unitigName\tbubbleName\tbubbleAllele\thaplotype", file=out)
+		print("#unitigName\thaplotype\tbubbleName\tbubbleAllele", file=out)
 		# printing bubble phase info
 		for bubble_id, bubble in bubbles.items():
 			
@@ -73,15 +73,13 @@ def phase_bubbles(ss_bubble_map_files, bubbles, ss_to_clust, lib_clust_to_haplo,
 			h0_al1 = bubble.allele0.haplo_coverage[1]+bubble.allele1.haplo_coverage[0]
 
 			if h0_al0+h0_al1==0 or min_h0_frac < h0_al0/(h0_al0+h0_al1) < max_h0_frac:
-				#print(bubble.allele0.unitig_name + "\t" + str(bubble.id) + "\t0\tNone", file=out)
-				#print(bubble.allele1.unitig_name + "\t" + str(bubble.id) + "\t1\tNone", file=out)
 				continue
 
 			al0_haplo = 'H1' if h0_al0 > h0_al1 else 'H2'
 			al1_haplo = 'H1' if h0_al0 < h0_al1 else 'H2'
 
-			print(bubble.allele0.unitig_name + "\t" + str(bubble.id) + "\t0\t" + al0_haplo, file=out)
-			print(bubble.allele1.unitig_name + "\t" + str(bubble.id) + "\t1\t" + al1_haplo, file=out)
+			print(bubble.allele0.unitig_name + "\t" + al0_haplo + "\t" + str(bubble.id) + "\t0", file=out)
+			print(bubble.allele1.unitig_name + "\t" + al1_haplo + "\t" + str(bubble.id) + "\t1", file=out)
 			
 		# printing unitig phase info
 		
@@ -92,5 +90,5 @@ def phase_bubbles(ss_bubble_map_files, bubbles, ss_to_clust, lib_clust_to_haplo,
 				continue
 			
 			haplo = 'H1' if haplo_cov[0] > haplo_cov[1] else 'H2'
-			print(unitig_name + "\tNone\tNone\t" + haplo, file=out)
+			print(unitig_name + "\t" + haplo + "\tNone\tNone", file=out)
 
