@@ -78,16 +78,14 @@ output_bwa_map_table <- function(bwa.map.file, bubbles.fasta.file)
 # for outputting:
 # map <- map[!is.na(bubbleAllele) & !is.na(SSstart)]
 
-output_bubble_allele_coverage_matrix <- function(clust1, clust2, wc.cell.clust, ss.clust, map)
+output_bubble_allele_coverage_matrix <- function(clusters, wc.cell.clust, ss.clust, map)
 {
-	clust.partners <- data.table(SSclust=c(clust1, clust2), clust.backward=c(clust2, clust1))
-
-	colnames(ss.clust) <- c("SSname", "SSclust")
+	colnames(ss.clust) <- c("SSname", "SSclust", "clust.backward")
 	ss.clust[, SSname:=strsplit(SSname, '_')[[1]][1], by=SSname]
+	clust1 <- clusters[1]
 
 	map <- merge(map, ss.clust, by="SSname")
-	map <- merge(map, clust.partners[, .(SSclust, clust.backward)], by="SSclust")
-
+	
 	map[bubbleAllele=='0', num.bubble.al0:=.N, .(SSlib, SSclust, bubbleName)][is.na(num.bubble.al0), num.bubble.al0:=0]
 	map[bubbleAllele=='1', num.bubble.al1:=.N, .(SSlib, SSclust, bubbleName)][is.na(num.bubble.al1), num.bubble.al1:=0]
 	map[, num.bubble.al0:=max(num.bubble.al0), .(SSlib, SSclust, bubbleName)]
@@ -125,7 +123,7 @@ output_bubble_allele_coverage_matrix <- function(clust1, clust2, wc.cell.clust, 
 	map.sp[[1]][is.na(map.sp[[1]])] <- "-"
 	map.sp[[2]][is.na(map.sp[[2]])] <- "-"
 
-	lapply(map.sp, function(x) setkey(x, bubbleName))
+	lapply(map.sp, function(x) setkey(x, bubbleName)) %>% invisible()
 
 	# select a subset of cells that are wc in this cluster pair
 	wc.cells <- wc.cell.clust[clust.forward==clust1, lib]

@@ -8,37 +8,35 @@ source('utils/process_mummer_map.R')
 sample=snakemake@wildcards[['sample']]
 print(paste('sample=', sample))
 
-clusters <- strsplit(snakemake@wildcards[["clust_pair"]], "_")[[1]]
-clusters <- c(min(clusters), max(clusters))
+clust <- snakemake@wildcards[["clust"]]
+clust.pairs <- fread(snakemake@input[["clust_pairs"]])
+clust.pairs <- clust.pairs[chrom_clust==clust]
+clusters <- c(clust.pairs$first_clust, clust.pairs$second_clust)
+clusters <- as.character(clusters)
+wc.cells.clust <- fread(snakemake@input[["wc_cell_clust"]])
 
 print('got clusters')
 
 wc.cell.clust <- fread(snakemake@input[["wc_cell_clust"]])
 ss.clust <- fread(snakemake@input[["ss_clust"]], header=F)
 
-print('got ss clust')
+print(ss.clust)
 print(paste('map:', snakemake@input[["map"]]))
 print(paste('bubbles:', snakemake@input[["bubbles"]]))
-#map <- output_mummer_map_table(snakemake@input[["map"]], snakemake@input[["bubbles"]])
-#map <- map[!is.na(SSstart)]
 
-#print('got mummer map table')
-
-# outputting map tables
-#fwrite(map, file=snakemake@output[["valid_maps"]], row.names=F, sep='\t')
 
 map <- fread(snakemake@input[["map"]])
-map <- map[!is.na(bubbleAllele)]
-map.sp <- output_bubble_allele_coverage_matrix(clusters[1], clusters[2], wc.cell.clust, ss.clust, map)
+map <- map[bubbleAllele!="None"]
+map.sp <- output_bubble_allele_coverage_matrix(clusters, wc.cell.clust, ss.clust, map)
 
 print('splitted map')
 
 ## Get selected library names
-select.libs <- unique(wc.cell.clust$lib)
+select.libs <- wc.cells.clust[clust.forward %in% clusters, unique(lib)]
 
 print('select.libs')
 print(select.libs)
 
-strandphaser(map.sp[[clusters[1]]], map.sp[[clusters[2]]], snakemake@wildcards[["clust_pair"]], select.libs, snakemake@output[["phased_strand_states"]])
+strandphaser(map.sp[[clusters[1]]], map.sp[[clusters[2]]], snakemake@wildcards[["clust"]], select.libs, snakemake@output[["phased_strand_states"]])
 
 print ('done')

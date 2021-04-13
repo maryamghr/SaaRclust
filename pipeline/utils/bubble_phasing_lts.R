@@ -7,10 +7,7 @@ library(data.table)
 ## FUNCTIONS ##
 ###############
 
-strandphaser <- function(cluster1.table, cluster2.table, clust_pair, select.libs, output.phased.strand.states.file){
-	clusters <- strsplit(clust_pair, "_")[[1]]
-	#cluster1 <- read.table(cluster1.file, stringsAsFactors = FALSE, header=TRUE)
-	#cluster2 <- read.table(cluster2.file, stringsAsFactors = FALSE, header=TRUE)
+strandphaser <- function(cluster1.table, cluster2.table, clusters, select.libs, output.phased.strand.states.file){
 	phased.data = phase_strand_states_and_bubbles(as.data.frame(cluster1.table), as.data.frame(cluster2.table), clusters[1], clusters[2], select.libs)
 	phased.strand.states = phased.data[[1]]
 	phased.bubbles = phased.data[[2]]
