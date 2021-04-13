@@ -121,16 +121,14 @@ def get_ss_clust(ss_clust_file):
 	print('file', ss_clust_file)
 	ss_to_clust = {}
 	with open(ss_clust_file) as f:
-		
+		next(f) # skip the header line		
 		for line in f:
 			if line == "":
-				continue
-			
-			ss_name, ss_clust = line.split()
-			ss_name = ss_name.split('_')[0]
-			
+				continue			
+			sp = line.split()
+			ss_name, ss_clust = sp[0], sp[1]
+			ss_name = ss_name.split('_')[0]			
 			ss_to_clust[ss_name] = ss_clust
-
 	return ss_to_clust
 
 def get_bubbles(bubble_fasta_file, with_km=True, with_unitig_name=False):

@@ -37,7 +37,6 @@ phase_strand_states_and_bubbles <- function(cluster1, cluster2, cluster1.name, c
 	clust2.haplo.strand.states[, `:=`(cluster=cluster2.name, haplotype=1-haplotype)]
 	haplo.strand.states <- rbind(haplo.strand.states, clust2.haplo.strand.states)
 	
- 
 	## Get consensus
 	h1.cons <- exportConsensus(data.matrix = srt.matrices$cluster1.m)
 	bubble.phase <- data.table(bubbleName=h1.cons$pos, haplotype0Allele=h1.cons$hap-1)

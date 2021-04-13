@@ -37,6 +37,6 @@ select.libs <- wc.cells.clust[clust.forward %in% clusters, unique(lib)]
 print('select.libs')
 print(select.libs)
 
-strandphaser(map.sp[[clusters[1]]], map.sp[[clusters[2]]], snakemake@wildcards[["clust"]], select.libs, snakemake@output[["phased_strand_states"]])
+strandphaser(map.sp[[clusters[1]]], map.sp[[clusters[2]]], clusters, select.libs, snakemake@output[["phased_strand_states"]])
 
 print ('done')
