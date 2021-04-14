@@ -3,18 +3,12 @@
 sample: HG00733
 Nchunks: 100
 
-graphfolder: ../../DBG_illumina/
-# required for building the de Bruijn graph
-bcalmpath: /MMCI/TM/scratch/mikko/random_bins/bcalm_2_2
-bcalm_converttoGFApath: /MMCI/TM/scratch/mikko/random_bins/convertToGFA.py
-
 # whatshap
-whatshap: /MMCI/TM/scratch/whatshap/whatshap/venv/bin/whatshap
 whatshap_split : ../../tools/whatshap-fork/whatshap/cli/split.py
 
 
-# PacBio reads
-pb_bam_dir: ../../ccs_bams
+# long reads
+long_reads_dir: ../../ccs_reads
 min_pb_len: 5000
 
 
@@ -25,18 +19,6 @@ vcf_prefix: PR05
 
 # SS bams and phased vcf files
 SS_bam_dir: ../../ss_bams
-# Note the SS names filter is based on the ss reads with the top 5% coverage of long reads. The coverage is computed by the rules output_ss_read_names and count_ccs_cov_in_ss in Snakefile_haplocalust_evaluation
-# It is so slow. It might be faster by python implementation
-SS_names_filter: ss_cov/trim_ss_top0.05_cov.data
-
-# Kmer size of the graph
-# This should be very low to prevent fragmentation
-k: 63
-l: 23
-
-# Minimum kmer abundance of the graph
-# This should be very low
-kmer_abundance: 3
 
 bubble_info: "TRUE"
 evaluation: "TRUE"
@@ -45,13 +27,6 @@ evaluation: "TRUE"
 SS_fastq_dir: ../../ss_fastq
 
 
-het_kmer_len: 10
-
-#minimap parameters
-w: 1
-k_minimap: 15
-f: 0.1
-z: 500
 
 # saarclust parameters
 testNumClustersHard: [50,60,80,90,100,200]
@@ -66,9 +41,6 @@ theta_constrain: "FALSE"
 log_scale: "TRUE"
 filter_soft_clust_input: "FALSE"
 numAlignments: 30000 #150000
-
-# phasing params
-num_iterations: 2
 
 num_chromosomes: 23
 

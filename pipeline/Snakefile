@@ -1,31 +1,13 @@
-import os
-import subprocess
-import zipfile
-import sys
-
-print(sys.version)
-
-
 configfile: "config.yaml"
 
 sample = config["sample"]
-GRAPHPATH = config["graphfolder"]
 SSfastqDir = config["SS_fastq_dir"]
-SSbamDir = config["SS_bam_dir"]
-chroms = ["chr" + str(x) for x in range(1, 23)]# + ["chrX"]
-phasedSSvcfDir = config["phased_vcf_dir"]
-whatshap = config["whatshap"]
 whatshap_split = config["whatshap_split"]
 BubbleGun = config["BubbleGun"]
 hifiasm = config["hifiasm"]
-PBbamDir = config["pb_bam_dir"]
-minPBlen = config["min_pb_len"]
-N = config["Nchunks"]
-l = len(str(N))
-chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
+long_reads = config["long_reads_dir"]
 
 numClustersHard = config["numClustersHard"]
-numClustersSoft = config["numClustersSoft"]
 EMiter          = config["EMiter"]
 alpha           = config["alpha"]
 minLib          = config["minLib"]
@@ -33,17 +15,11 @@ upperQ          = config["upperQ"]
 logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale    = config["log_scale"]
-ss_names_filter = config["SS_names_filter"]
 numAlignments   = config["numAlignments"]
 chromosomes = range(1, config["num_chromosomes"]+1)
+haplotypes = ["h1","h2"]
 
-w = config["w"]
-kMinimap = config["k_minimap"]
-fMinimap = config["f"]
-z = config["z"]
 outputfolder    = "SaaRclust_results"
-haplotypes = ['H1', 'H2']
-phasing_itr = config["num_iterations"]
 libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
 
 
@@ -55,11 +31,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand(SSfastqDir+"/{sample}/split/all_libs_{clust}.fasta", sample=sample, clust=chromosomes),
-		expand("../../{sample}/hifiasm/split/asm.r_bubbles_{clust}.fasta", sample=sample, clust=chromosomes),
-		expand("../../{sample}/phased_unitigs/{clust}_phased_unitigs.data", sample=sample, clust=chromosomes),
-		expand("../../{sample}/hifiasm/split/asm.h2.r_utg_{clust}.gfa", sample=sample, clust=chromosomes),
-		expand("../../{sample}/split_raw_long_reads/{clust}_{haplo}.fasta", sample=sample, clust=chromosomes, haplo=["h1","h2"])
+		expand("../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa", sample=sample, clust=chromosomes, haplo=haplotypes)
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -94,7 +66,7 @@ rule concat_assembled_with_first_pair_of_unassembled:
 ########################################################################################################################		
 
 rule hifiasm:
-	input: fastq=PBbamDir+"/{sample}.fastq.gz",
+	input: fastq=long_reads+"/{sample}.fastq.gz",
 	output:
 		gfa="../../{sample}/hifiasm/asm.r_utg.gfa",
 		fa="../../{sample}/hifiasm/asm.r_utg.fa",
@@ -206,9 +178,9 @@ rule SaaRclust:
 		> {log} 2>&1
 		"""
 
-########################################################################################################################
-################################### splitting long reads into chromosomes ##############################################
-########################################################################################################################
+###########################################################################################################################
+################################### splitting reads/unitigs into chromosomes ##############################################
+###########################################################################################################################
 
 rule merge_all_ss_fasta:
 	input: expand(SSfastqDir+"/{sample}/{lib}.combined.fasta", lib=libs)
@@ -244,8 +216,30 @@ rule split_hifiasm_graph:
 	shell: 
 		'''
 		DIR=$(dirname {output.gfa[0]}) &&
-		(time python3 {whatshap_split} {input.gfa} {input.clust} --output-folder $DIR --split-by-cluster &
+		(time python3 {whatshap_split} {input.gfa} {input.clust} --output-folder $DIR --split-by-cluster &&
 		python3 {whatshap_split} {input.fasta} {input.clust} --output-folder $DIR --split-by-cluster) > {log} 2>&1
+		'''
+
+# issue: only a subset of ccs reads are present in hifiasm gfa files
+rule get_long_read_names_by_chrom:
+	input: "../../{sample}/hifiasm/split/asm.r_utg_{clust}.gfa",
+	output: temp(long_reads+"/split/{sample}_read_names_{clust}.data"),
+	log: "log/cluster_long_reads__by_chrom_{sample}_{clust}.log"
+	shell: '''(time awk '$1=="A" {{print $5"\tnone\t{wildcards.clust}"}}' {input} > {output}) > {log} 2>&1'''
+
+rule split_long_reads:
+	input:
+		clust=expand(long_reads+"/split/{{sample}}_read_names_{clust}.data", clust=chromosomes),
+		fastq=long_reads+"/{sample}.fastq.gz",
+	output:
+		clust=long_reads+"/split/{sample}_chrom_clust.data",
+		fastq=expand(long_reads+"/split/{{sample}}_{clust}.fastq.gz", clust=chromosomes)
+	log: "log/split_long_reads_{sample}.log"
+	shell:
+		'''
+		DIR=$(dirname {output.fastq[0]}) &&
+		(time cat {input.clust} > {output.clust} &&
+		python3 {whatshap_split} {input.fastq} {output.clust} --output-folder $DIR --split-by-cluster) > {log} 2>&1
 		'''
 
 ########################################################################################################################
@@ -263,7 +257,7 @@ rule detect_bubbles_overlap_graph:
 ##################################### Mapping Strand-seq read to Bubbles ###############################################
 ########################################################################################################################
 
-rule map_SS_reads_to_unitigs:
+rule map_ss_reads_to_unitigs:
 	input:
 		SSreads=SSfastqDir+"/{sample}/split/all_libs_{clust}.fasta",
 		utg="../../{sample}/hifiasm/split/asm.r_utg_{clust}.fa",
@@ -277,7 +271,7 @@ rule map_SS_reads_to_unitigs:
 		bwa fastmap -w 1 -l 75 {input.utg} {input.SSreads} > {output}) > {log} 2>&1
 		'''
 
-rule output_overlap_graph_unitigs_valid_maps:
+rule output_valid_maps:
 	input:
 		map="../../{sample}/exact_match/{clust}_r_utg_maximal_uniqe_exact_match.data",
 		bubbles="../../{sample}/hifiasm/split/asm.r_bubbles_{clust}.fasta",
@@ -320,42 +314,60 @@ rule haplosplit_graph:
 	input:
 		input_gfa="../../{sample}/hifiasm/split/asm.r_utg_{clust}.gfa",
 		haplo_file="../../{sample}/phased_unitigs/{clust}_phased_unitigs.data"
-	output: 
-		gfa_h1="../../{sample}/hifiasm/split/asm.h1.r_utg_{clust}.gfa",
-		gfa_h2="../../{sample}/hifiasm/split/asm.h2.r_utg_{clust}.gfa",
-		gfa_untagged="../../{sample}/hifiasm/split/asm.untagged.r_utg_{clust}.gfa",
-		reads_fa_h1="../../{sample}/split_raw_long_reads/read_names_{clust}_h1.data",
-		reads_fa_h2="../../{sample}/split_raw_long_reads/read_names_{clust}_h2.data",
+	output:
+		h1="../../{sample}/hifiasm/split/asm.h1.r_utg_{clust}.gfa",
+		h2="../../{sample}/hifiasm/split/asm.h2.r_utg_{clust}.gfa",
+		untagged="../../{sample}/hifiasm/split/asm.untagged.r_utg_{clust}.gfa",
 	log: "log/haplosplit_graph_{sample}_{clust}.log"
 	shell:
 		'''
-		(time python3 {whatshap_split} {input} --output-h1 {output.gfa_h1} --output-h2 {output.gfa_h2} --output-untagged {output.gfa_untagged} &&
-		awk '$1=="A" {{print $5}} ' {output.gfa_h1} > {output.reads_fa_h1} &&
-		awk '$1=="A" {{print $5}} ' {output.gfa_h2} > {output.reads_fa_h2}) > {log} 2>&1
+		(time python3 {whatshap_split} {input} --output-h1 {output.h1} --output-h2 {output.h2} \
+		--output-untagged {output.untagged} --add-untagged) > {log} 2>&1
 		'''
+
+########################################################################################################################
+####################################### hifiasm per chrom/haplotype ####################################################
+########################################################################################################################
+
+# issue: only a subset of ccs reads are present in hifiasm gfa files
+rule get_long_read_names_by_haplo:
+	input:
+		gfa_h1="../../{sample}/hifiasm/split/asm.h1.r_utg_{clust}.gfa",
+		gfa_h2="../../{sample}/hifiasm/split/asm.h2.r_utg_{clust}.gfa",
+	output: long_reads+"/split/{sample}_read_names_{clust}_haplo.data"
+	log: "log/get_long_read_names_by_haplo_{sample}_{clust}.log"
+	shell: 
+		'''
+		(time awk '$1=="A" {{print $5"\tH1"}}' {input.gfa_h1} > {output} &&
+			  awk '$1=="A" {{print $5"\tH2"}}' {input.gfa_h2} >> {output}) > {log} 2>&1
+		'''
+
 
 rule haplosplit_long_reads_fastq:
 	input:
-		fastq=PBbamDir+"/{sample}.fastq.gz",
-		haplo_list="../../{sample}/split_raw_long_reads/read_names_{clust}_{haplo}.data"
-	output: "../../{sample}/split_raw_long_reads/{clust}_{haplo}.fasta"
+		fastq=long_reads+"/split/{sample}_{clust}.fastq.gz",
+		haplo_list=long_reads+"/split/{sample}_read_names_{clust}_haplo.data"
+	output:
+		h1=long_reads+"/split/{sample}_{clust}_h1.fastq.gz",
+		h2=long_reads+"/split/{sample}_{clust}_h2.fastq.gz",
+		untagged=long_reads+"/split/{sample}_{clust}_untagged.fastq.gz",
 	log: "log/haplosplit_unitig_fasta_{sample}_{clust}.log"
 	shell:
 		'''
-		(time seqtk subseq {input.fastq} {input.haplo_list} > {output}) > {log} 2>&1
+		(time python3 {whatshap_split} {input} --output-h1 {output.h1} --output-h2 {output.h2} \
+		--output-untagged {output.untagged} --add-untagged) > {log} 2>&1
 		'''
-	
+
 rule hifiasm_per_haplo:
-	input: "../../{sample}/split_raw_long_reads/{clust}_{haplo}.fasta"
+	input: long_reads+"/split/{sample}_{clust}_{haplo}.fastq.gz"
 	output:
 		gfa="../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa",
 		fa="../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.fa",
 	threads: 4
-	log: "log/hifiasm_k{kMinimap}_w{w}_f{f}_z{z}_{sample}_{clust_pair}_{haplo}.log"
+	log: "log/hifiasm_{sample}_{clust}_{haplo}.log"
 	shell:
 		'''
 		DIR=$(dirname {output.gfa}) &&
 		(time {hifiasm} -o $DIR/asm -t {threads} {input} &&
 		awk '/^S/{{print ">"$2;print $3}}' {output.gfa} > {output.fa}) > {log} 2<&1
 		'''
-
