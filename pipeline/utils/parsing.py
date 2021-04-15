@@ -365,8 +365,8 @@ def get_long_reads(long_reads_fasta_file):
 			read_name = read.name
 			seq = read.sequence
 			
-			read_name_sp = read_name.split('/ccs')
-			read_name = read_name_sp[0]+'/ccs'
+#			read_name_sp = read_name.split('/ccs')
+#			read_name = read_name_sp[0]+'/ccs'
 			
 			long_read = LongRead(read_name, seq)
 			long_reads[read_name] = long_read

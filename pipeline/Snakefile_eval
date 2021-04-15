@@ -1,18 +1,12 @@
 configfile: "config.yaml"
-whatshap = config["whatshap"]
-PBbamDir = config["pb_bam_dir"]
-N = config["Nchunks"]
-l = len(str(N))
-chunkID = ['0'*(l-len(str(i)))+str(i) for i in range(N)]
+whatshap_split = config["whatshap_split"]
+long_reads = config["long_reads_dir"]
 sample = config["sample"]
-w = config["w"]
-kMinimap = config["k_minimap"]
-fMinimap = config["f"]
-z = config["z"]
 SSfastqDir = config["SS_fastq_dir"]
 SSbamDir = config["SS_bam_dir"]
 outputfolder    = "SaaRclust_results"
-chroms, = glob_wildcards(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz")
+#chroms, = glob_wildcards(config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz")
+chroms = ["chr"+str(x) for x in list(range(1,23))+["X"]]
 libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
 outputfolder    = "SaaRclust_results"
 #numClustersHard = config["numClustersHard"]
@@ -26,20 +20,24 @@ logLth          = config["logLth"]
 theta_constrain = config["theta_constrain"]
 log_scale  	= config["log_scale"]
 numAlignments   = config["numAlignments"]
-haplotypes = ['H1', 'H2']
+chromosome_clusters = range(1, config["num_chromosomes"]+1)
+haplotypes = ["h1","h2"]
+bwa_index_suffices = ["amb", "ann", "bwt", "pac", "sa"]
 
 wildcard_constraints:
 	chunks = "[0-9]+",
 	sample=sample,
 	prefix="[rp]"
 
-
-		
+print('chroms=', chroms)
 
 rule all:
 	input:
 		expand(SSbamDir+"/{lib}_haplotagged.bam.bai", sample=sample, lib=libs),
-        
+		expand("../../{sample}/hifiasm/Bandage_sessions/{clust}_r_gr_haplo.csv", sample=sample, clust=chromosome_clusters),
+		expand("../../{sample}/hifiasm/evaluation/unitigs_phase_eval.data", sample=sample),
+		expand("../../{sample}/split_raw_long_reads/quast_results/ref_h0_{clust}_{haplo}.p_ctg/report.pdf", sample=sample, clust=chromosome_clusters, haplo=haplotypes)
+
 ######################################################
 ########### merging and indexing vcf files ###########
 ######################################################
@@ -81,11 +79,7 @@ rule bwa_index_ref:
 rule bwa_map_unitigs_to_ref:
 	input:
 		ref=config["reference"],
-		amb=config["reference"] + ".amb",
-		ann=config["reference"] + ".ann",
-		bwt=config["reference"] + ".bwt",
-		pac=config["reference"] + ".pac",
-		sa=config["reference"] + ".sa",
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
 		unitigs="../../{sample}/hifiasm/asm.r_utg.fa"
 	output: temp("../../{sample}/hifiasm/ref_aln/temp_asm.r_utg.bam")
 	log: "log/bwa_map_unitigs_to_ref_{sample}.log"
@@ -108,11 +102,7 @@ rule bwa_sort_index_unitig_bams:
 rule haplotag_unitigs:
 	input:
 		ref=config["reference"],
-		amb=config["reference"] + ".amb",
-		ann=config["reference"] + ".ann",
-		bwt=config["reference"] + ".bwt",
-		pac=config["reference"] + ".pac",
-		sa=config["reference"] + ".sa",
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
 		fai=config["reference"] + ".fai",
 		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
 		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
@@ -120,7 +110,7 @@ rule haplotag_unitigs:
 		bai="../../{sample}/hifiasm/ref_aln/asm.r_utg.bam.bai",
 	output: "../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam"
 	log: "log/haplotag_unitigs_{sample}.log"
-	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
+	shell: "(time whatshap haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
 
 
 rule index_haplotagged_bam_unitigs:
@@ -129,25 +119,58 @@ rule index_haplotagged_bam_unitigs:
 	log: "log/index_haplotagged_bam_unitigs_{sample}.log"
 	shell: "(time samtools index {input}) > {log} 2>&1"
 
-###############################################################################
-##############	   	  outputting cluster pairs		###############
-###############################################################################
-
-
-rule map_clust_to_chrom_dir:
+rule split_unitigs_bam:
 	input:
-		saarclust="utils/R-packages/SaaRclust/R/SaaRclust",
-		hard_clust="../../{sample}/SaaRclust/Clusters/hard_clusters.RData"
-	output: "../../{sample}/SaaRclust/Clusters/clust_partners.txt"
-	log: "log/map_clust_to_chrom_dir_{sample}.log"
+		bam="../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam",
+		clust="../../{sample}/SaaRclust/Clusters/MLclust.data",
+	output: expand("../../{{sample}}/hifiasm/ref_aln/split/asm.r_utg.haplotagged_{clust}.bam", clust=chromosome_clusters)
+	log: "log/split_unitigs_bam_{sample}.log"
+	shell:
+		'''
+		DIR=$(dirname {output[0]}) &&
+		(time python3 {whatshap_split} {input.bam} {input.clust} --output-folder $DIR --split-by-cluster) > {log} 2>&1
+		'''
+
+#####################################################
+######### alignment/haplotagging long reads #########
+#####################################################
+
+# It can be faster if we use specific chcromosomes in ref
+rule bwa_map_long_reads_to_ref:
+	input:
+		ref=config["reference"],
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
+		fastq=long_reads+"/split/{sample}_{clust}.fastq.gz",
+	output: temp(long_reads+"/split/{sample}_{clust}_temp.bam")
+	log: "log/bwa_map_long_reads_to_ref_{sample}_{clust}.log"
+	threads: 4
+	shell:
+		"(time bwa mem -t {threads} -c 1 {input.ref} {input.fastq} | samtools view -Sb - > {output}) > {log} 2>&1"
+
+rule bwa_sort_index_long_reads_bams:
+	input: long_reads+"/split/{sample}_{clust}_temp.bam"
+	output:
+		bam=long_reads+"/split/{sample}_{clust}.bam",
+		bai=long_reads+"/split/{sample}_{clust}.bam.bai"
+	log: "log/bwa_sort_index_long_reads_bams_{sample}_{clust}.log"
 	shell: 
 		'''
-		(time Rscript utils/map_clust_to_chrom_dir.snakemake.R \
-		{input.hard_clust}  \
-		{output} \
-		$(pwd)/utils/R-packages/ ) > {log} 2>&1
+		(time samtools sort -o {output.bam} {input} &&
+		samtools index {output.bam}) > {log} 2>&1
 		'''
 
+rule haplotag_long_reads:
+	input:
+		ref=config["reference"],
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
+		fai=config["reference"] + ".fai",
+		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
+		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
+		bam=long_reads+"/split/{sample}_{clust}.bam",
+		bai=long_reads+"/split/{sample}_{clust}.bam.bai"
+	output: long_reads+"/split/{sample}_{clust}.haplotagged.bam"
+	log: "log/haplotag_long_reads_{sample}_{clust}.log"
+	shell: "(time whatshap haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample={sample}) > {log} 2>&1"
 
 #################################################
 #########	SS haplo strand states	#########
@@ -156,11 +179,7 @@ rule map_clust_to_chrom_dir:
 rule bwa_map_SS_to_ref:
 	input:
 		ref=config["reference"],
-		amb=config["reference"] + ".amb",
-		ann=config["reference"] + ".ann",
-		bwt=config["reference"] + ".bwt",
-		pac=config["reference"] + ".pac",
-		sa= config["reference"] + ".sa",
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
 		ss= SSfastqDir+"/merged/{lib}.combined.fasta"
 	output: SSbamDir+"/{lib}.bam"
 	threads: 8
@@ -183,11 +202,7 @@ rule index_SS_bam:
 rule haplotag_SS_reads:
 	input:
 		ref=config["reference"],
-		amb=config["reference"] + ".amb",
-		ann=config["reference"] + ".ann",
-		bwt=config["reference"] + ".bwt",
-		pac=config["reference"] + ".pac",
-		sa=config["reference"] + ".sa",
+		bwa_idx=expand(config["reference"]+".{suffix}", suffix=bwa_index_suffices),
 		fai=config["reference"] + ".fai",
 		vcf=config["phased_vcf_dir"]+"merged_phased.vcf.gz",
 		tbi=config["phased_vcf_dir"]+"merged_phased.vcf.gz.tbi",
@@ -195,7 +210,7 @@ rule haplotag_SS_reads:
 		bai=SSbamDir+"/{lib}.sorted.bam.bai",
 	output: SSbamDir+"/{lib}_haplotagged.bam"
 	log: "log/haplotag_SS_reads_lib{lib}.log"
-	shell: "(time {whatshap} haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample {sample}) > {log} 2>&1"
+	shell: "(time whatshap haplotag -o {output} --reference {input.ref} {input.vcf} {input.bam} --ignore-read-groups --sample {sample}) > {log} 2>&1"
 
 rule index_ss_haplotagged_bams:
 	input: SSbamDir+"/{lib}_haplotagged.bam"
@@ -208,20 +223,97 @@ rule output_ss_read_counts:
 		ss_haplotagged_bam=SSbamDir+"/{lib}_haplotagged.bam",
 		ss_haplotagged_index=SSbamDir+"/{lib}_haplotagged.bam.bai"
 	output:
-		ss_counts_file="../../HG00733/SaaRclust/ground_truth_strand_states/{lib}_chrom_haplo_count.data"
+		ss_counts_file="../../{sample}/ground_truth_strand_states/{lib}_chrom_haplo_count.data"
 	script: "utils/count_ss_reads.snakemake.py"
 
 
 rule output_ss_haplo_strand_states:
 	input:
-		ss_counts_file="../../HG00733/SaaRclust/ground_truth_strand_states/{lib}_chrom_haplo_count.data",
+		ss_counts_file="../../{sample}/ground_truth_strand_states/{lib}_chrom_haplo_count.data",
 		clust_partners_file="../../{sample}/SaaRclust/Clusters/clust_partners.txt"
 	output:
-		SS_haplo_strand_states="../../HG00733/SaaRclust/ground_truth_strand_states/{sample}_{lib}_haplo_strand_states.data"
+		SS_haplo_strand_states="../../{sample}/ground_truth_strand_states/{lib}_haplo_strand_states.data"
 	params:
 		min_w_frac_in_wc_state=0.4,
 		max_w_frac_in_wc_state=0.6,
 		max_haplo_count_ratio=0.15
 	script: "utils/compute_ss_haplo_strand_states.snakemake.py"
 
+#####################################################
+######### haplotagging overlap bubbles ########
+#####################################################
+
+rule create_bandage_coloring_csv:
+		input:
+			clust_to_chrom_file="../../{sample}/SaaRclust/Clusters/clust_to_chrom.data",
+			unitigs_fasta="../../{sample}/hifiasm/split/asm.r_utg_{clust}.fa",
+			unitigs_bam="../../{sample}/hifiasm/ref_aln/split/asm.r_utg.haplotagged_{clust}.bam",
+			phased_unitigs="../../{sample}/phased_unitigs/{clust}_phased_unitigs.data",
+			valid_maps="../../{sample}/exact_match/valid_{clust}_r_utg_maximal_uniqe_exact_match.data",
+			ss_clust="../../{sample}/SaaRclust/Clusters/ss_clusters.data",
+			ss_phase="../../{sample}/phased_strand_states/haplo_strand_states_{clust}.data",
+			ccs_bam=long_reads+"/split/{sample}_{clust}.haplotagged.bam",
+			hifiasm_gfa="../../{sample}/hifiasm/split/asm.r_utg_{clust}.gfa",
+		output:
+			gr_haplo="../../{sample}/hifiasm/Bandage_sessions/{clust}_r_gr_haplo.csv",
+			ss_haplo_cov="../../{sample}/hifiasm/Bandage_sessions/{clust}_r_haplo_ss_cov.csv",
+		log: "log/create_bandage_coloring_csv_{sample}_{clust}.r.log"
+		script: "utils/output_bandage_labels.R"
+
+#########################################################
+##############	assembly evaluation	#################
+#########################################################
+
+rule evaluate_phasing:
+	input:
+#		ccs_bam=expand(long_reads+"/split/{{sample}}_{clust}.haplotagged.bam", clust=chromosome_clusters),
+#		ccs_phase=...
+		bam=expand("../../{{sample}}/hifiasm/ref_aln/split/asm.r_utg.haplotagged_{clust}.bam", clust=chromosome_clusters),
+		phase=expand("../../{{sample}}/phased_unitigs/{clust}_phased_unitigs.data", clust=chromosome_clusters),
+	output: "../../{sample}/hifiasm/evaluation/unitigs_phase_eval.data",
+#		ccs="../../{sample}/hifiasm/evaluation/ccs_phase_eval.data",
+	params:
+		data_type="unitig"
+	log:
+		"log/evaluate_phasing_{sample}.log"
+	shell:
+		'''
+		(time python3 utils/evaluate_phasing.py --haplotagged_bam_file {input.bam} --phase_file {input.phase} --output_file {output})> {log} 2>&1
+		'''
+
+rule create_phased_references:
+	input:
+		fasta=config["reference"],#"GRCh38_full_analysis_set_plus_decoy_hla.fa",
+		vcf=config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz"
+	output:
+		h1=config["reference"]+"/phased_references/{chrom}_haplotype0.fasta",
+		h2=config["reference"]+"/phased_references/{chrom}_haplotype1.fasta"
+	log: "log/create_phased_references_{chrom}.log"
+	shell:
+		'''
+		(time bcftools consensus --sample {sample} -H 1 -f <(bioawk -c fastx '{{if($name=={wildcards.chrom}) print \">\"$name; print $seq}}' {input.fasta}) {input.vcf} > {output.h1} &&
+		      bcftools consensus --sample {sample} -H 2 -f <(bioawk -c fastx '{{if($name=={wildcards.chrom}) print \">\"$name; print $seq}}' {input.fasta}) {input.vcf} > {output.h2}
+		) > {log} 2>&1
+		'''
+
+# it works based on the assumption that cluster numbers are sorted based on original chromosomes, i.e., cluster1=chromosome1, cluster2=chromosome2, ...
+# It needs adjustments for the case where this assumption is not true
+rule quast_evaluate_assembly:
+	input:
+		ref_h0=lambda wc: (config["reference"]+"/phased_references/{}_haplotype0.fasta").format(chroms[int(wc.clust)-1]),
+		ref_h1=lambda wc: (config["reference"]+"/phased_references/{}_haplotype1.fasta").format(chroms[int(wc.clust)-1]),
+		assembly="../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.fa",
+	output: 
+		h0="../../{sample}/split_raw_long_reads/quast_results/ref_h0_{clust}_{haplo}.p_ctg/report.pdf",
+		h1="../../{sample}/split_raw_long_reads/quast_results/ref_h1_{clust}_{haplo}.p_ctg/report.pdf"
+	threads: 2
+	log:
+		h0="log/quast_evaluate_assembly_h0_{sample}_{clust}_{haplo}.log",
+		h1="log/quast_evaluate_assembly_h1_{sample}_{clust}_{haplo}.log"
+	shell:
+		'''
+		DIR=$(dirname {output.h0}) && DIR=$(dirname $DIR) &&
+		(time quast -r {input.ref_h0} -t {threads} -o $DIR/ref_h0_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
+		(time quast -r {input.ref_h1} -t {threads} -o $DIR/ref_h1_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
+		'''
 
