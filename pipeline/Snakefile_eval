@@ -29,8 +29,6 @@ wildcard_constraints:
 	sample=sample,
 	prefix="[rp]"
 
-print('chroms=', chroms)
-
 rule all:
 	input:
 		expand(SSbamDir+"/{lib}_haplotagged.bam.bai", sample=sample, lib=libs),
@@ -250,7 +248,7 @@ rule create_bandage_coloring_csv:
 			unitigs_bam="../../{sample}/hifiasm/ref_aln/split/asm.r_utg.haplotagged_{clust}.bam",
 			phased_unitigs="../../{sample}/phased_unitigs/{clust}_phased_unitigs.data",
 			valid_maps="../../{sample}/exact_match/valid_{clust}_r_utg_maximal_uniqe_exact_match.data",
-			ss_clust="../../{sample}/SaaRclust/Clusters/ss_clusters.data",
+			ss_clust="../../{sample}/SaaRclust/Clusters/ss_clusters_{clust}.data",
 			ss_phase="../../{sample}/phased_strand_states/haplo_strand_states_{clust}.data",
 			ccs_bam=long_reads+"/split/{sample}_{clust}.haplotagged.bam",
 			hifiasm_gfa="../../{sample}/hifiasm/split/asm.r_utg_{clust}.gfa",
@@ -286,8 +284,8 @@ rule create_phased_references:
 		fasta=config["reference"],#"GRCh38_full_analysis_set_plus_decoy_hla.fa",
 		vcf=config["phased_vcf_dir"]+config["vcf_prefix"]+".{chrom}.vcf.gz"
 	output:
-		h1=config["reference"]+"/phased_references/{chrom}_haplotype0.fasta",
-		h2=config["reference"]+"/phased_references/{chrom}_haplotype1.fasta"
+		h1=os.path.dirname(config["reference"])+"/phased_references/{chrom}_haplotype0.fasta",
+		h2=os.path.dirname(config["reference"])+"/phased_references/{chrom}_haplotype1.fasta"
 	log: "log/create_phased_references_{chrom}.log"
 	shell:
 		'''
@@ -300,8 +298,8 @@ rule create_phased_references:
 # It needs adjustments for the case where this assumption is not true
 rule quast_evaluate_assembly:
 	input:
-		ref_h0=lambda wc: (config["reference"]+"/phased_references/{}_haplotype0.fasta").format(chroms[int(wc.clust)-1]),
-		ref_h1=lambda wc: (config["reference"]+"/phased_references/{}_haplotype1.fasta").format(chroms[int(wc.clust)-1]),
+#		ref_h0=lambda wc: (os.path.dirname(config["reference"])+"/phased_references/{}_haplotype0.fasta").format(chroms[int(wc.clust)-1]),
+#		ref_h1=lambda wc: (os.path.dirname(config["reference"])+"/phased_references/{}_haplotype1.fasta").format(chroms[int(wc.clust)-1]),
 		assembly="../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.fa",
 	output: 
 		h0="../../{sample}/split_raw_long_reads/quast_results/ref_h0_{clust}_{haplo}.p_ctg/report.pdf",
@@ -310,10 +308,10 @@ rule quast_evaluate_assembly:
 	log:
 		h0="log/quast_evaluate_assembly_h0_{sample}_{clust}_{haplo}.log",
 		h1="log/quast_evaluate_assembly_h1_{sample}_{clust}_{haplo}.log"
+	# not using phased ref for now (-r {input.ref_h0/h1} in quast command line)
 	shell:
 		'''
 		DIR=$(dirname {output.h0}) && DIR=$(dirname $DIR) &&
-		(time quast -r {input.ref_h0} -t {threads} -o $DIR/ref_h0_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
-		(time quast -r {input.ref_h1} -t {threads} -o $DIR/ref_h1_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
+		(time quast -t {threads} -o $DIR/ref_h0_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h0} 2>&1 &&
+		(time quast -t {threads} -o $DIR/ref_h1_{wildcards.clust}_{wildcards.haplo}.p_ctg {input.assembly}) > {log.h1} 2>&1
 		'''
-
