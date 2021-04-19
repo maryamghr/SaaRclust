@@ -282,6 +282,7 @@ findClusterPartners_simple <- function(theta.param=NULL, clust.to.chrom=NULL,
                                        verbose=FALSE) {
   cat('pairing clusters\n')
   # get only wc thetas
+  valid.chroms <- paste0('chr', c(1:22, 'X'))
   theta.param.wc <- lapply(theta.param, function(x) x[,3])
   # cbid wc thetas for all single cells
   all.theta.param.wc <- do.call(cbind, theta.param.wc)

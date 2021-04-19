@@ -313,10 +313,11 @@ cluster.ss.reads <- function(alignments, clusters, clust.pairs, # numCPU=4,
   ##parallel.results <- foreach (i=1:length(alignments), 
   ##                             .packages=c('Rsamtools', 'data.table'),
   ##                             .export='getChromFlag') %dopar%{
-  
+
+  message('clustering ss reads')  
   ss.clust <- data.table()
   acc <- data.table()
-  
+
   extend.clust.pairs <- rbind(clust.pairs, data.table(first_clust =clust.pairs$second_clust, 
                                                second_clust=clust.pairs$first_clust,
                                                chrom_clust =clust.pairs$chrom_clust))

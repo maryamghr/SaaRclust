@@ -23,32 +23,40 @@ source('utils/evaluate_theta_param.R')
 inputfolder <- '../../HG00733/bwa_ss_unitigs'
 outputfolder <- '../../HG00733/SaaRclust'
 input_type <- 'bam'
+input.alignment.files <- list.files(path=inputfolder, pattern='.mdup.bam$', full.names=TRUE)
 num.clusters <- 60
 EM.iter <- 2
-alpha <- 0.01
 minLib <- 35
 minSScov <- 200
-upperQ <- 1
-logL.th <- 1
-theta.constrain=FALSE
 HC.only = FALSE
-store.counts = TRUE
-store.bestAlign = TRUE
-numAlignments = 10000
-log.scale=TRUE
-numCPU=42
 hardclustMethod='hclust'
 hard.theta.estim.method='median'
-cellNum <- NULL #2 cells for testing. It should be NULL
-hardclust.file="hard_clusters.RData"#paste0("hardClusteringResults_",num.clusters,"clusters.RData")
-softclust.file="soft_clusters.RData"
-chrom.flag <- NULL
-store.chrom.flag=TRUE
 min.cluster.frequency=0.002
+numAlignments = 10000
+cellNum <- 2 #cells for testing. It should be NULL
+log.scale=TRUE
+hardclust.file="../../HG00733/SaaRclust/Clusters/hard_clusters.RData"
+softclust.file="../../HG00733/SaaRclust/Clusters/soft_clusters.RData"
+MLclust.file="../../HG00733/SaaRclust/Clusters/MLclusters.RData"
+ss.clust.file="../../HG00733/SaaRclust/Clusters/ss_clusters.data"
+clust.pairs.file='../../HG00733/SaaRclust/Clusters/clust_partners.txt'
+wc.cells.file="../../HG00733/SaaRclust/Clusters/wc_cells_clusters.data"
+store.chrom.flag=TRUE
 ref.aln.bam <- '../../HG00733/hifiasm/ref_aln/asm.r_utg.bam'
 ss.bam.dir <- '../../ss_bams/'
 ss.bam.suffix <- '_haplotagged.bam'
-ss.clust.file="ss_clusters.data"
+numCPU=42
+
+clust <- runSaaRclust(inputfolder=inputfolder, outputfolder=outputfolder, 
+                                  num.clusters=num.clusters, EM.iter=EM.iter, minLib=minLib, minSScov=minSScov,
+                                  HC.only=HC.only, hardclustMethod=hardclustMethod,
+                                  hard.theta.estim.method=hard.theta.estim.method, min.cluster.frequency=min.cluster.frequency, 
+                                  numAlignments=numAlignments, cellNum=cellNum, log.scale=TRUE, 
+                                  hardclust.file=hardclust.file, softclust.file=softclust.file,
+                                  MLclust.file=MLclust.file, ss.clust.file=ss.clust.file, 
+                                  clust.pairs.file=clust.pairs.file, wc.cells.file=wc.cells.file,
+                                  ref.aln.bam=ref.aln.bam, ss.bam.dir=ss.bam.dir, 
+                                  ss.bam.suffix=ss.bam.suffix, numCPU=20)
 
 
 args <- c(inputfolder, outputfolder, num.clusters, EM.iter, minLib, minSScov, 

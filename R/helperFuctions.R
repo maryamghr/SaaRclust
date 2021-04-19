@@ -178,7 +178,10 @@ numFoundClusters <- function (ord, chrom.flag)
 {
     valid.chroms <- paste0('chr', c(1:22, "X"))
     expected.clusters <- paste0(rep(valid.chroms, each=2), rep(c('_0','_16'),23))
-    hard.clust.dt <- data.table(rname = names(ord), clust = ord)
+    hard.clust.dt <- ord
+    if (!"data.table" %in% class(ord)){
+      hard.clust.dt <- data.table(rname = names(ord), clust = ord)
+    }
     hard.clust.dt <- merge(hard.clust.dt, chrom.flag, by='rname')
     hard.clust.dt[, chrom_flag_count:=.N, by = .(clust, chrom, flag)]
     hard.clust.to.chrom <- hard.clust.dt[, head(.SD, 1), by = .(clust, chrom, flag)]
@@ -463,7 +466,7 @@ exportClusteredReads <- function(inputfolder=NULL, prob.th=NULL, minLib=NULL) {
   } 
 } 
 
-get.wc.cells.clusters <- function(soft.clust, min.theta.wc=0.75){
+get.wc.cells.clusters <- function(soft.clust, clust.pairs, min.theta.wc=0.75){
   d <- data.table()
   for (j in 1:length(soft.clust$theta.param))
   {

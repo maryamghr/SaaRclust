@@ -1,5 +1,6 @@
-configfile: "config.yaml"
+import os
 
+configfile: "config.yaml"
 sample = config["sample"]
 SSfastqDir = config["SS_fastq_dir"]
 whatshap_split = config["whatshap_split"]
@@ -20,7 +21,8 @@ chromosomes = range(1, config["num_chromosomes"]+1)
 haplotypes = ["h1","h2"]
 
 outputfolder    = "SaaRclust_results"
-libs, = glob_wildcards(SSfastqDir+"/{lib}_1.fastq.gz")
+libs, = glob_wildcards(os.path.join(SSfastqDir,sample,"{lib}_1.fastq.gz"))
+print("libs =", libs)
 
 
 #####################################################################
@@ -31,7 +33,7 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa", sample=sample, clust=chromosomes, haplo=haplotypes)
+		expand("../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa", sample=sample, clust=chromosomes, haplo=haplotypes),
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -141,11 +143,10 @@ rule bwa_index:
 ###################################  SaaRclust ##############################################
 ########################################################################################################################
 
-# TODO: correct and test the command line options
 rule SaaRclust:
 	input:
-		bam=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.bam", lib=libs),
-		bai=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.bam.bai", lib=libs),
+		bam=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam", lib=libs),
+		bai=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam.bai", lib=libs),
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
 	output:
 		hard_clust="../../{sample}/SaaRclust/Clusters/hard_clusters.RData",
@@ -156,34 +157,20 @@ rule SaaRclust:
 		clust_pairs="../../{sample}/SaaRclust/Clusters/clust_partners.txt",
 		wc_cells_clusters="../../{sample}/SaaRclust/Clusters/wc_cells_clusters.data"
 	params:
-		input_type="bam"
+		input_type="bam",
+		num_clusters=numClustersHard,
+		num_alignments=numAlignments,
+		EMiter=EMiter,
 	threads: 32
 	log: "log/SaaRclust_{sample}_initial_clusters.log"
-	shell:
-		"""
-		(time Rscript utils/SaaRclust.snakemake.R \
-		../../{sample}/bwa_ss_unitigs \
-		../../{sample}/SaaRclust \
-		{params.input_type} \
-		{numClustersHard} \
-		{alpha} \
-		{numAlignments} \
-		{log_scale} \
-		{EMiter} \
-		{minLib} \
-		{upperQ} \
-		{logLth} \
-		{threads} \
-		$(pwd)/utils/R-packages/) \
-		> {log} 2>&1
-		"""
+	script: "utils/SaaRclust.snakemake.R"
 
 ###########################################################################################################################
 ################################### splitting reads/unitigs into chromosomes ##############################################
 ###########################################################################################################################
 
 rule merge_all_ss_fasta:
-	input: expand(SSfastqDir+"/{sample}/{lib}.combined.fasta", lib=libs)
+	input: expand(SSfastqDir+"/{{sample}}/{lib}.combined.fasta", lib=libs)
 	output: SSfastqDir+"/{sample}/split/all_libs.fasta"
 	shell:
 		'''

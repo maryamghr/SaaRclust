@@ -14,15 +14,18 @@
 
 
 runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", input_type="bam", 
-                         num.clusters=54, EM.iter=100, alpha=0.01, minLib=10, upperQ=0.95, 
-                         logL.th=1, theta.constrain=FALSE, hardclustMethod="hclust",
-                         hard.theta.estim.method="median", hardclustMinLib = 35, hardclustLowerQ=0.7, 
+                         input.alignment.files=NULL,
+                         num.clusters=54, EM.iter=100, alpha=0.01, upperQ=1, minLib=NULL,
+                         logL.th=1, theta.constrain=FALSE, hardclustMinLib=35, hardclustLowerQ=0.7, 
+                         numAlignments=30000, minSScov=200, HC.only=FALSE, hardclustMethod="hclust",
+                         hard.theta.estim.method="median", 
                          add.garbage.cluster=FALSE, hardclustUpperQ=0.9, min.cluster.frequency=0.002, 
-                         store.counts=TRUE, store.bestAlign=TRUE, numAlignments=30000, minSScov=30, 
-                         HC.only=TRUE, verbose=TRUE, cellNum=NULL, log.scale=FALSE, 
+                         store.counts=TRUE, store.bestAlign=TRUE, verbose=TRUE, cellNum=NULL, log.scale=TRUE, 
                          hardclust.file="hard_clusters.RData", softclust.file="soft_clusters.RData",
-                         ss.clust.file="ss_clusters.data",
-                         ref.aln.bam=NULL, store.chrom.flag=TRUE, chrom.flag=NULL, numCPU=20) {
+                         MLclust.file="MLclust.data", ss.clust.file="ss_clusters.data", 
+                         clust.pairs.file='clust_partners.txt', wc.cells.file="wc_cells_clusters.data",
+                         ref.aln.bam=NULL, ss.bam.dir=NULL, ss.bam.suffix=NULL,
+                         store.chrom.flag=TRUE, numCPU=20) {
   
   #=========================#
   ### Create directiories ###
@@ -50,10 +53,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   }
 
   #Directory to store processed/clustered data
-  Clusters.store <- file.path(outputfolder.destination, 'Clusters')
-  if (!file.exists(Clusters.store)) {
-    dir.create(Clusters.store)
-  }
+#  Clusters.store <- file.path(outputfolder.destination, 'Clusters')
+#  if (!file.exists(Clusters.store)) {
+#    dir.create(Clusters.store)
+#  }
   
   #Directory to store plots
   plots.store <- file.path(outputfolder.destination, 'Plots')
@@ -73,20 +76,13 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   destination2 <- file.path(rawdata.store, "read_counts.RData")
   destination3 <- file.path(rawdata.store, "read_selected_counts.RData")
   
-  if (file.exists(destination1)) {
-    alignments <- get(load(destination1))
-  }
-  
-  if (file.exists(destination2)) {
-    counts.l.all <- get(load(destination2))
-  }
-  
+  print('getting read counts')
   if (file.exists(destination3)) {
     counts.l <- get(load(destination3))
   } else  {
     if (input_type=="bam"){
       # counting w/c in bam files
-      bam.files <- list.files(path=inputfolder, pattern='.mdup.bam$', full.names=TRUE)
+      bam.files <- input.alignment.files
       if (!is.null(cellNum)) {
         bam.files <- bam.files[1:cellNum]
       }
@@ -146,6 +142,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   
   #subsetting single cell libraries
   if (!is.null(cellNum)) {
+    print("subsetting the cells")
     if (exists("counts.l.all")) {
       counts.l.all <- counts.l.all[1:cellNum]
     }
@@ -158,8 +155,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
     }
   }
   
+  chrom.flag=NULL
   if (!is.null(ref.aln.bam)){
     # getting chrom/flag information for long reads/unitigs
+    print("getting ground true chrom/flag")
     destination <- file.path(outputfolder.destination, 'chrom_flags.data')
     
     if (file.exists(destination)) {
@@ -173,12 +172,12 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   }
   
   #Load Hard clustering results if they were already created
-  destination <- file.path(Clusters.store, hardclust.file)
+  print("getting hard clusters")
+  destination <- hardclust.file
   if (file.exists(destination)) {
     message("Loading Hard clustering results")
     cat('destination =', destination)
     hard.clust <- get(load(destination))
-    
   } else {
     message("Hard clustering results not available!!!")
     message("Running Hard clustering")
@@ -217,7 +216,6 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       hard.clust <- addChromFlag(clust.obj=hard.clust, chrom.flag=chrom.flag, clust.type = 'hard')
     }
     
-    destination <- file.path(Clusters.store, hardclust.file)
     save(file = destination, hard.clust)
     
   }
@@ -231,10 +229,10 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
   clust.pairs <- findClusterPartners_simple(hard.clust$theta.param, clust.to.chrom)
   
   if(!HC.only) {
-    destination <- file.path(Clusters.store, softclust.file)
+    destination <- softclust.file
     if (file.exists(destination)) {
       message("Loading Soft clustering results")
-      cat('destination =', destination)
+      cat('destination =', destination, '\n')
       soft.clust <- get(load(destination))
     } else {
       #Initialize theta parameter
@@ -243,6 +241,9 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       pi.param <- hard.clust$pi.param
       
       if (input_type=="bam"){
+        if (!exists("counts.l.all") & file.exists(destination2)) {
+          counts.l.all <- get(load(destination2))
+        }
         read.names <- rownames(counts.l.all[[1]])
         counts.l.all <- lapply(counts.l.all, as.data.frame)
         soft.clust <- SaaRclust(counts.l=counts.l.all, outputfolder=outputfolder.destination, 
@@ -277,8 +278,7 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
         soft.clust <- addChromFlag(clust.obj=soft.clust, chrom.flag=chrom.flag, clust.type = 'soft')
       }
       
-      destination <- file.path(Clusters.store, softclust.file)
-      dt.destination <- file.path(Clusters.store, "MLclust.data")
+      dt.destination <- MLclust.file
       save(file = destination, soft.clust)
       orig.colnames <- colnames(soft.clust$ML.clust)
       colnames(soft.clust$ML.clust)[1] <- paste0('#', colnames(soft.clust$ML.clust)[1])
@@ -286,38 +286,43 @@ runSaaRclust <- function(inputfolder=NULL, outputfolder="SaaRclust_results", inp
       colnames(soft.clust$ML.clust) <- orig.colnames
     }
     
-    destination <- file.path(Clusters.store, 'clust_partners.txt')
+    destination <- clust.pairs.file
     if (!file.exists(destination)) {
       fwrite(clust.pairs, file=destination, quote = F, row.names = F)
     }
     
-    wc.cells.clusters <- get.wc.cells.clusters(soft.clust)
-    destination <- file.path(Clusters.store, 'wc_cells_clusters.data')
+    wc.cells.clusters <- get.wc.cells.clusters(soft.clust, clust.pairs)
+    destination <- wc.cells.file
     if (!file.exists(destination)) {
       fwrite(wc.cells.clusters, file=destination, quote = F, row.names = F)
     }
     
     if (!is.null(chrom.flag)) {
       # computing the accuracy of ML clustering resulting from EM soft clustering algorithm
-      clust.to.chrom <- numFoundClusters(soft.clust$ML.clust, chrom.flag)
-      destination <- file.path(Clusters.store, 'clust_to_chrom.data')
+      ML.clust <- soft.clust$ML.clust[, .(rname=rname, clust=first_clust)]
+      clust.to.chrom <- numFoundClusters(ML.clust, chrom.flag)
+      destination <- file.path(outputfolder.destination, 'Clusters', 'clust_to_chrom.data')
       fwrite(clust.to.chrom, file=destination, quote = F, row.names = F)
     }
     
     # clustering ss reads
-    destination <- file.path(Clusters.store, ss.clust.file)
+    destination <- ss.clust.file
     if (file.exists(destination)) {
       message("Loading SS clustering results")
       cat('destination =', destination)
       ss.clust <- fread(destination)
     } else {
-      ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs)
+      if (!exists("alignments") & file.exists(destination1)) {
+        alignments <- get(load(destination1))
+      }
+      ss.clust <- cluster.ss.reads(alignments, soft.clust$ML.clust, clust.pairs, ss.bam.dir, ss.bam.suffix)
       orig.colnames <- colnames(ss.clust)
       colnames(ss.clust)[1] <- paste0('#', colnames(ss.clust)[1])
       ss.clust.sp <- split(ss.clust, by="chrom_clust")
       fwrite(ss.clust, file=destination, sep='\t', quote = F, row.names = F)
+      dir.name <- dirname(ss.clust.file)
       lapply(names(ss.clust.sp), function(clust) fwrite(ss.clust.sp[[clust]], 
-                                                        file=paste0(Clusters.store,"/ss_clusters_",clust,".data"),
+                                                        file=paste0(dir.name,"/ss_clusters_",clust,".data"),
                                                         sep='\t', quote = F, row.names = F)) %>% invisible()
     }
     
