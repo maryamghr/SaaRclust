@@ -64,7 +64,7 @@ rule index_merged_phased_vcf:
 	shell: "(time tabix {input}) > {log} 2>&1"
 
 #####################################################
-######### haplotagging overlap bubbles ########
+######### haplotagging overlap graph unitigs ########
 #####################################################
 
 rule bwa_index_ref:
@@ -266,7 +266,7 @@ rule evaluate_phasing:
 	input:
 #		ccs_bam=expand(long_reads+"/split/{{sample}}_{clust}.haplotagged.bam", clust=chromosome_clusters),
 #		ccs_phase=...
-		bam=expand("../../{{sample}}/hifiasm/ref_aln/split/asm.r_utg.haplotagged_{clust}.bam", clust=chromosome_clusters),
+		bam="../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam",
 		phase=expand("../../{{sample}}/phased_unitigs/{clust}_phased_unitigs.data", clust=chromosome_clusters),
 	output: "../../{sample}/hifiasm/evaluation/unitigs_phase_eval.data",
 #		ccs="../../{sample}/hifiasm/evaluation/ccs_phase_eval.data",

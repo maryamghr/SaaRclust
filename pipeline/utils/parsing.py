@@ -391,6 +391,9 @@ def get_long_reads_from_bam(long_reads_haplotagged_bam_files):
 	start_time = time.time()
 	print('getting long reads from', long_reads_haplotagged_bam_files)
 
+	if type(long_reads_haplotagged_bam_files)!=list:
+		long_reads_haplotagged_bam_files = list(long_reads_haplotagged_bam_files)
+
 	long_reads = {}
 
 	for alignmentfile in long_reads_haplotagged_bam_files:

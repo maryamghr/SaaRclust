@@ -25,6 +25,7 @@ inputfolder <- dirname(snakemake@input[["bam"]][1])
 outputfolder <- dirname(dirname(snakemake@output[["hard_clust"]]))
 input_type <- snakemake@params[["input_type"]]
 input.alignment.files <- snakemake@input[["bam"]]
+ref.aln.bam <- snakemake@input[["unitigs_bam"]]
 num.clusters <- as.numeric(snakemake@params[["num_clusters"]])
 EM.iter <- as.numeric(snakemake@params[["EMiter"]])
 numAlignments <- as.numeric(snakemake@params[["num_alignments"]])
@@ -41,4 +42,4 @@ clust <- runSaaRclust(inputfolder=inputfolder, outputfolder=outputfolder,
                       numAlignments=numAlignments, hardclust.file=hardclust.file, 
                       softclust.file=softclust.file, MLclust.file=MLclust.file, 
                       ss.clust.file=ss.clust.file, clust.pairs.file=clust.pairs.file, 
-                      wc.cells.file=wc.cells.file, numCPU=20)
+                      wc.cells.file=wc.cells.file, ref.aln.bam=ref.aln.bam, numCPU=numCPU)

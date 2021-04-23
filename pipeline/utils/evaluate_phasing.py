@@ -3,6 +3,7 @@ from bubble_long_read_alignment import *
 from parsing import *
 from evaluate_haploclust import *
 from argparse import ArgumentParser
+import pdb
 
 parser = ArgumentParser(description=__doc__)
 #parser.add_argument("-b", help="The type of the sequence is bubble")
@@ -20,6 +21,5 @@ args = parser.parse_args()
 
 long_reads = get_long_reads_from_bam(args.haplotagged_bam_files)
 add_long_reads_pred_haplotype(args.phase_files, long_reads)
+pdb.set_trace()
 evaluate_long_read_clustering(long_reads, args.output_file)
-	
-

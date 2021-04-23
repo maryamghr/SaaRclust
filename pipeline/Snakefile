@@ -33,7 +33,8 @@ wildcard_constraints:
 
 rule all:
 	input:
-		expand("../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa", sample=sample, clust=chromosomes, haplo=haplotypes),
+		#expand("../../{sample}/split_raw_long_reads/hifiasm_{clust}_{haplo}/asm.p_ctg.gfa", sample=sample, clust=chromosomes, haplo=haplotypes),
+		expand("../../{sample}/SaaRclust/Clusters/hard_clusters.RData", sample=sample)
 
 ###############################################################################
 ##############		merging read pairs with PEAR		###############
@@ -49,11 +50,10 @@ rule pear_merge_mates:
 		SSfastqDir+"/{sample}/merged/{lib}.discarded.fastq",
 		SSfastqDir+"/{sample}/merged/{lib}.unassembled.forward.fastq",
 		SSfastqDir+"/{sample}/merged/{lib}.unassembled.reverse.fastq"
-        
+
 	log: "log/pear_merge_mates_{lib}.log"
         
 	shell: "(time pear -f {input.fq1} -r {input.fq2} -t 101 -o {SSfastqDir}/{wildcards.sample}/merged/{wildcards.lib}) > {log} 2>&1"
-	
 
 rule concat_assembled_with_first_pair_of_unassembled:
 	input:
@@ -80,8 +80,7 @@ rule hifiasm:
 		(time {hifiasm} -o $DIR/asm -t {threads} {input} &&
 		time grep S {output.gfa} | awk '{{print \">\"$2\"\\n\"$3}}' > {output.fa}) > {log} 2<&1
 		'''
-    
-    
+
 ########################################################################################################################
 ###################################  aligning ss reads to hifiasm unitigs ##############################################
 ########################################################################################################################
@@ -128,7 +127,7 @@ rule bwa_index:
 		'''
 		(time samtools index {input}) > {log} 2>&1
 		'''
-		
+
 #rule minimap2_align_SS_to_PB:
 #	input:
 #		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
@@ -143,10 +142,14 @@ rule bwa_index:
 ###################################  SaaRclust ##############################################
 ########################################################################################################################
 
+
+############################# rule unitigs alignemnt to ref is missing (see Snakefile_eval)...
+
 rule SaaRclust:
 	input:
 		bam=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam", lib=libs),
 		bai=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam.bai", lib=libs),
+		unitigs_bam="../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam",
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
 	output:
 		hard_clust="../../{sample}/SaaRclust/Clusters/hard_clusters.RData",
@@ -161,7 +164,7 @@ rule SaaRclust:
 		num_clusters=numClustersHard,
 		num_alignments=numAlignments,
 		EMiter=EMiter,
-	threads: 32
+	threads: 46
 	log: "log/SaaRclust_{sample}_initial_clusters.log"
 	script: "utils/SaaRclust.snakemake.R"
 
@@ -189,7 +192,6 @@ rule split_ss_reads:
 	output:expand(SSfastqDir+"/{{sample}}/split/all_libs_{clust}.fasta", clust=chromosomes)
 	log: "log/split_ss_reads_{sample}.log"
 	shell: "(time python3 {whatshap_split} {input.fasta} {input.clust} --split-by-cluster) > {log} 2>&1"
-
 
 rule split_hifiasm_graph:
 	input:
@@ -328,7 +330,6 @@ rule get_long_read_names_by_haplo:
 		(time awk '$1=="A" {{print $5"\tH1"}}' {input.gfa_h1} > {output} &&
 			  awk '$1=="A" {{print $5"\tH2"}}' {input.gfa_h2} >> {output}) > {log} 2>&1
 		'''
-
 
 rule haplosplit_long_reads_fastq:
 	input:

@@ -30,6 +30,7 @@ chr.name <- paste0("chr", snakemake@wildcards[["clust"]])
 
 ################################
 ##### R Consule:
+#setwd("/home/maryam/research/haploclust/haploclust/pipeline/")
 #chr.name <- "chr22"
 #ss.clust <- fread('../../HG00733/SaaRclust/Clusters/ss_clusters_22.data', col.names=c("SSname_lib", "SSclust", "SSchrom.clust"))
 #ss.phase <- fread("../../HG00733/phased_strand_states/haplo_strand_states_22.data", col.names=c("SSlib", "SSclust", "SShaplo"))
@@ -38,7 +39,7 @@ chr.name <- paste0("chr", snakemake@wildcards[["clust"]])
 #unitigs.phase <- fread("../../HG00733/phased_unitigs/22_phased_unitigs.data")
 #unitigs.bam <- scanBam(BamFile("../../HG00733/hifiasm/ref_aln/split/asm.r_utg.haplotagged_22.bam"), param=ScanBamParam(what=c("rname", "qname"), tag="HP", flag=scanBamFlag(isSupplementaryAlignment=FALSE)))
 #ccs.bam <- scanBam(BamFile('../../ccs_reads/split/HG00733_22.haplotagged.bam'), param=ScanBamParam(what=c("rname", "qname"), tag="HP", flag=scanBamFlag(isSupplementaryAlignment=FALSE)))
-#hifiasm.gfa <- fread('../../HG00733/hifiasm/split/asm.r_utg_22.gfa', fill=T)
+#shifiasm.gfa <- fread('../../HG00733/hifiasm/split/asm.r_utg_22.gfa', fill=T)
 ################################
 
 print('input files are loaded.')
