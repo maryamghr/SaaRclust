@@ -1,4 +1,5 @@
 library(data.table)
+library(dplyr)
 library(seqinr)
 library(Rsamtools)
 library(ggplot2)
@@ -54,10 +55,13 @@ compare.haplotypes[num.haplo.match<num.haplo.mismatch & unitig_gr_haplo=='H1', u
 compare.haplotypes[num.haplo.match<num.haplo.mismatch & unitig_gr_haplo=='H2', unitig_gr_haplo:='1']
 compare.haplotypes[unitig_gr_haplo %in% c('1','2'), unitig_gr_haplo:=paste0('H', unitig_gr_haplo)]
 
-compare.haplotypes[, prediction_status:='']
+compare.haplotypes[, prediction_status:='homozygous']
 compare.haplotypes[ref_name!=chrom_clust, prediction_status:='false chrom cluster']
 compare.haplotypes[ref_name==chrom_clust & unitig_gr_haplo!=haplotype, prediction_status:='false haplo cluster']
+compare.haplotypes[ref_name==chrom_clust & is.na(unitig_gr_haplo) & !is.na(haplotype), prediction_status:='false haplo cluster']
 compare.haplotypes[ref_name==chrom_clust & unitig_gr_haplo==haplotype, prediction_status:='true chrom/haplo cluster']
+compare.haplotypes[ref_name==chrom_clust & !is.na(unitig_gr_haplo) & is.na(haplotype), prediction_status:='not clustered by haploclust']
+# the label is empty string iff the bot predicted and gr haplo are NA
 
 accuracy <- compare.haplotypes[!is.na(unitig_gr_haplo), .(ref_name, same.haplo, diff.haplo, num.haplo.match, num.haplo.mismatch)]
 accuracy[,`:=`(true_prediction=max(num.haplo.match,num.haplo.mismatch), false_prediction=min(num.haplo.match,num.haplo.mismatch)), by=ref_name]
@@ -70,5 +74,30 @@ message('whole-genome haplotype clustering accuracy = ', true.total/(true.total+
 
 # plotting barplot prediction type per chromosome
 # counting prediction status by chromosome
-counts <- compare.haplotypes %>% group_by(ref_name) %>% count(prediction_status) %>% mutate(percent=percent(n/sum(n)))
-ggplot(counts, aes(x=ref_name, y=percent, fill=prediction_status))+geom_bar(stat='identity', width = 0.75)
+prediction.labels <- c('homozygous','false chrom cluster','false haplo cluster','not clustered by haploclust', 'true chrom/haplo cluster')
+prediction.colors <- c('homozygous'='white', 'false chrom cluster'='red', 'false haplo cluster'='yellow', 'not clustered by haploclust'='gray', 'true chrom/haplo cluster'='blue')
+
+counts <- compare.haplotypes %>% group_by(ref_name) %>% count(prediction_status) %>% mutate(percent=n/sum(n))
+counts <- as.data.table(counts)
+ord.chr <- factor(counts[, ref_name], levels=valid.chroms)
+ord.pred.status <- factor(counts[, prediction_status], levels=prediction.labels)
+ggplot(counts, aes(x=ord.chr, y=percent, fill=ord.pred.status))+
+  geom_bar(stat='identity', width = 0.75, color='black')+scale_y_continuous(labels=scales::percent)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))+
+  xlab('chromosome')+ylab('relative frequencies')+ylim(0,1)+
+  scale_fill_manual('prediction status', values=prediction.colors)
+
+# pie chart
+total.counts <- counts[, .(percent=sum(percent)), by=prediction_status]
+total.counts[, percent:=percent/sum(percent)]
+
+# Compute the position of labels
+total.counts <- total.counts %>%
+  arrange(desc(prediction_status)) %>%
+  mutate(ypos = cumsum(percent)- 0.5*percent )
+#pi.chart <- 
+ggplot(total.counts, aes(x='', y=percent, fill=prediction_status))+
+  geom_bar(stat='identity', width = 1, color='black')+scale_y_continuous(labels=scales::percent)+coord_polar("y", start=0)+
+  scale_fill_manual('prediction status', values=prediction.colors)+
+  geom_text(aes(y = ypos, label = percent(percent)), color = "black", size=3)+
+  theme_void()
