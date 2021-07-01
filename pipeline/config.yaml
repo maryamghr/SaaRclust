@@ -1,28 +1,29 @@
 ### Note: SS read names should not have "_" character
 
 sample: HG00733
-Nchunks: 100
 
-# whatshap
-whatshap_split : ../../tools/whatshap-fork/whatshap/cli/split.py
+# tools
+#whatshap_split : ../../tools/whatshap-fork/whatshap/cli/split.py
+whatshap_split : utils/split.py
+hifiasm: ../../tools/hifiasm/hifiasm
+BubbleGun: ~/.local/bin/BubbleGun
 
 # long reads
 long_reads_dir: ../../ccs_reads
-min_pb_len: 5000
-
-reference: ../../reference/hg38.fa
-
-phased_vcf_dir: ../../trio-based-phasing/
-vcf_prefix: PR05
-
-# SS bams and phased vcf files
-SS_bam_dir: ../../ss_bams
-
-bubble_info: "TRUE"
-evaluation: "TRUE"
 
 # directory including all Strand-seq fastq files
 SS_fastq_dir: ../../ss_fastq
+
+#reference: ../../reference/hg38.fa
+
+#phased_vcf_dir: ../../trio-based-phasing/
+#vcf_prefix: PR05
+
+# SS bams and phased vcf files
+#SS_bam_dir: ../../ss_bams
+
+bubble_info: "TRUE"
+evaluation: "FALSE"
 
 # saarclust parameters
 testNumClustersHard: [50,60,80,90,100,200]
@@ -40,5 +41,3 @@ numAlignments: 30000 #150000
 
 num_chromosomes: 23
 
-hifiasm: ../../tools/hifiasm/hifiasm
-BubbleGun: ~/.local/bin/BubbleGun

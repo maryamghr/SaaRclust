@@ -42,4 +42,4 @@ clust <- runSaaRclust(inputfolder=inputfolder, outputfolder=outputfolder,
                       numAlignments=numAlignments, hardclust.file=hardclust.file, 
                       softclust.file=softclust.file, MLclust.file=MLclust.file, 
                       ss.clust.file=ss.clust.file, clust.pairs.file=clust.pairs.file, 
-                      wc.cells.file=wc.cells.file, ref.aln.bam=ref.aln.bam, numCPU=numCPU)
+                      wc.cells.file=wc.cells.file, numCPU=numCPU)

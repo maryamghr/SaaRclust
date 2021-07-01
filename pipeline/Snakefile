@@ -126,17 +126,7 @@ rule bwa_index:
 	shell:
 		'''
 		(time samtools index {input}) > {log} 2>&1
-		'''
-
-#rule minimap2_align_SS_to_PB:
-#	input:
-#		unitigs="../../{sample}/hifiasm/asm.r_utg.fa",
-#		ss_reads=SSfastqDir+"/{sample}/merged/{lib}.combined.fasta"
-#	output: "../../{sample}/minimap2_ss_unitigs/{lib}.paf.gz"
-#	threads: 2
-#	log: "log/minimap2_align_chunks_{sample}_{lib}.log"
-#	shell: "(time minimap2 -sr -t{threads} {input.unitigs} {input.ss_reads} | gzip -c > {output}) > {log} 2>&1"
-	
+		'''	
 
 ########################################################################################################################
 ###################################  SaaRclust ##############################################
@@ -149,7 +139,7 @@ rule SaaRclust:
 	input:
 		bam=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam", lib=libs),
 		bai=expand("../../{{sample}}/bwa_ss_unitigs/{lib}.mdup.bam.bai", lib=libs),
-		unitigs_bam="../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam",
+	#	unitigs_bam="../../{sample}/hifiasm/ref_aln/asm.r_utg.haplotagged.bam",
 		saarclust="utils/R-packages/SaaRclust/R/SaaRclust"
 	output:
 		hard_clust="../../{sample}/SaaRclust/Clusters/hard_clusters.RData",
