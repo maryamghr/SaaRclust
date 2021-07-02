@@ -5,7 +5,7 @@ sample = config["sample"]
 SSfastqDir = config["SS_fastq_dir"]
 whatshap_split = config["whatshap_split"]
 BubbleGun = config["BubbleGun"]
-hifiasm = config["hifiasm"]
+#hifiasm = config["hifiasm"]
 long_reads = config["long_reads_dir"]
 
 numClustersHard = config["numClustersHard"]
@@ -77,7 +77,7 @@ rule hifiasm:
 	shell:
 		'''
 		DIR=$(dirname {output.gfa}) &&
-		(time {hifiasm} -o $DIR/asm -t {threads} {input} &&
+		(time hifiasm -o $DIR/asm -t {threads} {input} &&
 		time grep S {output.gfa} | awk '{{print \">\"$2\"\\n\"$3}}' > {output.fa}) > {log} 2<&1
 		'''
 

@@ -5,7 +5,7 @@ sample: HG00733
 # tools
 #whatshap_split : ../../tools/whatshap-fork/whatshap/cli/split.py
 whatshap_split : utils/split.py
-hifiasm: ../../tools/hifiasm/hifiasm
+#hifiasm: ../../tools/hifiasm/hifiasm
 BubbleGun: ~/.local/bin/BubbleGun
 
 # long reads
