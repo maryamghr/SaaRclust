@@ -1,30 +1,35 @@
-<img src="https://github.com/daewoooo/SaaRclust/raw/master/saarclust_logo.png" />
-=========================================================================
+# Haploclust
+Snakemake pipeline for overlap graph-based haplotype phasing using Strand-seq and CCS reads.
 
-# SaaRclust
-R Package to cluster long sequencing reads into chromosomes to facilitate de novo genome assembly.
+Collaborators: Maryam Ghareghani, David Porubsky, and Tobias Marschall. 
 
-Collaborators: David Porubsky, Maryam Ghareghani and Tobias Marschall
+## Setup
 
-## Installation
+1. **Setup**
 
-### Development version from Github
-To install the development version from Github, follow the steps given below. The installation has only been tested on Ubuntu so far, if you need to install on Windows or Mac additional steps might be necessary (e.g. installation of Rtools from https://cran.r-project.org/bin/windows/Rtools/)
+	Clone the git repositoty and checkout to the develpment branch.
+	```
+	git clone https://github.com/maryamghr/haploclust
+	git checkout development
+	```
 
-1. Install a recent version of R (>=3.3.0) from https://www.r-project.org/
-2. Optional: For ease of use, install Rstudio from https://www.rstudio.com/
-3. Open R and install all dependencies. Please ensure that you have writing permissions to install packages. Execute the following lines one by one:
+	Then install BubbleGun from `https://github.com/fawaz-dabbaghieh/bubble_gun`.
 
-   	install.packages("devtools")
-	source("http://bioconductor.org/biocLite.R")
-	library(devtools)
-	install_github("daewoooo/SaaRclust")
-	Or alternatively if the above line doesn't work:
-	install_git("git://github.com/daewoooo/SaaRclust.git", branch = "master")
+2. **Add your single-cell Strand-seq data**
 
-### Report Errors
-If you encounter errors of any kind, please report an [issue here](https://github.com/daewoooo/SaaRclust/issues/new).
+	Create a subdirectory named `ss_fastq/{sample_name}/`. Your Strand-seq FASTQ files of this sample go into this folder. The file names should be `{lib_name}_1.fastq.gz` and `{lib_name}_2.fastq.gz` for the first and second mates of reads per Strand-seq library.
+
+
+3. **Add your CCS reads**
+
+	Create a folder named `ccs_reads` containing CCS reads with the name `{sample_name}.fastq.gz`.
+
+4. **Adapt the config file**
+
+5. Create and activate conda environment from 'haploclust.yml' file.
+
+6. Run snakemake.
 
 ### NOTE
 
-The SaaRclust package is currently under development and contains unpublished work. Any usage for publishing is strictly prohibited without permission.
+The Haploclust package is currently under development and contains unpublished work. Any usage for publishing is strictly prohibited without permission.
