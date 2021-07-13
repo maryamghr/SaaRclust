@@ -25,7 +25,6 @@ inputfolder <- dirname(snakemake@input[["bam"]][1])
 outputfolder <- dirname(dirname(snakemake@output[["hard_clust"]]))
 input_type <- snakemake@params[["input_type"]]
 input.alignment.files <- snakemake@input[["bam"]]
-ref.aln.bam <- snakemake@input[["unitigs_bam"]]
 num.clusters <- as.numeric(snakemake@params[["num_clusters"]])
 EM.iter <- as.numeric(snakemake@params[["EMiter"]])
 numAlignments <- as.numeric(snakemake@params[["num_alignments"]])
