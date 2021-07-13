@@ -36,9 +36,10 @@ clust.pairs.file <- snakemake@output[["clust_pairs"]]
 wc.cells.file <- snakemake@output[["wc_cells_clusters"]]
 numCPU <- snakemake@threads[[1]]
 
-clust <- runSaaRclust(inputfolder=inputfolder, outputfolder=outputfolder, 
-                      num.clusters=num.clusters, EM.iter=EM.iter, 
-                      numAlignments=numAlignments, hardclust.file=hardclust.file, 
-                      softclust.file=softclust.file, MLclust.file=MLclust.file, 
-                      ss.clust.file=ss.clust.file, clust.pairs.file=clust.pairs.file, 
+clust <- runSaaRclust(inputfolder=inputfolder, outputfolder=outputfolder,
+                      input_type=input_type, input.alignment.files=input.alignment.files,
+                      num.clusters=num.clusters, EM.iter=EM.iter,
+                      numAlignments=numAlignments, hardclust.file=hardclust.file,
+                      softclust.file=softclust.file, MLclust.file=MLclust.file,
+                      ss.clust.file=ss.clust.file, clust.pairs.file=clust.pairs.file,
                       wc.cells.file=wc.cells.file, numCPU=numCPU)
